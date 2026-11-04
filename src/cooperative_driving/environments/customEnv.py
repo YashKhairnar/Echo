@@ -12,30 +12,26 @@ class CustomHighwayEnv(HighwayEnv):
     def default_config(cls):
         config = super().default_config()
         config.update({
-            "observation": {
-                "type": "TupleObservation",
-                "observation_configs": [
-                    {
-                        "type": "Kinematics",
-                        "vehicles_count": 10,
-                        "features": [
-                            "presence", "x", "y", "vx", "vy",
-                            # Neighbor action intent: acceleration, steering, lane change.
-                            "intent_acceleration", "intent_steering",
-                            "intent_lane_change",
-                        ],
-                        "see_behind": True,
-                    },
-                    {
-                        "type": "LidarObservation",
-                        "cells": 128,
-                    },
-                ],
-            }
-        })
+            "vehicles_count":10,
+            "controlled_vehicles":1,
+                "observation": {
+                    "type": "Kinematics",
+                    "vehicles_count": 10,
+                    "features": [
+                        "presence", "x", "y", "vx", "vy",
+                        "intent_acceleration",
+                        "intent_steering",
+                        "intent_lane_change",
+                        "vehicle_id",
+                    ],
+                    "see_behind": True,
+                }
+            })
         return config
 
     def _create_vehicles(self):
+        self.next_vehicle_id = 0
+
         """Create vehicles that broadcast their current low-level intent."""
         other_per_controlled = near_split(
             self.config["vehicles_count"],
@@ -53,6 +49,8 @@ class CustomHighwayEnv(HighwayEnv):
             vehicle = IntentControlledVehicle(
                 self.road, vehicle.position, vehicle.heading, vehicle.speed
             )
+            vehicle.vehicle_id = self.next_vehicle_id
+            self.next_vehicle_id += 1
             self.controlled_vehicles.append(vehicle)
             self.road.vehicles.append(vehicle)
 
@@ -62,5 +60,10 @@ class CustomHighwayEnv(HighwayEnv):
                     spacing=1 / self.config["vehicles_density"],
                 )
                 vehicle.randomize_behavior()
+                vehicle.vehicle_id = self.next_vehicle_id
+                self.next_vehicle_id += 1
                 self.road.vehicles.append(vehicle)
+        
+
+    
 

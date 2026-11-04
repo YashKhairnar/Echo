@@ -35,6 +35,7 @@ class IntentMixin:
     def to_dict(self, origin_vehicle=None, observe_intentions=True):
         data = super().to_dict(origin_vehicle, observe_intentions)
         data.update(self.intent)
+        data["vehicle_id"] = self.vehicle_id
         return data
 
 

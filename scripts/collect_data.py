@@ -29,19 +29,39 @@ def choose_message_vehicle(env):
     return random.choice(cars) if cars else None
 
 
+def next_episode_id(filepath):
+    """Continue episode numbering when appending to an existing dataset."""
+    if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
+        return 0
+
+    episode_ids = []
+    with open(filepath, newline="") as file:
+        for row in csv.DictReader(file):
+            try:
+                episode_ids.append(int(row["episode_id"]))
+            except (KeyError, TypeError, ValueError):
+                continue
+
+    return max(episode_ids, default=-1) + 1
+
+
 def main():
     filepath = "data/randomPolicyData.csv"
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
     env = CustomHighwayEnv(render_mode="rgb_array")
-    num_episodes = 10
+    num_episodes = 1000
+    first_episode_id = next_episode_id(filepath)
+    file_has_data = os.path.exists(filepath) and os.path.getsize(filepath) > 0
 
-    with open(filepath, "w", newline="") as file:
+    with open(filepath, "a", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=HEADERS)
-        writer.writeheader()
+        if not file_has_data:
+            writer.writeheader()
 
         for episode in range(num_episodes):
-            observation_t, info = env.reset(seed=episode)
+            episode_id = first_episode_id + episode
+            observation_t, info = env.reset(seed=episode_id)
 
             for timestep in range(env.config["duration"]):
                 action_t = env.action_space.sample()
@@ -58,7 +78,7 @@ def main():
                 )
 
                 writer.writerow({
-                    "episode_id": episode,
+                    "episode_id": episode_id,
                     "timestep": timestep,
                     "observation_t": to_json(observation_t),
                     "action_t": to_json(action_t),
@@ -71,6 +91,8 @@ def main():
 
                 if terminated or truncated:
                     break
+
+            file.flush()
 
     env.close()
     print(f"Saved data to {filepath}")

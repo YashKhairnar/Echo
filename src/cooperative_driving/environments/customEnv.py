@@ -25,6 +25,7 @@ class CustomHighwayEnv(HighwayEnv):
                         "vehicle_id",
                     ],
                     "see_behind": True,
+                    "normalize": True
                 }
             })
         return config

@@ -30,10 +30,9 @@ The current DQN request-policy experiment uses:
 
 The DQN learns to request information from visible neighboring vehicles or choose no request. Training results are stored under `results/dqn/`.
 
-<video controls width="800">
-  <source src="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_1000_policy.mp4" type="video/mp4">
-  Your browser does not support embedded videos. [View the video directly](https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_1000_policy.mp4).
-</video>
+<a href="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_1000_policy.mp4">
+  <img src="docs/images/dqn_1000_policy.gif" width="800" alt="DQN policy video preview">
+</a>
 
 [Open the DQN policy video directly](https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_1000_policy.mp4)
 
@@ -65,10 +64,9 @@ The reward improved, but the DQN loss remained unstable, so the policy should be
 
 [Read the resumed-experiment notes](docs/dqn_resume_1000_2000.md)
 
-<video controls width="800">
-  <source src="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_resume_1000_2000_policy.mp4" type="video/mp4">
-  Your browser does not support embedded videos. [View the video directly](https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_resume_1000_2000_policy.mp4).
-</video>
+<a href="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_resume_1000_2000_policy.mp4">
+  <img src="docs/images/dqn_resume_1000_2000_policy.gif" width="800" alt="Resumed DQN policy video preview">
+</a>
 
 [Open the resumed-policy video directly](https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_resume_1000_2000_policy.mp4)
 

@@ -1,0 +1,13 @@
+{
+  "model": "DQN request policy",
+  "episodes": 2000,
+  "batch_size": 128,
+  "learning_rate": 1e-05,
+  "communication_cost": 0.3,
+  "discount_factor": 0.99,
+  "world_model_checkpoint": "checkpoints/mlp/best.pt",
+  "resume": "checkpoints/dqn/latest.pt",
+  "log_path": "results/dqn/experiments/dqn_resume_1000_2000/dqn_training.csv",
+  "created_at": "2026-11-12T00:37:51",
+  "git_commit": "fe9e5e1f376f35026f925816e0f1c78dc27239d2"
+}

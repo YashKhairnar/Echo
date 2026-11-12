@@ -1,0 +1,7 @@
+{
+  "model": "MLP world model",
+  "source_log": "results/MLP/mlp_training_1.csv",
+  "epochs": 50,
+  "status": "completed",
+  "checkpoint_note": "The current global MLP checkpoint was produced by a later training workflow and is not assigned retroactively."
+}

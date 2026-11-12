@@ -1,0 +1,7 @@
+{
+  "model": "MLP world model",
+  "source_log": "results/MLP/mlp_training.csv",
+  "epochs": 50,
+  "status": "completed",
+  "checkpoint_note": "The original checkpoint was not uniquely associated with this legacy run."
+}

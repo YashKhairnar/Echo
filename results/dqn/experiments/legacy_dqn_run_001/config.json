@@ -1,0 +1,7 @@
+{
+  "model": "DQN request policy",
+  "source_log": "results/dqn/dqn_training.csv",
+  "episodes": 1000,
+  "status": "completed",
+  "checkpoint_note": "The original checkpoint was not uniquely associated with this legacy run."
+}

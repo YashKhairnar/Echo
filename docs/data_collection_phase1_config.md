@@ -14,13 +14,13 @@ The project uses a custom `HighwayEnv` environment with:
 - A maximum episode duration of `40` seconds
 - `15` internal simulation updates per second
 
-The collector uses random actions for the ego vehicle:
+The collector uses random driving actions for the ego vehicle:
 
 ```python
 action = env.action_space.sample()
 ```
 
-The current collector runs for `10` episodes and uses:
+The current collector runs for `1000` episodes by default and uses:
 
 ```python
 CustomHighwayEnv(render_mode="rgb_array")
@@ -62,7 +62,14 @@ Coordinates and velocities are provided in the Kinematics observation format. In
 
 ## Communication messages
 
-At each timestep, the collector randomly selects one of the `10` neighboring vehicles and calls `getMessage()`.
+At each timestep, the collector randomly selects one visible neighboring-vehicle slot or selects the no-request action. The request actions are:
+
+```text
+0–9   visible neighboring-vehicle slots
+10    no request
+```
+
+The collector never requests a vehicle outside the current observation frame. It calls `getMessage()` only when a visible vehicle is selected.
 
 The message contains:
 
@@ -82,10 +89,20 @@ Each CSV row stores one transition:
 episode_id
 timestep
 observation_t
+request_action_t
 action_t
 message_t
 observation_t+1
 reward_t+1
+terminated
+truncated
+done
 ```
 
-The observations and messages are stored as JSON strings inside the CSV file so that their array and dictionary structures are preserved.
+The observations and messages are stored as JSON strings inside the CSV file so that their array and dictionary structures are preserved. The current dataset is:
+
+```text
+data/randomPolicyData_requestPolicy.csv
+```
+
+`request_action_t` describes the randomly selected request. The MLP currently uses the resulting message rather than the request action directly.

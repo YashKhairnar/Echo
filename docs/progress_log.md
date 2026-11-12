@@ -12,3 +12,17 @@
 - Started the MLP world model and training pipeline.
 - Added checkpoint saving, best/latest checkpoints, and resume support.
 - Updated data collection to append safely without duplicate headers or episode IDs.
+
+## 2026-11-12
+
+- Added the MLP world-model checkpoint and training-metric graphs under `results/MLP/`.
+- Added the five-step MCP planner for selecting driving actions from MLP predictions.
+- Changed the DQN into a request policy with visible-neighbor action masking.
+- Added a no-request action and communication cost to the DQN reward.
+- Updated data collection to store request actions, visibility-consistent messages, and episode-end flags.
+- Added DQN training logs and reward, loss, request, and communication-cost graphs under `results/dqn/`.
+- Added a renderer that displays the requested vehicle and its intent.
+- Added automatic experiment folders with configurations, notes, metrics, graphs, and checkpoint copies.
+- Added dynamic request masking so the DQN can request only visible neighboring vehicles.
+- Added resumable DQN training with replay-buffer restoration.
+- Added rendered policy video recording, a Play/Pause button, and a visual highlight for the requested vehicle.

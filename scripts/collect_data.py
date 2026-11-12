@@ -4,6 +4,10 @@ import os
 import random
 
 from src.cooperative_driving.communication.getMessage import getMessage
+from src.cooperative_driving.communication.request_utils import (
+    requested_vehicle,
+    valid_request_actions,
+)
 from src.cooperative_driving.environments.customEnv import CustomHighwayEnv
 
 
@@ -11,22 +15,25 @@ HEADERS = [
     "episode_id",
     "timestep",
     "observation_t",
+    "request_action_t",
     "action_t",
     "message_t",
     "observation_t+1",
     "reward_t+1",
+    "terminated",
+    "truncated",
+    "done",
 ]
-
 
 def to_json(value):
     """Convert NumPy arrays and vehicle data into CSV-safe JSON."""
     return json.dumps(value, default=lambda item: item.tolist())
 
 
-def choose_message_vehicle(env):
-    """Choose one neighboring vehicle to communicate with."""
-    cars = [car for car in env.road.vehicles if car is not env.vehicle]
-    return random.choice(cars) if cars else None
+def choose_request(env, observation):
+    """Choose a random visible-neighbor slot or no request."""
+    request_action = random.choice(valid_request_actions(observation))
+    return request_action, requested_vehicle(env, observation, request_action)
 
 
 def next_episode_id(filepath):
@@ -46,7 +53,7 @@ def next_episode_id(filepath):
 
 
 def main():
-    filepath = "data/randomPolicyData.csv"
+    filepath = "data/randomPolicyData_requestPolicy.csv"
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
     env = CustomHighwayEnv(render_mode="rgb_array")
@@ -64,14 +71,16 @@ def main():
             observation_t, info = env.reset(seed=episode_id)
 
             for timestep in range(env.config["duration"]):
-                action_t = env.action_space.sample()
-
-                message_vehicle = choose_message_vehicle(env)
+                request_action_t, message_vehicle = choose_request(
+                    env,
+                    observation_t,
+                )
                 message_t = (
                     getMessage(message_vehicle)
                     if message_vehicle is not None
                     else None
                 )
+                action_t = env.action_space.sample()
 
                 observation_t_1, reward_t_1, terminated, truncated, info = env.step(
                     action_t
@@ -80,11 +89,15 @@ def main():
                 writer.writerow({
                     "episode_id": episode_id,
                     "timestep": timestep,
+                    "request_action_t": request_action_t,
                     "observation_t": to_json(observation_t),
                     "action_t": to_json(action_t),
                     "message_t": to_json(message_t),
                     "observation_t+1": to_json(observation_t_1),
                     "reward_t+1": reward_t_1,
+                    "terminated": terminated,
+                    "truncated": truncated,
+                    "done": terminated or truncated,
                 })
 
                 observation_t = observation_t_1

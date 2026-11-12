@@ -68,7 +68,7 @@ class VideoRecorder:
 
 def load_world_model(path):
     world_model = MLP_worldModel()
-    checkpoint = torch.load(path, map_location="cpu")
+    checkpoint = torch.load(path, map_location="cpu", weights_only=False)
     state_dict = checkpoint.get("model_state_dict", checkpoint)
     world_model.load_state_dict(state_dict)
     world_model.eval()
@@ -77,7 +77,7 @@ def load_world_model(path):
 
 def load_request_policy(path, observation_size):
     policy = DQNPolicy(observation_size, REQUEST_ACTION_SIZE)
-    checkpoint = torch.load(path, map_location="cpu")
+    checkpoint = torch.load(path, map_location="cpu", weights_only=False)
     state_dict = checkpoint.get("online_network", checkpoint)
     policy.load_state_dict(state_dict)
     policy.eval()

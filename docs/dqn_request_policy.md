@@ -83,3 +83,22 @@ results/dqn/
 ```
 
 Logged metrics include reward, loss, exploration probability, episode length, request count, no-request count, and communication cost.
+
+## Latest training result
+
+The resumed `1000→2000` episode experiment achieved:
+
+```text
+Average reward:       8.67
+Previous run average: 6.42
+Average episode length: 10.73 steps
+```
+
+Communication decreased during the resumed run:
+
+```text
+Requests:       1.5 → 0.8 per episode
+Communication cost: 0.45 → 0.24 per episode
+```
+
+The reward improved overall, but the average DQN loss increased from approximately `1.76` to `7.63`. This indicates that Q-value learning is still unstable. The next evaluation should use `epsilon = 0` and compare the trained policy against a no-request baseline.

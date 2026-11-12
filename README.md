@@ -16,10 +16,10 @@ See the [project progress log](docs/progress_log.md).
 - [MCP planner and evaluation](docs/planning_and_evaluation.md)
 - [Experiment tracking](docs/experiment_tracking.md)
 
-## 1000-Episode DQN Experiment
+## DQN Experiments
 
 <details>
-<summary>Show experiment setup, video, and graphs</summary>
+<summary><strong>Experiment 1 — DQN request policy (1,000 episodes)</strong></summary>
 
 The current DQN request-policy experiment uses:
 
@@ -37,6 +37,8 @@ The DQN learns to request information from visible neighboring vehicles or choos
   Your browser does not support embedded videos. [View the video directly](docs/images/dqn_1000_policy.mp4).
 </video>
 
+[Open the DQN policy video directly](docs/images/dqn_1000_policy.mp4)
+
 ### Training graphs
 
 <table>
@@ -47,6 +49,41 @@ The DQN learns to request information from visible neighboring vehicles or choos
   <tr>
     <td><img src="docs/images/dqn_1000_requests.png" width="480" alt="DQN request actions"></td>
     <td><img src="docs/images/dqn_1000_communication_cost.png" width="480" alt="DQN communication cost"></td>
+  </tr>
+</table>
+
+</details>
+
+<details>
+<summary><strong>Experiment 2 — DQN resumed training (1,000 → 2,000 episodes)</strong></summary>
+
+The resumed run achieved an average reward of `8.67`, compared with `6.42` for the previous 1000-episode run. Communication cost decreased as the policy requested information less often. The run is stored under:
+
+```text
+results/dqn/experiments/dqn_resume_1000_2000/
+```
+
+The reward improved, but the DQN loss remained unstable, so the policy should be evaluated against a no-request baseline before drawing final conclusions.
+
+[Read the resumed-experiment notes](docs/dqn_resume_1000_2000.md)
+
+<video controls width="800">
+  <source src="docs/images/dqn_resume_1000_2000_policy.mp4" type="video/mp4">
+  Your browser does not support embedded videos. [View the video directly](docs/images/dqn_resume_1000_2000_policy.mp4).
+</video>
+
+[Open the resumed-policy video directly](docs/images/dqn_resume_1000_2000_policy.mp4)
+
+### Training graphs
+
+<table>
+  <tr>
+    <td><img src="docs/images/dqn_resume_1000_2000_rewards.png" width="480" alt="Resumed DQN reward"></td>
+    <td><img src="docs/images/dqn_resume_1000_2000_training.png" width="480" alt="Resumed DQN loss and exploration"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/dqn_resume_1000_2000_requests.png" width="480" alt="Resumed DQN request actions"></td>
+    <td><img src="docs/images/dqn_resume_1000_2000_communication_cost.png" width="480" alt="Resumed DQN communication cost"></td>
   </tr>
 </table>
 

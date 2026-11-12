@@ -26,3 +26,6 @@
 - Added dynamic request masking so the DQN can request only visible neighboring vehicles.
 - Added resumable DQN training with replay-buffer restoration.
 - Added rendered policy video recording, a Play/Pause button, and a visual highlight for the requested vehicle.
+- Resumed DQN training from 1000 to 2000 episodes.
+- Observed average reward improvement from `6.42` to `8.67` and reduced communication cost.
+- Recorded continued Q-loss instability and identified no-request baseline evaluation as the next step.

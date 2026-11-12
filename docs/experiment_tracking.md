@@ -42,6 +42,14 @@ PYTHONPATH=. .venv/bin/python -m scripts.train_mlp_wm \
 
 After each run, edit `notes.md` with what changed, what worked, and what should be improved.
 
+The latest resumed DQN experiment is stored at:
+
+```text
+results/dqn/experiments/dqn_resume_1000_2000/
+```
+
+Its results should be interpreted using both reward and communication cost. A higher reward with fewer requests is preferable, but increasing DQN loss should be investigated before treating the policy as fully converged.
+
 ## Resuming DQN training
 
 DQN checkpoints restore the networks, optimizer, exploration probability, episode number, and replay buffer. Resume using the same experiment directory and log:

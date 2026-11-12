@@ -2,8 +2,6 @@
 
 This project explores cooperative driving with HighwayEnv, where multiple vehicles interact on a highway. Vehicles share their kinematics, current actions, and driving intent. A trained MLP world model predicts future traffic states and rewards, an MCP planner selects driving actions, and a DQN learns when to request information from visible neighboring vehicles while accounting for communication cost.
 
-![World model planning diagram](docs/images/world-model-planning.png)
-
 ## Progress
 
 See the [project progress log](docs/progress_log.md).
@@ -33,11 +31,11 @@ The current DQN request-policy experiment uses:
 The DQN learns to request information from visible neighboring vehicles or choose no request. Training results are stored under `results/dqn/`.
 
 <video controls width="800">
-  <source src="docs/images/dqn_1000_policy.mp4" type="video/mp4">
-  Your browser does not support embedded videos. [View the video directly](docs/images/dqn_1000_policy.mp4).
+  <source src="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_1000_policy.mp4" type="video/mp4">
+  Your browser does not support embedded videos. [View the video directly](https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_1000_policy.mp4).
 </video>
 
-[Open the DQN policy video directly](docs/images/dqn_1000_policy.mp4)
+[Open the DQN policy video directly](https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_1000_policy.mp4)
 
 ### Training graphs
 
@@ -68,11 +66,11 @@ The reward improved, but the DQN loss remained unstable, so the policy should be
 [Read the resumed-experiment notes](docs/dqn_resume_1000_2000.md)
 
 <video controls width="800">
-  <source src="docs/images/dqn_resume_1000_2000_policy.mp4" type="video/mp4">
-  Your browser does not support embedded videos. [View the video directly](docs/images/dqn_resume_1000_2000_policy.mp4).
+  <source src="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_resume_1000_2000_policy.mp4" type="video/mp4">
+  Your browser does not support embedded videos. [View the video directly](https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_resume_1000_2000_policy.mp4).
 </video>
 
-[Open the resumed-policy video directly](docs/images/dqn_resume_1000_2000_policy.mp4)
+[Open the resumed-policy video directly](https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_resume_1000_2000_policy.mp4)
 
 ### Training graphs
 

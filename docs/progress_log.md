@@ -41,3 +41,17 @@
 - Documented that the current `0.1` cost per requested vehicle can encourage the learned policy to request nobody; evaluation should include a no-request baseline.
 - Separated public kinematics from private messages: observations now contain position/velocity fields and IDs, while messages contain intent, target lane, and capped time-to-collision.
 - Updated MLPx input size from `205` to `115` to match the new four-value message format.
+
+## 2026-11-13 — TTC MLPx/DQNx evaluation
+
+- Trained MLPx on the TTC dataset for 50 epochs; best test loss was `0.1693`
+  at epoch 23.
+- Trained DQNx for 1,000 episodes with communication cost `0.1`.
+- Reward improved during training, but the final policy requested no vehicles
+  in a ten-seed evaluation.
+- Compared no-request, all-visible-request, and trained-DQNx policies using
+  the same seeds. The no-request and trained-DQNx policies both achieved mean
+  total reward `5.54`; all-visible requests achieved `-0.53`.
+- The current experiment therefore reduces communication but does not yet show
+  a measurable communication benefit. The next candidate is a `0.05` cost
+  experiment with separate driving-reward logging.

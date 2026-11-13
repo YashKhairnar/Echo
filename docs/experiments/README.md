@@ -1,7 +1,7 @@
 # Completed Experiments
 
-This page indexes the experiments completed before the TTC-based message
-format. The TTC setup is a new experiment and is not included here yet.
+This page indexes the completed request-policy experiments, including the
+current TTC-based message setup.
 
 ## Experiment 1 — Original DQN request policy
 
@@ -14,6 +14,10 @@ format. The TTC setup is a new experiment and is not included here yet.
 ## Experiment 3 — MLPx and DQNx multi-request policy
 
 [Read the standalone experiment summary.](experiment_3_mlpx_dqnx.md)
+
+## Experiment 4 — TTC messages with MLPx and DQNx
+
+[Read the standalone experiment summary.](experiment_4_ttc_mlpx_dqnx.md)
 
 ## Experiment artifacts
 

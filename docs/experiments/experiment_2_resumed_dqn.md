@@ -35,3 +35,20 @@ at epoch `42`. Its final test loss was `0.4117`.
 Reward and communication efficiency improved, but increasing DQN loss showed
 that the request policy was not fully stable. Evaluation against a no-request
 baseline was identified as necessary.
+
+## Training graphs
+
+<table>
+  <tr>
+    <td><img src="../images/dqn_resume_1000_2000_rewards.png" width="480" alt="Experiment 2 DQN reward"></td>
+    <td><img src="../images/dqn_resume_1000_2000_training.png" width="480" alt="Experiment 2 DQN loss and exploration"></td>
+  </tr>
+  <tr>
+    <td><img src="../images/dqn_resume_1000_2000_requests.png" width="480" alt="Experiment 2 DQN requests"></td>
+    <td><img src="../images/dqn_resume_1000_2000_communication_cost.png" width="480" alt="Experiment 2 DQN communication cost"></td>
+  </tr>
+  <tr>
+    <td><img src="../images/mlp_exp2_losses.png" width="480" alt="Experiment 2 MLP losses"></td>
+    <td><img src="../images/mlp_exp2_loss_components.png" width="480" alt="Experiment 2 MLP loss components"></td>
+  </tr>
+</table>

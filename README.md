@@ -64,6 +64,15 @@ checkpoint used by the request-policy pipeline is
   </tr>
 </table>
 
+### MLP world-model graphs
+
+<table>
+  <tr>
+    <td><img src="docs/images/mlp_exp1_losses.png" width="480" alt="Experiment 1 MLP losses"></td>
+    <td><img src="docs/images/mlp_exp1_loss_components.png" width="480" alt="Experiment 1 MLP loss components"></td>
+  </tr>
+</table>
+
 </details>
 
 <details>
@@ -107,6 +116,15 @@ checkpoint should be used when reproducing the resumed DQN experiment.
   <tr>
     <td><img src="docs/images/dqn_resume_1000_2000_requests.png" width="480" alt="Resumed DQN request actions"></td>
     <td><img src="docs/images/dqn_resume_1000_2000_communication_cost.png" width="480" alt="Resumed DQN communication cost"></td>
+  </tr>
+</table>
+
+### MLP world-model graphs
+
+<table>
+  <tr>
+    <td><img src="docs/images/mlp_exp2_losses.png" width="480" alt="Experiment 2 MLP losses"></td>
+    <td><img src="docs/images/mlp_exp2_loss_components.png" width="480" alt="Experiment 2 MLP loss components"></td>
   </tr>
 </table>
 
@@ -170,5 +188,63 @@ checkpoints in `checkpoints/MLPx/` and `checkpoints/DQNx/`.
 </a>
 
 [Open the current DQNx policy video](docs/images/dqnx_current_policy.mp4)
+
+### Training graphs
+
+<table>
+  <tr>
+    <td><img src="docs/images/mlpx_exp3_run1_losses.png" width="480" alt="Experiment 3 MLPx run 1 losses"></td>
+    <td><img src="docs/images/mlpx_exp3_run1_loss_components.png" width="480" alt="Experiment 3 MLPx run 1 loss components"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/mlpx_exp3_run2_losses.png" width="480" alt="Experiment 3 MLPx run 2 losses"></td>
+    <td><img src="docs/images/mlpx_exp3_run2_loss_components.png" width="480" alt="Experiment 3 MLPx run 2 loss components"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/dqnx_exp3_rewards.png" width="480" alt="Experiment 3 DQNx rewards"></td>
+    <td><img src="docs/images/dqnx_exp3_loss.png" width="480" alt="Experiment 3 DQNx loss"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/dqnx_exp3_requests.png" width="480" alt="Experiment 3 DQNx requests"></td>
+    <td><img src="docs/images/dqnx_exp3_communication_cost.png" width="480" alt="Experiment 3 DQNx communication cost"></td>
+  </tr>
+</table>
+
+</details>
+
+<details>
+<summary><strong>Experiment 4 — TTC messages with MLPx and DQNx</strong></summary>
+
+This experiment adds intent and time-to-collision information to messages
+while keeping public observations limited to kinematics. MLPx was trained on
+the TTC dataset, and DQNx learned whether to request each visible vehicle.
+
+| Policy | Driving reward | Communication cost | Total reward | Requests |
+| --- | ---: | ---: | ---: | ---: |
+| No requests | `5.54` | `0.00` | `5.54` | `0.00` |
+| All visible cars | `4.51` | `5.04` | `-0.53` | `50.40` |
+| Trained DQNx | `5.54` | `0.00` | `5.54` | `0.00` |
+
+The trained policy currently selects no requests, so this experiment reduces
+communication but does not yet demonstrate a measurable driving benefit.
+
+[Read the full Experiment 4 notes](docs/experiments/experiment_4_ttc_mlpx_dqnx.md).
+
+### Training graphs
+
+<table>
+  <tr>
+    <td><img src="docs/images/mlpx_exp4_losses.png" width="480" alt="Experiment 4 MLPx losses"></td>
+    <td><img src="docs/images/mlpx_exp4_loss_components.png" width="480" alt="Experiment 4 MLPx loss components"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/dqnx_exp4_rewards.png" width="480" alt="Experiment 4 DQNx rewards"></td>
+    <td><img src="docs/images/dqnx_exp4_loss.png" width="480" alt="Experiment 4 DQNx loss"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/dqnx_exp4_requests.png" width="480" alt="Experiment 4 DQNx requests"></td>
+    <td><img src="docs/images/dqnx_exp4_communication_cost.png" width="480" alt="Experiment 4 DQNx communication cost"></td>
+  </tr>
+</table>
 
 </details>

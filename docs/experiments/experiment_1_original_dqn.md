@@ -33,3 +33,20 @@ The 50-epoch MLP run reached a final test loss of approximately `0.3922`:
 
 The experiment established the original single-request pipeline and provided
 the baseline for resumed DQN training.
+
+## Training graphs
+
+<table>
+  <tr>
+    <td><img src="../images/dqn_1000_rewards.png" width="480" alt="Experiment 1 DQN reward"></td>
+    <td><img src="../images/dqn_1000_training.png" width="480" alt="Experiment 1 DQN loss and exploration"></td>
+  </tr>
+  <tr>
+    <td><img src="../images/dqn_1000_requests.png" width="480" alt="Experiment 1 DQN requests"></td>
+    <td><img src="../images/dqn_1000_communication_cost.png" width="480" alt="Experiment 1 DQN communication cost"></td>
+  </tr>
+  <tr>
+    <td><img src="../images/mlp_exp1_losses.png" width="480" alt="Experiment 1 MLP losses"></td>
+    <td><img src="../images/mlp_exp1_loss_components.png" width="480" alt="Experiment 1 MLP loss components"></td>
+  </tr>
+</table>

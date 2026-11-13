@@ -125,6 +125,21 @@ Increasing loss means the Q-value estimates are unstable; it is not by itself
 evidence that the driving behavior is improving. Evaluate with exploration
 disabled and compare several fixed seeds.
 
+### Latest TTC evaluation
+
+The latest TTC run trained for 1,000 episodes with communication cost `0.1`.
+Using ten fixed evaluation seeds produced these means:
+
+| Policy | Driving reward | Communication cost | Total reward | Requests |
+| --- | ---: | ---: | ---: | ---: |
+| No requests | `5.54` | `0.00` | `5.54` | `0.00` |
+| All visible cars | `4.51` | `5.04` | `-0.53` | `50.40` |
+| Trained DQNx | `5.54` | `0.00` | `5.54` | `0.00` |
+
+This shows that the current policy has learned the no-request strategy. It
+has not yet shown that TTC messages improve driving enough to justify their
+communication cost.
+
 ## Rendering and video
 
 The renderer is implemented in `scripts/render_DQNx.py`. It runs the trained

@@ -28,8 +28,9 @@ class MCPPlanner:
         best_action = 0
         best_return = float("-inf")
 
-        # Evaluate five-step candidate futures and execute only the first
-        # action. The following four actions are used only for prediction.
+        # Evaluate candidate driving actions in the learned world model. Only
+        # the first action of the best predicted sequence is executed in the
+        # real environment; later actions are planning-only.
         for action in range(self.action_size):
             predicted_observation, predicted_reward = (
                 self.world_model.predict_step(observation, action, message)

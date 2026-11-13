@@ -5,6 +5,7 @@ from pathlib import Path
 
 
 def create_run_dir(root, prefix):
+    # A timestamped directory prevents a fresh run from overwriting results.
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = Path(root) / f"{timestamp}_{prefix}"
     run_dir.mkdir(parents=True, exist_ok=False)
@@ -12,6 +13,7 @@ def create_run_dir(root, prefix):
 
 
 def save_run_metadata(run_dir, metadata):
+    # Store configuration and Git revision next to the metrics and checkpoints.
     metadata = dict(metadata)
     metadata["created_at"] = datetime.now().isoformat(timespec="seconds")
 

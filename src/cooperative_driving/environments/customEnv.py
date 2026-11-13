@@ -10,6 +10,8 @@ from ..vehicles.customVehicles import (
 class CustomHighwayEnv(HighwayEnv):
     @classmethod
     def default_config(cls):
+        # The observation is a fixed 10-row kinematics vector. Each row also
+        # contains the neighboring car's intent and vehicle ID.
         config = super().default_config()
         config.update({
             "vehicles_count":10,
@@ -18,11 +20,7 @@ class CustomHighwayEnv(HighwayEnv):
                     "type": "Kinematics",
                     "vehicles_count": 10,
                     "features": [
-                        "presence", "x", "y", "vx", "vy",
-                        "intent_acceleration",
-                        "intent_steering",
-                        "intent_lane_change",
-                        "vehicle_id",
+                        "presence", "x", "y", "vx", "vy", "vehicle_id",
                     ],
                     "see_behind": True,
                     "normalize": True
@@ -31,6 +29,8 @@ class CustomHighwayEnv(HighwayEnv):
         return config
 
     def _create_vehicles(self):
+        # IDs are assigned when cars are created and remain stable for the
+        # lifetime of the episode. Observation slots can still change.
         self.next_vehicle_id = 0
 
         """Create vehicles that broadcast their current low-level intent."""

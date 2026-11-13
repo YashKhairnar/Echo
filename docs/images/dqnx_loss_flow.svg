@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+  <title id="title">DQNx loss calculation flow</title>
+  <desc id="desc">The online and target networks produce Q values. The selected current Q values are compared with bootstrapped target Q values using Smooth L1 loss.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#334155"/>
+    </marker>
+    <style>
+      .box { fill:#f8fafc; stroke:#334155; stroke-width:2; rx:14; }
+      .blue { fill:#dbeafe; stroke:#2563eb; }
+      .orange { fill:#ffedd5; stroke:#ea580c; }
+      .green { fill:#dcfce7; stroke:#16a34a; }
+      .red { fill:#fee2e2; stroke:#dc2626; }
+      .title { font:600 22px sans-serif; fill:#0f172a; }
+      .label { font:16px sans-serif; fill:#0f172a; }
+      .small { font:14px sans-serif; fill:#334155; }
+      .arrow { stroke:#334155; stroke-width:2.5; fill:none; marker-end:url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1200" height="650" fill="#ffffff"/>
+  <text x="600" y="38" text-anchor="middle" class="title">DQNx loss calculation</text>
+
+  <rect x="35" y="85" width="220" height="85" class="box blue"/>
+  <text x="145" y="118" text-anchor="middle" class="title">Replay batch</text>
+  <text x="145" y="145" text-anchor="middle" class="small">s, request mask, r, s′, done</text>
+
+  <rect x="315" y="70" width="250" height="115" class="box blue"/>
+  <text x="440" y="108" text-anchor="middle" class="title">Online network</text>
+  <text x="440" y="138" text-anchor="middle" class="label">Q(s) → 10 × 2</text>
+  <text x="440" y="164" text-anchor="middle" class="small">no-request / request per slot</text>
+
+  <rect x="625" y="70" width="250" height="115" class="box orange"/>
+  <text x="750" y="108" text-anchor="middle" class="title">Select stored action</text>
+  <text x="750" y="140" text-anchor="middle" class="label">Qcurrent = gather(Q(s), a)</text>
+  <text x="750" y="166" text-anchor="middle" class="small">one value for each car slot</text>
+
+  <path d="M255 127 H315" class="arrow"/>
+  <path d="M565 127 H625" class="arrow"/>
+
+  <rect x="315" y="285" width="250" height="115" class="box blue"/>
+  <text x="440" y="323" text-anchor="middle" class="title">Target network</text>
+  <text x="440" y="353" text-anchor="middle" class="label">Q(s′) → 10 × 2</text>
+  <text x="440" y="379" text-anchor="middle" class="small">mask invisible slots</text>
+
+  <rect x="625" y="285" width="250" height="115" class="box green"/>
+  <text x="750" y="323" text-anchor="middle" class="title">Bootstrapped target</text>
+  <text x="750" y="353" text-anchor="middle" class="label">y = r + γ(1−done)Qnext</text>
+  <text x="750" y="379" text-anchor="middle" class="small">max(no-request, request)</text>
+
+  <path d="M255 127 C255 230 440 230 440 285" class="arrow"/>
+  <path d="M565 342 H625" class="arrow"/>
+
+  <rect x="930" y="170" width="230" height="120" class="box red"/>
+  <text x="1045" y="210" text-anchor="middle" class="title">Smooth L1 loss</text>
+  <text x="1045" y="242" text-anchor="middle" class="label">Huber(Qcurrent, y)</text>
+  <text x="1045" y="270" text-anchor="middle" class="small">averaged over batch × slots</text>
+
+  <path d="M875 127 C930 127 930 210 930 210" class="arrow"/>
+  <path d="M875 342 C930 342 930 250 930 250" class="arrow"/>
+
+  <rect x="120" y="485" width="960" height="105" class="box"/>
+  <text x="600" y="520" text-anchor="middle" class="title">Important detail in the current implementation</text>
+  <text x="600" y="550" text-anchor="middle" class="label">The same joint reward is used as the target for every request slot.</text>
+  <text x="600" y="576" text-anchor="middle" class="small">This factorized approximation is simple, but can make Q-values and loss unstable.</text>
+</svg>

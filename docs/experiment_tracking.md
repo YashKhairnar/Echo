@@ -1,63 +1,90 @@
 # Experiment Tracking
 
-Each new MLP or DQN training run creates a timestamped folder containing:
+Every training run now creates an automatically named experiment folder. The
+folder name contains a timestamp and model name, so fresh runs never overwrite
+older runs:
 
 ```text
-config.json       hyperparameters, dataset, checkpoint, and git commit
-notes.md          space for observations and conclusions
-training.csv      per-epoch or per-episode metrics
-graphs            saved training plots
-checkpoints       copy of the trained checkpoint
+results/
+├── MLP/
+│   └── experiments/<timestamp>_mlp/
+├── MLPx/
+│   └── experiments/<timestamp>_mlpx/
+├── DQN/
+│   └── experiments/<timestamp>_dqn/
+└── DQNx/
+    └── experiments/<timestamp>_dqnx/
 ```
 
-The top-level result files remain available for convenience. They are not a replacement for the experiment folders; the folders preserve each run independently.
-
-MLP runs are stored under:
+Each experiment folder contains its fixed filenames:
 
 ```text
-results/MLP/experiments/
+results/<model>/experiments/<run-name>/
+├── config.json
+├── notes.md
+├── <model>_training.csv
+├── training graphs
+├── best.pt
+└── latest.pt
 ```
 
-DQN runs are stored under:
+The active checkpoint shortcuts remain in:
 
 ```text
-results/dqn/experiments/
+checkpoints/
+├── MLP/
+├── MLPx/
+├── DQN/
+└── DQNx/
 ```
 
-Run training normally to create a new experiment folder:
+Train the new multi-request models with:
 
 ```bash
-PYTHONPATH=. .venv/bin/python -m scripts.train_mlp_wm
-PYTHONPATH=. .venv/bin/python -m scripts.train_DQN
+PYTHONPATH=. .venv/bin/python -m scripts.train_mlpx_wm \
+    --data data/randomMultiRequestData_ttc.csv
+
+PYTHONPATH=. .venv/bin/python -m scripts.train_DQNx \
+    --mlpx-checkpoint checkpoints/MLPx/best.pt
 ```
 
-To continue an MLP experiment, pass its original experiment directory and log:
+The multi-request collector used for the MLPx dataset is:
 
 ```bash
-PYTHONPATH=. .venv/bin/python -m scripts.train_mlp_wm \
-    --resume checkpoints/mlp/latest.pt \
-    --experiment-dir results/MLP/experiments/<run-name> \
-    --log results/MLP/experiments/<run-name>/mlp_training.csv
+PYTHONPATH=. .venv/bin/python -m scripts.collect_multi_request_data
+```
+
+The active TTC dataset is `data/randomMultiRequestData_ttc.csv`. Older datasets
+are archived under `archive/`.
+
+You do not need to provide a folder name for a normal run. The scripts create
+the run folder automatically. `--experiment-dir` remains available only when
+you explicitly need a custom location.
+
+Run training normally to create a new experiment folder automatically:
+
+The original single-request commands are archived in
+`archive/legacy_single_request/`. The active multi-request commands are
+documented in [the DQNx experiment guide](dqnx_request_policy.md).
+
+To continue the latest MLPx experiment, pass only its active checkpoint:
+
+```bash
+PYTHONPATH=. .venv/bin/python -m scripts.train_mlpx_wm \
+    --resume checkpoints/MLPx/latest.pt
 ```
 
 After each run, edit `notes.md` with what changed, what worked, and what should be improved.
 
-The latest resumed DQN experiment is stored at:
-
-```text
-results/dqn/experiments/dqn_resume_1000_2000/
-```
-
 Its results should be interpreted using both reward and communication cost. A higher reward with fewer requests is preferable, but increasing DQN loss should be investigated before treating the policy as fully converged.
 
-## Resuming DQN training
+## Resuming DQNx training
 
-DQN checkpoints restore the networks, optimizer, exploration probability, episode number, and replay buffer. Resume using the same experiment directory and log:
+DQNx checkpoints restore the networks, optimizer, exploration probability,
+episode number, and replay buffer:
 
 ```bash
-PYTHONPATH=. .venv/bin/python -m scripts.train_DQN \
-    --resume results/dqn/experiments/<run-name>/checkpoints/latest.pt \
-    --experiment-dir results/dqn/experiments/<run-name> \
-    --log results/dqn/experiments/<run-name>/dqn_training.csv \
+PYTHONPATH=. .venv/bin/python -m scripts.train_DQNx \
+    --resume checkpoints/DQNx/latest.pt \
     --episodes 2000
 ```

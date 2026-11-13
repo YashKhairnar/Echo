@@ -102,7 +102,7 @@ done
 The observations and messages are stored as JSON strings inside the CSV file so that their array and dictionary structures are preserved. The current dataset is:
 
 ```text
-data/randomPolicyData_requestPolicy.csv
+archive/legacy_single_request/data/randomPolicyData_requestPolicy.csv
 ```
 
 `request_action_t` describes the randomly selected request. The MLP currently uses the resulting message rather than the request action directly.

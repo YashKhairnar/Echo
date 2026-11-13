@@ -64,22 +64,27 @@ The training script uses:
 - Target-network update frequency: `100` steps
 - Default training length: `1000` episodes
 
-Run training with:
+The original single-request trainer is archived in
+`archive/legacy_single_request/scripts/train_DQN.py`. The active trainer is
+the multi-request DQNx pipeline described in
+[the DQNx guide](dqnx_request_policy.md).
+
+Historical training used:
 
 ```bash
-PYTHONPATH=. .venv/bin/python -m scripts.train_DQN
+PYTHONPATH=. .venv/bin/python -m archive.legacy_single_request.scripts.train_DQN
 ```
 
 The DQN checkpoint is saved to:
 
 ```text
-checkpoints/dqn/latest.pt
+archive/legacy_single_request/checkpoints/DQN/latest.pt
 ```
 
 Training logs and graphs are saved under:
 
 ```text
-results/dqn/
+archive/legacy_single_request/results/DQN/
 ```
 
 Logged metrics include reward, loss, exploration probability, episode length, request count, no-request count, and communication cost.

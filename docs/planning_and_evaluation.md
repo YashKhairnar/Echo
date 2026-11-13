@@ -18,10 +18,14 @@ The planner uses `5^5 = 3125` candidate action sequences in the current exhausti
 
 ## Rendering
 
-Render the trained request policy with:
+The original single-request renderer is archived in
+`archive/legacy_single_request/scripts/render_dqn.py`. The current renderer is
+the DQNx renderer documented below.
+
+Historical single-request rendering used:
 
 ```bash
-PYTHONPATH=. .venv/bin/python -m scripts.render_dqn
+PYTHONPATH=. .venv/bin/python -m archive.legacy_single_request.scripts.render_dqn
 ```
 
 The overlay shows the ego driving action, requested slot, actual vehicle ID, and the requested vehicle's intent. The requested vehicle is highlighted in the road view. The window includes a Play/Pause button.
@@ -29,14 +33,48 @@ The overlay shows the ego driving action, requested slot, actual vehicle ID, and
 Record the rendered behavior as an MP4 video with:
 
 ```bash
-PYTHONPATH=. .venv/bin/python -m scripts.render_dqn \
+PYTHONPATH=. .venv/bin/python -m archive.legacy_single_request.scripts.render_dqn \
     --episodes 10 \
-    --video results/dqn/policy_1000episodes.mp4
+    --video docs/images/dqn_policy_1000episodes.mp4
 ```
 
 The renderer uses a random seed by default. Pass `--seed` to reproduce the same episodes.
 
 Evaluation uses `epsilon = 0`; no learning occurs during rendering.
+
+Render the multi-request DQNx policy with its MLPx world model:
+
+```bash
+PYTHONPATH=. .venv/bin/python -m scripts.render_DQNx
+```
+
+The DQNx renderer highlights every requested visible vehicle and displays its
+slot, vehicle ID, and intent. Record it with:
+
+```bash
+PYTHONPATH=. .venv/bin/python -m scripts.render_DQNx \
+    --video docs/images/dqnx_policy.mp4
+```
+
+See the [DQNx renderer documentation](dqnx_request_policy.md#rendering-and-video)
+for all renderer options, reproducible seeds, checkpoint selection, and video
+recording notes.
+
+The current DQNx policy video can be recorded with:
+
+```bash
+PYTHONPATH=. .venv/bin/python -m scripts.render_DQNx \
+    --episodes 1 \
+    --delay 0.1 \
+    --video docs/images/dqnx_current_policy.mp4
+```
+
+Run this command from a normal graphical terminal. The `--headless` option is
+available for environments with a working RGB-array renderer, but it may not
+produce a visible HighwayEnv scene on systems without a display backend.
+
+The current DQNx policy can select no requests. In that case the video still
+shows the ego vehicle moving, but no neighboring vehicle is highlighted.
 
 ## Evaluation metrics
 

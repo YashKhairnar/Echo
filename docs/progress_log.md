@@ -20,7 +20,7 @@
 - Changed the DQN into a request policy with visible-neighbor action masking.
 - Added a no-request action and communication cost to the DQN reward.
 - Updated data collection to store request actions, visibility-consistent messages, and episode-end flags.
-- Added DQN training logs and reward, loss, request, and communication-cost graphs under `results/dqn/`.
+- Added DQN training logs and reward, loss, request, and communication-cost graphs under `results/DQN/`.
 - Added a renderer that displays the requested vehicle and its intent.
 - Added automatic experiment folders with configurations, notes, metrics, graphs, and checkpoint copies.
 - Added dynamic request masking so the DQN can request only visible neighboring vehicles.
@@ -29,3 +29,15 @@
 - Resumed DQN training from 1000 to 2000 episodes.
 - Observed average reward improvement from `6.42` to `8.67` and reduced communication cost.
 - Recorded continued Q-loss instability and identified no-request baseline evaluation as the next step.
+
+## 2026-11-12 — Multi-request DQNx
+
+- Added multi-request data collection with up to ten visible request slots.
+- Added the MLPx world model for observation, reward, and multi-request message inputs.
+- Added DQNx, which predicts request/no-request values independently for each visible slot.
+- Kept driving control separate: MLPx plus the five-step MCP planner selects the driving action.
+- Added automatic DQNx/MLPx experiment folders, checkpoints, metrics, graphs, and resume support.
+- Added DQNx rendering with requested-vehicle highlighting, IDs, and intent overlays.
+- Documented that the current `0.1` cost per requested vehicle can encourage the learned policy to request nobody; evaluation should include a no-request baseline.
+- Separated public kinematics from private messages: observations now contain position/velocity fields and IDs, while messages contain intent, target lane, and capped time-to-collision.
+- Updated MLPx input size from `205` to `115` to match the new four-value message format.

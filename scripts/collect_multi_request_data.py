@@ -4,13 +4,17 @@ import json
 import os
 import random
 
-from src.cooperative_driving.communication.getMessage import getMessage
+from src.cooperative_driving.communication.getMessage import encode_message
 from src.cooperative_driving.communication.request_utils import visible_neighbor_ids
-from src.cooperative_driving.environments.customEnv import CustomHighwayEnv
+from scripts.exploration import make_exploration
+from src.cooperative_driving.environments.customEnv import ENVIRONMENTS, make_environment
 
 
 COMMUNICATION_COST = 0.05
-OUTPUT_PATH = "data/randomMultiRequestData_ttc.csv"
+DEFAULT_OUTPUTS = {
+    "merge": "data/mergeMultiRequestData.csv",
+    "highway": "data/randomMultiRequestData_ttc.csv",
+}
 MAX_REQUEST_SLOTS = 10
 
 HEADERS = [
@@ -76,13 +80,7 @@ def choose_request_set(environment, observation):
         request_mask[slot] = 1
         vehicle = vehicle_by_id(environment, visible_ids[slot])
         if vehicle is not None:
-            message = getMessage(vehicle)
-            messages[slot] = [
-                message["intent"]["intent_acceleration"],
-                message["intent"]["intent_steering"],
-                message["target_lane"],
-                message["time_to_collision"],
-            ]
+            messages[slot] = encode_message(vehicle)
 
     message_data = {
         "request_mask": request_mask,
@@ -94,15 +92,21 @@ def choose_request_set(environment, observation):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--episodes", type=int, default=1000)
-    parser.add_argument("--output", default=OUTPUT_PATH)
+    parser.add_argument("--env", choices=sorted(ENVIRONMENTS), default="merge")
+    parser.add_argument("--output", default=None)
+    parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
-    output_path = args.output
+    random.seed(args.seed)
+    output_path = args.output or DEFAULT_OUTPUTS[args.env]
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     first_episode_id = next_episode_id(output_path)
     file_has_data = os.path.exists(output_path) and os.path.getsize(output_path) > 0
 
-    environment = CustomHighwayEnv(render_mode="rgb_array")
+    environment = make_environment(args.env, render_mode="rgb_array")
+    explorer = make_exploration(
+        args.env, environment.action_space.n, random.Random(args.seed)
+    )
     with open(output_path, "a", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=HEADERS)
         if not file_has_data:
@@ -111,13 +115,14 @@ def main():
         for episode in range(args.episodes):
             episode_id = first_episode_id + episode
             observation, _ = environment.reset(seed=episode_id)
+            explorer.reset()
 
             for timestep in range(environment.config["duration"]):
                 request_slots, message_data = choose_request_set(
                     environment,
                     observation,
                 )
-                action = environment.action_space.sample()
+                action = explorer.act(timestep)
                 next_observation, driving_reward, terminated, truncated, _ = (
                     environment.step(action)
                 )

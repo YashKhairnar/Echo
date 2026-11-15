@@ -69,3 +69,25 @@
   ranking agreement was `70.6%` without messages and `45.5%` with all messages.
 - Expanded the random multi-request WM dataset to 5,000 episodes; MLPx has
   not yet been retrained on that expanded dataset.
+
+## 2026-11-15 — Cooperative merge scenario with hidden driver types
+
+- Diagnosed why requests never helped: messages (current acceleration, TTC)
+  were largely inferable from kinematics, and the highway task rarely made
+  the best action depend on them.
+- Added `CooperativeMergeEnv`: the ego lane is blocked by a stalled car, so the
+  ego must merge into a dense target-lane platoon.
+- Added `DriverTypeIDMVehicle` with a private `yielding` / `aggressive` type
+  that only shows when someone merges in front of it, and a cruise-controlled
+  ego (`CruiseControlledVehicle`) so crashes come from merge decisions, not
+  rear-ending.
+- Messages now carry driver type through a single `encode_message()` helper
+  (slot 1 replaces intent steering; MLPx input size unchanged).
+- Collectors take `--env merge|highway`, write merge data to new files, and
+  use merge-biased exploration. The matched collector adds a `rear` branch.
+- Added `scripts/check_information_gap.py`. On 300 seeds, driver type is
+  unpredictable from observation before a merge (51.4% vs 51.4% chance).
+  Asking the rear car gave return 7.35 vs 4.64 for the best no-information
+  rule, with 0% crashes and merging 4 s sooner.
+- Next: collect merge data, retrain MLPx, and repeat the check with the MLPx
+  planner instead of hand-written rules.

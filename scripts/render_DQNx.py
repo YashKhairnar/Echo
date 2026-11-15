@@ -7,7 +7,7 @@ from pathlib import Path
 import pygame
 import torch
 
-from src.cooperative_driving.communication.getMessage import getMessage
+from src.cooperative_driving.communication.getMessage import encode_message, getMessage
 from src.cooperative_driving.communication.request_utils import visible_neighbor_ids
 from src.cooperative_driving.environments.customEnv import CustomHighwayEnv
 from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
@@ -92,14 +92,8 @@ def message_for_slots(environment, observation, requested_slots):
         )
         if vehicle is None:
             continue
-        message = getMessage(vehicle)
         request_mask[slot] = 1
-        messages[slot] = [
-            message["intent"]["intent_acceleration"],
-            message["intent"]["intent_steering"],
-            message["target_lane"],
-            message["time_to_collision"],
-        ]
+        messages[slot] = encode_message(vehicle)
     return {"request_mask": request_mask, "messages": messages}
 
 
@@ -122,7 +116,7 @@ def draw_overlay(environment, observation, requested_slots, driving_action):
         lines.append(
             f"slot {slot} | ID {vehicle.vehicle_id} | "
             f"acc {intent['intent_acceleration']:.1f} | "
-            f"steer {intent['intent_steering']:.1f} | "
+            f"type {message['driver_type'] or '-'} | "
             f"lane {message['target_lane']} | "
             f"TTC {message['time_to_collision']:.1f}s"
         )

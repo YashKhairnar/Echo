@@ -12,7 +12,7 @@ import torch
 import torch.nn.functional as F
 
 from scripts.experiment_utils import create_run_dir, save_run_metadata
-from src.cooperative_driving.communication.getMessage import getMessage
+from src.cooperative_driving.communication.getMessage import encode_message
 from src.cooperative_driving.communication.request_utils import (
     visible_neighbor_ids,
 )
@@ -64,13 +64,7 @@ def message_for_slots(environment, observation, requested_slots):
         )
         if vehicle is None:
             continue
-        message = getMessage(vehicle)
-        messages[slot] = [
-            message["intent"]["intent_acceleration"],
-            message["intent"]["intent_steering"],
-            message["target_lane"],
-            message["time_to_collision"],
-        ]
+        messages[slot] = encode_message(vehicle)
     return {"request_mask": request_mask, "messages": messages}
 
 

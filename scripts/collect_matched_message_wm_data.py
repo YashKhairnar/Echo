@@ -11,14 +11,18 @@ import json
 import os
 import random
 
-from src.cooperative_driving.communication.getMessage import getMessage
+from src.cooperative_driving.communication.getMessage import encode_message, getMessage
 from src.cooperative_driving.communication.request_utils import visible_neighbor_ids
-from src.cooperative_driving.environments.customEnv import CustomHighwayEnv
+from scripts.exploration import make_exploration
+from src.cooperative_driving.environments.customEnv import ENVIRONMENTS, make_environment
 
 
 COMMUNICATION_COST = 0.05
 MAX_REQUEST_SLOTS = 10
-DEFAULT_OUTPUT = "data/matchedMessageWMData.csv"
+DEFAULT_OUTPUTS = {
+    "merge": "data/matchedMergeWMData.csv",
+    "highway": "data/matchedMessageWMData.csv",
+}
 
 HEADERS = [
     "episode_id",
@@ -74,14 +78,8 @@ def message_data(environment, observation, request_slots):
         vehicle = vehicle_by_id(environment, visible_ids[slot])
         if vehicle is None:
             continue
-        message = getMessage(vehicle)
         request_mask[slot] = 1
-        messages[slot] = [
-            message["intent"]["intent_acceleration"],
-            message["intent"]["intent_steering"],
-            message["target_lane"],
-            message["time_to_collision"],
-        ]
+        messages[slot] = encode_message(vehicle)
 
     return {
         "request_mask": request_mask,
@@ -96,6 +94,17 @@ def urgent_slot(environment, observation):
         if vehicle is not None:
             candidates.append((getMessage(vehicle)["time_to_collision"], slot))
     return min(candidates)[1] if candidates else None
+
+
+def rear_target_lane_slot(environment, observation):
+    """Slot of the car behind the ego in the merge target lane, if visible."""
+    if not hasattr(environment, "target_lane_neighbours"):
+        return None
+    _, rear = environment.target_lane_neighbours()
+    if rear is None:
+        return None
+    visible_ids = visible_neighbor_ids(observation)
+    return visible_ids.index(rear.vehicle_id) if rear.vehicle_id in visible_ids else None
 
 
 def replay_prefix(environment, seed, prefix_actions):
@@ -118,9 +127,11 @@ def request_branches(environment, observation, rng):
             rng.sample(visible_slots, rng.randint(1, len(visible_slots)))
         )
 
+    rear = rear_target_lane_slot(environment, observation)
     branches = [
         ("none", []),
         ("urgent", [] if urgent is None else [urgent]),
+        ("rear", [] if rear is None else [rear]),
         ("all", visible_slots),
         ("random", random_slots),
     ]
@@ -142,17 +153,20 @@ def main():
         default=5,
         help="Number of matched physical states sampled from each episode.",
     )
-    parser.add_argument("--output", default=DEFAULT_OUTPUT)
+    parser.add_argument("--env", choices=sorted(ENVIRONMENTS), default="merge")
+    parser.add_argument("--output", default=None)
     parser.add_argument("--communication-cost", type=float, default=COMMUNICATION_COST)
     parser.add_argument("--seed", type=int, default=20261114)
     args = parser.parse_args()
+    args.output = args.output or DEFAULT_OUTPUTS[args.env]
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
     first_episode_id = next_episode_id(args.output)
     file_has_data = os.path.exists(args.output) and os.path.getsize(args.output) > 0
     rng = random.Random(args.seed)
 
-    main_environment = CustomHighwayEnv(render_mode="rgb_array")
+    main_environment = make_environment(args.env, render_mode="rgb_array")
+    explorer = make_exploration(args.env, main_environment.action_space.n, rng)
     collected = 0
 
     try:
@@ -164,15 +178,20 @@ def main():
             for episode_offset in range(args.episodes):
                 episode_id = first_episode_id + episode_offset
                 observation, _ = main_environment.reset(seed=episode_id)
+                explorer.reset()
                 prefix_actions = []
                 duration = main_environment.config["duration"]
                 sample_count = min(args.states_per_episode, duration)
                 sampled_timesteps = set(
                     rng.sample(range(duration), sample_count)
                 )
+                # Always include the step where the merge is attempted: it is
+                # the decision the messages are meant to inform.
+                if hasattr(explorer, "merge_step"):
+                    sampled_timesteps.add(explorer.merge_step)
 
                 for timestep in range(main_environment.config["duration"]):
-                    driving_action = main_environment.action_space.sample()
+                    driving_action = explorer.act(timestep)
 
                     branch_messages = []
                     if timestep in sampled_timesteps:

@@ -8,6 +8,7 @@ See the [project progress log](docs/progress_log.md).
 
 ## Documentation
 
+- [Cooperative merge scenario (current)](docs/merge_scenario.md)
 - [Data collection configuration](docs/data_collection_phase1_config.md)
 - [MLP world model](docs/mlp_world_model.md)
 - [DQN request policy](docs/dqn_request_policy.md)

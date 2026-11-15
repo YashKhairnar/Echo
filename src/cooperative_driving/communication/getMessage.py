@@ -40,6 +40,10 @@ def _time_to_collision(vehicle):
     return min(MAX_TIME_TO_COLLISION, gap / closing_speed)
 
 
+DRIVER_TYPE_CODES = {"yielding": 1.0, "aggressive": -1.0}
+MESSAGE_FEATURES = ("driver_type", "intent_acceleration", "target_lane", "time_to_collision")
+
+
 def getMessage(car):
     """Return private intent and safety information shared by a vehicle."""
     target_lane = (
@@ -49,7 +53,24 @@ def getMessage(car):
     )
     return {
         "vehicle_id": car.vehicle_id,
+        # Private driver type: only revealed when this car is asked.
+        "driver_type": getattr(car, "driver_type", None),
         "intent": car.intent.copy(),
         "target_lane": int(target_lane),
         "time_to_collision": _time_to_collision(car),
     }
+
+
+def encode_message(car):
+    """Return the 4-value message vector used by MLPx and the datasets.
+
+    Order: driver type (+1 yielding, -1 aggressive, 0 unknown/other),
+    intent acceleration, target lane, time to collision.
+    """
+    message = getMessage(car)
+    return [
+        DRIVER_TYPE_CODES.get(message["driver_type"], 0.0),
+        float(message["intent"]["intent_acceleration"]),
+        float(message["target_lane"]),
+        float(message["time_to_collision"]),
+    ]

@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from src.cooperative_driving.communication.getMessage import getMessage
+from src.cooperative_driving.communication.getMessage import encode_message, getMessage
 from src.cooperative_driving.communication.request_utils import visible_neighbor_ids
 from src.cooperative_driving.environments.customEnv import CustomHighwayEnv
 from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
@@ -62,14 +62,8 @@ def message_bundle(environment, observation, mode):
         vehicle = vehicle_by_id(environment, visible_ids[slot])
         if vehicle is None:
             continue
-        message = getMessage(vehicle)
         request_mask[slot] = 1
-        messages[slot] = [
-            message["intent"]["intent_acceleration"],
-            message["intent"]["intent_steering"],
-            message["target_lane"],
-            message["time_to_collision"],
-        ]
+        messages[slot] = encode_message(vehicle)
     return request_mask, messages
 
 

@@ -13,7 +13,7 @@ class MCPPlanner:
         self,
         world_model,
         action_size=5,
-        planning_horizon=5,
+        planning_horizon=3,
         discount_factor=0.99,
     ):
         self.world_model = world_model

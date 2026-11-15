@@ -9,7 +9,7 @@ from src.cooperative_driving.communication.request_utils import visible_neighbor
 from src.cooperative_driving.environments.customEnv import CustomHighwayEnv
 
 
-COMMUNICATION_COST = 0.1
+COMMUNICATION_COST = 0.05
 OUTPUT_PATH = "data/randomMultiRequestData_ttc.csv"
 MAX_REQUEST_SLOTS = 10
 

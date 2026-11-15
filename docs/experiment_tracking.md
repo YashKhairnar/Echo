@@ -45,7 +45,8 @@ PYTHONPATH=. .venv/bin/python -m scripts.train_mlpx_wm \
     --data data/randomMultiRequestData_ttc.csv
 
 PYTHONPATH=. .venv/bin/python -m scripts.train_DQNx \
-    --mlpx-checkpoint checkpoints/MLPx/best.pt
+    --mlpx-checkpoint checkpoints/MLPx/best.pt \
+    --communication-cost 0.05
 ```
 
 The multi-request collector used for the MLPx dataset is:
@@ -77,6 +78,10 @@ PYTHONPATH=. .venv/bin/python -m scripts.train_mlpx_wm \
 After each run, edit `notes.md` with what changed, what worked, and what should be improved.
 
 Its results should be interpreted using both reward and communication cost. A higher reward with fewer requests is preferable, but increasing DQN loss should be investigated before treating the policy as fully converged.
+
+DQNx also records driving reward before communication cost. This makes it
+possible to distinguish improved driving from reward gains caused only by
+requesting fewer vehicles.
 
 ## Resuming DQNx training
 

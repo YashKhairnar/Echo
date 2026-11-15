@@ -55,3 +55,17 @@
 - The current experiment therefore reduces communication but does not yet show
   a measurable communication benefit. The next candidate is a `0.05` cost
   experiment with separate driving-reward logging.
+
+## 2026-11-14 — MLPx rollout evaluation
+
+- Compared MLPx predictions with real-environment rollouts from the same state
+  and candidate driving action.
+- Five-step planning achieved `23.1%` action-ranking agreement.
+- Three-step planning achieved `66.7%` agreement without messages and `42.9%`
+  with all messages.
+- Set the active MCP planner horizon to three steps because shorter rollouts
+  reduce accumulated world-model error.
+- Re-evaluated the current MLPx checkpoint with three-step rollouts: action
+  ranking agreement was `70.6%` without messages and `45.5%` with all messages.
+- Expanded the random multi-request WM dataset to 5,000 episodes; MLPx has
+  not yet been retrained on that expanded dataset.

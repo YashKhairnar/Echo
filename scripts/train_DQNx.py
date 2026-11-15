@@ -23,7 +23,7 @@ from src.cooperative_driving.policies.DQN import MultiRequestDQNPolicy
 
 
 MAX_REQUEST_SLOTS = 10
-COMMUNICATION_COST = 0.1
+DEFAULT_COMMUNICATION_COST = 0.05
 BATCH_SIZE = 128
 REPLAY_BUFFER_SIZE = 10_000
 LEARNING_RATE = 1e-5
@@ -124,12 +124,14 @@ def save_plots(log_path):
     if not rows:
         return
     episodes = [int(row["episode"]) for row in rows]
+    driving_rewards = [float(row["driving_reward"]) for row in rows]
     rewards = [float(row["total_reward"]) for row in rows]
     losses = [float(row["average_loss"]) for row in rows]
     requests = [int(row["request_count"]) for row in rows]
     costs = [float(row["communication_cost"]) for row in rows]
 
     plots = [
+        ("dqnx_training_driving_rewards.png", episodes, [driving_rewards], ["Driving reward"], "DQNx Driving Reward"),
         ("dqnx_training_rewards.png", episodes, [rewards], ["Reward"], "DQNx Reward"),
         ("dqnx_training_loss.png", episodes, [losses], ["Loss"], "DQNx Loss"),
         ("dqnx_training_requests.png", episodes, [requests], ["Requests"], "DQNx Requests"),
@@ -152,6 +154,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--episodes", type=int, default=1000)
     parser.add_argument("--mlpx-checkpoint", default="checkpoints/MLPx/best.pt")
+    parser.add_argument(
+        "--communication-cost",
+        type=float,
+        default=None,
+        help="Cost subtracted for each requested vehicle (default: 0.05).",
+    )
     parser.add_argument("--experiment-dir", default=None)
     parser.add_argument("--resume", default=None)
     args = parser.parse_args()
@@ -163,6 +171,18 @@ def main():
             map_location="cpu",
             weights_only=False,
         )
+
+    communication_cost_per_request = (
+        args.communication_cost
+        if args.communication_cost is not None
+        else (
+            resume_checkpoint.get(
+                "communication_cost", DEFAULT_COMMUNICATION_COST
+            )
+            if resume_checkpoint
+            else DEFAULT_COMMUNICATION_COST
+        )
+    )
 
     if args.experiment_dir:
         run_dir = Path(args.experiment_dir)
@@ -177,7 +197,7 @@ def main():
     save_run_metadata(run_dir, {
         "model": "Multi-request DQN policy",
         "episodes": args.episodes,
-        "communication_cost": COMMUNICATION_COST,
+        "communication_cost": communication_cost_per_request,
         "mlpx_checkpoint": args.mlpx_checkpoint,
         "request_slots": MAX_REQUEST_SLOTS,
         "resume": args.resume,
@@ -195,7 +215,9 @@ def main():
     checkpoint = torch.load(args.mlpx_checkpoint, map_location="cpu", weights_only=False)
     world_model.load_state_dict(checkpoint.get("model_state_dict", checkpoint))
     world_model.eval()
-    planner = MCPPlanner(world_model, environment.action_space.n, 5, DISCOUNT_FACTOR)
+    # Three-step planning is more reliable than the previous five-step
+    # horizon because model errors have less opportunity to compound.
+    planner = MCPPlanner(world_model, environment.action_space.n, 3, DISCOUNT_FACTOR)
 
     epsilon = INITIAL_EPSILON
     total_steps = 0
@@ -222,7 +244,7 @@ def main():
     append_log = args.resume is not None and log_path.exists()
     with log_path.open("a" if append_log else "w", newline="") as log_file:
         writer = csv.DictWriter(log_file, fieldnames=[
-            "episode", "total_reward", "average_loss", "exploration_probability",
+            "episode", "driving_reward", "total_reward", "average_loss", "exploration_probability",
             "episode_length", "request_count", "communication_cost",
         ])
         if not append_log:
@@ -231,6 +253,7 @@ def main():
         for episode in range(start_episode, args.episodes):
             # DQNx learns request decisions; MLPx/MCP chooses driving actions.
             observation, _ = environment.reset()
+            episode_driving_reward = 0.0
             episode_reward = 0.0
             losses = []
             request_count = 0
@@ -247,7 +270,10 @@ def main():
                 )
 
                 done = terminated or truncated
-                total_reward = driving_reward - len(request_slots) * COMMUNICATION_COST
+                total_reward = (
+                    driving_reward
+                    - len(request_slots) * communication_cost_per_request
+                )
                 
                 action_vector = [int(slot in request_slots) for slot in range(MAX_REQUEST_SLOTS)]
                 replay_buffer.add(observation, action_vector, total_reward, next_observation, done)
@@ -257,6 +283,7 @@ def main():
                     losses.append(loss)
 
                 observation = next_observation
+                episode_driving_reward += driving_reward
                 episode_reward += total_reward
                 total_steps += 1
 
@@ -267,9 +294,10 @@ def main():
 
             epsilon = max(MIN_EPSILON, epsilon * EPSILON_DECAY)
             average_loss = sum(losses) / len(losses) if losses else 0.0
-            communication_cost = request_count * COMMUNICATION_COST
+            communication_cost = request_count * communication_cost_per_request
             writer.writerow({
                 "episode": episode + 1,
+                "driving_reward": episode_driving_reward,
                 "total_reward": episode_reward,
                 "average_loss": average_loss,
                 "exploration_probability": epsilon,
@@ -280,7 +308,9 @@ def main():
             log_file.flush()
             print(
                 f"Episode {episode + 1}/{args.episodes} | reward={episode_reward:.2f} | "
-                f"loss={average_loss:.4f} | requests={request_count} | epsilon={epsilon:.3f}"
+                f"driving_reward={episode_driving_reward:.2f} | "
+                f"loss={average_loss:.4f} | requests={request_count} | "
+                f"cost={communication_cost:.2f} | epsilon={epsilon:.3f}"
             )
             checkpoint = {
                 "episode": episode,
@@ -290,6 +320,7 @@ def main():
                 "exploration_probability": epsilon,
                 "total_steps": total_steps,
                 "best_reward": best_reward,
+                "communication_cost": communication_cost_per_request,
                 "replay_buffer": list(replay_buffer.transitions),
                 "run_dir": str(run_dir),
             }

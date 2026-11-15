@@ -35,6 +35,9 @@ The best MLPx checkpoint was used by the DQNx planner.
 The DQNx run was saved under
 `results/DQNx/experiments/20261113_121105_dqnx/`.
 
+This run used communication cost `0.1`. New DQNx runs default to `0.05`, but
+the cost can be set explicitly with `--communication-cost`.
+
 | Evaluation policy | Driving reward | Communication cost | Total reward | Requests |
 | --- | ---: | ---: | ---: | ---: |
 | No requests | `5.54` | `0.00` | `5.54` | `0.00` |

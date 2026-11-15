@@ -2,19 +2,24 @@
 
 ## MCP planner
 
-The MCP planner uses the trained MLP world model to evaluate driving actions. It plans five steps ahead and returns only the first driving action to the real environment.
+The MCP planner uses the trained MLP world model to evaluate driving actions. It plans three steps ahead and returns only the first driving action to the real environment.
 
 ```text
 observation + requested message
     ↓
 MLP predicts next state and reward
     ↓
-MCP compares candidate five-step action sequences
+MCP compares candidate three-step action sequences
     ↓
 first driving action is executed in the real environment
 ```
 
-The planner uses `5^5 = 3125` candidate action sequences in the current exhaustive implementation, so rendering and training can be slow.
+The planner uses `5^3 = 125` candidate action sequences in the current exhaustive implementation. The shorter horizon reduces compounding world-model error and makes rendering and training faster.
+
+See the [MLPx rollout evaluation](mlpx_rollout_evaluation.md) for the
+real-environment comparison of three-step and five-step predictions. Three-step
+planning is the active horizon because it currently has better reward error
+and action-ranking agreement.
 
 ## Rendering
 

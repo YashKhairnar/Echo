@@ -13,6 +13,7 @@ See the [project progress log](docs/progress_log.md).
 - [DQN request policy](docs/dqn_request_policy.md)
 - [DQNx multi-request policy](docs/dqnx_request_policy.md)
 - [MCP planner and evaluation](docs/planning_and_evaluation.md)
+- [MLPx rollout evaluation](docs/mlpx_rollout_evaluation.md)
 - [Experiment tracking](docs/experiment_tracking.md)
 - [Completed experiment index](docs/experiments/README.md)
 

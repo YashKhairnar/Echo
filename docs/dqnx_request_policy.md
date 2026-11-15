@@ -40,7 +40,7 @@ visible-slot mask removes cars outside the current frame
     ↓
 request mask selects zero or more visible cars
     ↓
-MLPx + five-step MCP planner selects the driving action
+MLPx + three-step MCP planner selects the driving action
     ↓
 real environment returns next observation and driving reward
     ↓
@@ -68,14 +68,15 @@ intent.
 The training reward is:
 
 ```text
-total reward = driving reward − 0.1 × number of requested vehicles
+total reward = driving reward − communication cost × number of requested vehicles
 ```
 
-The current cost is defined in `scripts/train_DQNx.py` as
-`COMMUNICATION_COST = 0.1`. A policy that requests nobody can therefore have a
-reasonable reward while using no communication. This is expected behavior,
-but it should be compared with a no-request baseline and a useful-request
-baseline before concluding that the policy has learned good communication.
+The cost is configurable with `--communication-cost` and defaults to `0.05`.
+The completed TTC experiment used `0.1`. A policy that requests nobody can
+therefore have a reasonable reward while using no communication. This is
+expected behavior, but it should be compared with a no-request baseline and a
+useful-request baseline before concluding that the policy has learned good
+communication.
 
 ## Training
 
@@ -83,7 +84,8 @@ Train from a fresh run:
 
 ```bash
 PYTHONPATH=. .venv/bin/python -m scripts.train_DQNx \
-    --mlpx-checkpoint checkpoints/MLPx/best.pt
+    --mlpx-checkpoint checkpoints/MLPx/best.pt \
+    --communication-cost 0.05
 ```
 
 The script trains DQNx on real environment transitions. MLPx predictions are
@@ -114,12 +116,16 @@ epsilon, episode position, best reward, and replay buffer.
 
 The training CSV and graphs record:
 
+- driving reward before communication cost;
 - total reward after communication cost;
 - DQNx loss;
 - exploration probability;
 - episode length;
 - number of requests; and
 - total communication cost.
+
+The training output also includes a separate driving-reward graph so that a
+policy cannot appear better only because it requests fewer messages.
 
 Increasing loss means the Q-value estimates are unstable; it is not by itself
 evidence that the driving behavior is improving. Evaluate with exploration

@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="620" viewBox="0 0 1400 620">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+    <style>
+      .box { fill:#f8fafc; stroke:#334155; stroke-width:2; rx:16; }
+      .model { fill:#e0f2fe; stroke:#0369a1; stroke-width:2; rx:16; }
+      .policy { fill:#ede9fe; stroke:#6d28d9; stroke-width:2; rx:16; }
+      .env { fill:#dcfce7; stroke:#15803d; stroke-width:2; rx:16; }
+      .text { font-family:Arial, sans-serif; fill:#0f172a; text-anchor:middle; }
+      .title { font-size:25px; font-weight:700; }
+      .label { font-size:18px; }
+      .small { font-size:15px; fill:#475569; }
+      .arrow { stroke:#334155; stroke-width:3; fill:none; marker-end:url(#arrow); }
+      .dashed { stroke:#64748b; stroke-width:2; stroke-dasharray:8 7; fill:none; marker-end:url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1400" height="620" fill="white"/>
+  <text x="700" y="45" class="text title">Message-Aware Driving Planner</text>
+
+  <rect x="45" y="120" width="200" height="100" class="box"/>
+  <text x="145" y="160" class="text label">Observation</text>
+  <text x="145" y="190" class="text small">ego + visible cars</text>
+
+  <rect x="45" y="360" width="200" height="100" class="policy"/>
+  <text x="145" y="400" class="text label">DQNx</text>
+  <text x="145" y="430" class="text small">select request mask</text>
+
+  <rect x="320" y="360" width="220" height="100" class="box"/>
+  <text x="430" y="400" class="text label">Vehicle Messages</text>
+  <text x="430" y="430" class="text small">intent + TTC</text>
+
+  <rect x="320" y="120" width="250" height="100" class="policy"/>
+  <text x="445" y="160" class="text label">Message-Aware</text>
+  <text x="445" y="190" class="text label">Action Selector</text>
+  <text x="445" y="215" class="text small">(observation, message) → action</text>
+
+  <rect x="660" y="120" width="230" height="100" class="model"/>
+  <text x="775" y="160" class="text label">Base World Model</text>
+  <text x="775" y="190" class="text small">(observation, action)</text>
+  <text x="775" y="212" class="text small">→ next state, reward</text>
+
+  <rect x="980" y="120" width="220" height="100" class="policy"/>
+  <text x="1090" y="160" class="text label">MCP Planner</text>
+  <text x="1090" y="190" class="text small">evaluate candidate actions</text>
+  <text x="1090" y="212" class="text small">over a short horizon</text>
+
+  <rect x="1240" y="120" width="120" height="100" class="env"/>
+  <text x="1300" y="160" class="text label">Real</text>
+  <text x="1300" y="190" class="text label">Env</text>
+
+  <path d="M145 220 L145 350" class="arrow"/>
+  <text x="175" y="290" class="text small">state</text>
+
+  <path d="M245 410 L310 410" class="arrow"/>
+  <text x="275" y="395" class="text small">request</text>
+
+  <path d="M430 360 L430 230" class="arrow"/>
+  <text x="465" y="305" class="text small">messages</text>
+
+  <path d="M245 170 L310 170" class="arrow"/>
+  <path d="M540 170 L650 170" class="arrow"/>
+  <text x="600" y="150" class="text small">candidate action</text>
+
+  <path d="M890 170 L970 170" class="arrow"/>
+  <text x="930" y="150" class="text small">predicted return</text>
+
+  <path d="M1200 170 L1230 170" class="arrow"/>
+  <text x="1215" y="150" class="text small">best action</text>
+
+  <path d="M1300 230 L1300 510 L145 510 L145 470" class="arrow"/>
+  <text x="735" y="545" class="text label">next observation + driving reward</text>
+
+  <path d="M1090 220 L1090 300 L775 300 L775 230" class="dashed"/>
+  <text x="930" y="290" class="text small">re-score candidate actions</text>
+
+  <rect x="315" y="565" width="770" height="35" fill="#f1f5f9" stroke="#cbd5e1" rx="10"/>
+  <text x="700" y="588" class="text small">Messages do not directly move cars; they change which driving action the planner selects.</text>
+</svg>

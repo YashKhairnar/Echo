@@ -181,7 +181,8 @@ def main():
         args.dqnx_checkpoint,
         "online_network",
     )
-    planner = MCPPlanner(mlpx, environment.action_space.n, 5, 0.99)
+    # Match the active training configuration: plan three steps ahead.
+    planner = MCPPlanner(mlpx, environment.action_space.n, 3, 0.99)
 
     recorder = None
     if args.video:

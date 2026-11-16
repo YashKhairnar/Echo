@@ -182,3 +182,12 @@
 - The code before this change is kept in
   `archive/code_snapshot_before_simplify_2026-11-15/` (needed to load the
   older flat MLPx checkpoints).
+
+## 2026-11-15 — Docs simplified
+
+- README cut to the essentials: the idea, the three parts, current results,
+  commands, and links. The old highway experiments moved to
+  `docs/archive/earlier_experiments.md`.
+- `docs/merge_scenario.md` rewritten as: how it works now, current results, a
+  one-line-per-version history table, where things are, next steps. The
+  original step-by-step write-up is `docs/archive/merge_scenario_full_history.md`.

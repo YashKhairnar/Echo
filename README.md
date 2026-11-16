@@ -1,276 +1,61 @@
 # Echo: Cooperative Driving
 
-Communication-efficient cooperative sensing for autonomous driving, built on
-[HighwayEnv](https://github.com/Farama-Foundation/HighwayEnv). An ego vehicle
-plans with a learned world model and a request policy decides **when and whom
-to ask** for information, since each request has a communication cost.
+A self-driving car learns **when to ask other cars for information, and whom
+to ask**. Every question costs something, so it should only ask when the answer
+changes how it drives. Built on [HighwayEnv](https://github.com/Farama-Foundation/HighwayEnv).
 
-## Current experiment: cooperative merge
+## The scenario
 
-The ego's lane is blocked by a stalled car, so it must merge into a dense
-platoon. Each platoon car is secretly **yielding** (brakes to let a merging
-car in) or **aggressive** (speeds up to close the gap). Both types drive the
-same until someone merges in front of them, so the only way to know in
-advance is to ask.
+The ego's lane is blocked by a stalled car, so it has to merge into a line of
+traffic. Each car in that line is secretly **yielding** (lets you in) or
+**aggressive** (speeds up and closes the gap). They look the same until you
+try to merge, so the only way to know in advance is to ask.
 
-| Component | What it does | Code |
+## The three parts
+
+| Part | Job | Code |
 | --- | --- | --- |
-| Environment | Merge scenario with hidden driver types | `src/cooperative_driving/environments/customEnv.py`, `vehicles/customVehicles.py` |
-| Messages | Asked car replies with driver type, acceleration, target lane, TTC | `communication/getMessage.py` |
-| World model (MLPx) | Per-vehicle network: next observation, reward, crash probability, crash-within-3-steps probability | `models/MLPx/mlpx.py` |
-| Planner (MCP) | 3-step tree search in MLPx, weighted by predicted crash risk (first step uses the crash-within-3-steps risk) | `planner/MCP.py` |
-| Request policy (DQN) | Each step: ask one visible car, or nobody | `policies/DQN.py` |
+| **MLPx** (world model) | Predicts what happens next from what the car sees plus any messages, including "crash within 3 steps?" | `src/cooperative_driving/models/MLPx/mlpx.py` |
+| **Planner** | Tries out moves in MLPx and picks the best one | `src/cooperative_driving/planner/MCP.py` |
+| **Request DQN** | Each step: ask one car, or nobody | `src/cooperative_driving/policies/DQN.py` |
 
-Pipeline:
+The environment, vehicles and messages are in
+`src/cooperative_driving/environments/`, `vehicles/` and `communication/`.
+
+## Current results
+
+200 unseen episodes, cost 0.05 per question:
+
+| Policy | Total score | Crashes | Questions / episode |
+| --- | ---: | ---: | ---: |
+| ask nobody | 5.79 | 18% | 0 |
+| ask everyone | 2.03 | 0% | 152 |
+| rear-car rule (hand-written) | **8.47** | 0% | 6.7 |
+| **request DQN** | **6.77** | 2% | 13.5 |
+
+The planner uses messages well, and the DQN has learned to ask (crashes fall
+from 18% to 2%), but it still asks too often and is below the hand-written
+rule. Details: [docs/merge_scenario.md](docs/merge_scenario.md).
+
+## Run it
 
 ```bash
 # 1. Check that the hidden information matters (hand-written rules, no learning)
 .venv/bin/python -m scripts.check_information_gap --episodes 300
-# 2. Collect world-model data (random requests, merge-biased exploration)
+# 2. Collect world-model data
 .venv/bin/python -m scripts.collect_multi_request_data --episodes 10000
 # 3. Train MLPx
-.venv/bin/python -m scripts.train_mlpx_wm --data data/mergeMultiRequestData.csv --epochs 50
-# 4. Train the request DQN (MLPx + planner frozen)
+.venv/bin/python -m scripts.train_mlpx_wm --epochs 50
+# 4. Train the request DQN (MLPx and the planner stay frozen)
 .venv/bin/python -m scripts.train_DQN --episodes 3000 --communication-cost 0.05
 # 5. Compare request policies on unseen seeds
-.venv/bin/python -m scripts.evaluate_merge_policies --communication-cost 0.05
+.venv/bin/python -m scripts.evaluate_merge_policies --episodes 200 --communication-cost 0.05
 # 6. Watch it drive (--policy dqn | rear | none | all; add --video out.mp4 to save)
 .venv/bin/python -m scripts.render_DQN --episodes 3
 ```
 
-Full design, results, and diagnostics: [docs/merge_scenario.md](docs/merge_scenario.md).
-Progress: [docs/progress_log.md](docs/progress_log.md).
+## Docs
 
-## Earlier experiments (archived)
-
-Experiments 1–4 used the plain highway setup, where messages turned out to
-carry little information the ego could not already infer. Their code, data,
-and weights are in `archive/`, and their write-ups are in
-[docs/archive](docs/archive/experiments/README.md).
-
-<details>
-<summary><strong>Experiment 1 — DQN request policy (1,000 episodes)</strong></summary>
-
-The current DQN request-policy experiment uses:
-
-- `1000` training episodes
-- `1e-5` learning rate
-- `0.3` communication cost per request
-- Visible-neighbor request masking
-- Five-step MCP planning
-- MLP checkpoint: `archive/legacy_single_request/checkpoints/MLP/best.pt`
-
-The DQN learns to request information from visible neighboring vehicles or choose no request. The archived training results are stored under `archive/legacy_single_request/results/DQN/`.
-
-### Supporting MLP world model
-
-The supporting MLP world-model run trained for `50` epochs. Its best and final
-test loss was approximately `0.3922` at epoch `50`:
-
-| Test state loss | Test reward loss | Test loss |
-| ---: | ---: | ---: |
-| 0.3642 | 0.0280 | 0.3922 |
-
-The archived metrics are in `archive/legacy_single_request/results/MLP/mlp_training.csv` and the model
-checkpoint used by the request-policy pipeline is
-`archive/legacy_single_request/checkpoints/MLP/best.pt`.
-
-<a href="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_1000_policy.mp4">
-  <img src="docs/images/dqn_1000_policy.gif" width="800" alt="DQN policy video preview">
-</a>
-
-[Open the DQN policy video directly](https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_1000_policy.mp4)
-
-### Training graphs
-
-<table>
-  <tr>
-    <td><img src="docs/images/dqn_1000_rewards.png" width="480" alt="DQN reward"></td>
-    <td><img src="docs/images/dqn_1000_training.png" width="480" alt="DQN loss and exploration"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/dqn_1000_requests.png" width="480" alt="DQN request actions"></td>
-    <td><img src="docs/images/dqn_1000_communication_cost.png" width="480" alt="DQN communication cost"></td>
-  </tr>
-</table>
-
-### MLP world-model graphs
-
-<table>
-  <tr>
-    <td><img src="docs/images/mlp_exp1_losses.png" width="480" alt="Experiment 1 MLP losses"></td>
-    <td><img src="docs/images/mlp_exp1_loss_components.png" width="480" alt="Experiment 1 MLP loss components"></td>
-  </tr>
-</table>
-
-</details>
-
-<details>
-<summary><strong>Experiment 2 — DQN resumed training (1,000 → 2,000 episodes)</strong></summary>
-
-The resumed run achieved an average reward of `8.67`, compared with `6.42` for the previous 1000-episode run. Communication cost decreased as the policy requested information less often. The run is stored under:
-
-```text
-archive/legacy_single_request/results/DQN/
-```
-
-The reward improved, but the DQN loss remained unstable, so the policy should be evaluated against a no-request baseline before drawing final conclusions.
-
-### Supporting MLP world model
-
-The second archived MLP run also trained for `50` epochs. Its best test loss
-was approximately `0.4044` at epoch `42`, and its final test loss was `0.4117`:
-
-| Final test state loss | Final test reward loss | Final test loss |
-| ---: | ---: | ---: |
-| 0.3827 | 0.0290 | 0.4117 |
-
-The archived metrics are in `archive/legacy_single_request/results/MLP/mlp_training_1.csv`. The best MLP
-checkpoint should be used when reproducing the resumed DQN experiment.
-
-[Read the resumed-experiment notes](docs/archive/dqn_resume_1000_2000.md)
-
-<a href="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_resume_1000_2000_policy.mp4">
-  <img src="docs/images/dqn_resume_1000_2000_policy.gif" width="800" alt="Resumed DQN policy video preview">
-</a>
-
-[Open the resumed-policy video directly](https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_resume_1000_2000_policy.mp4)
-
-### Training graphs
-
-<table>
-  <tr>
-    <td><img src="docs/images/dqn_resume_1000_2000_rewards.png" width="480" alt="Resumed DQN reward"></td>
-    <td><img src="docs/images/dqn_resume_1000_2000_training.png" width="480" alt="Resumed DQN loss and exploration"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/dqn_resume_1000_2000_requests.png" width="480" alt="Resumed DQN request actions"></td>
-    <td><img src="docs/images/dqn_resume_1000_2000_communication_cost.png" width="480" alt="Resumed DQN communication cost"></td>
-  </tr>
-</table>
-
-### MLP world-model graphs
-
-<table>
-  <tr>
-    <td><img src="docs/images/mlp_exp2_losses.png" width="480" alt="Experiment 2 MLP losses"></td>
-    <td><img src="docs/images/mlp_exp2_loss_components.png" width="480" alt="Experiment 2 MLP loss components"></td>
-  </tr>
-</table>
-
-</details>
-
-<details>
-<summary><strong>Experiment 3 — MLPx + DQNx multi-request communication</strong></summary>
-
-This experiment extends the original request policy so the ego vehicle can
-request information from multiple visible neighboring vehicles at the same
-timestep. MLPx predicts the next observation and reward from the current
-observation, driving action, request mask, and received messages. DQNx chooses
-the request mask, while the five-step MCP planner uses MLPx to choose the
-driving action.
-
-The recorded DQNx run used:
-
-- `2,000` episodes;
-- ten request slots with visibility masking;
-- a `0.3` communication cost per requested vehicle;
-- real environment transitions for DQNx training; and
-- MLPx plus five-step MCP planning for the driving action.
-
-### MLPx results
-
-The best MLPx test losses were approximately:
-
-| Run | Epochs | Best test loss | Best epoch |
-| --- | ---: | ---: | ---: |
-| `20261112_132150_mlpx` | 100 | 0.4292 | 30 |
-| `20261112_132315_mlpx` | 200 | 0.4329 | 24 |
-
-The second run became worse after its early best epoch, suggesting overfitting
-or limited data diversity. The `best.pt` checkpoint should be used for planning.
-
-### DQNx results
-
-For the final 100 episodes of the recorded run:
-
-- mean reward: approximately `10.93`;
-- mean DQNx loss: approximately `5.02`;
-- mean requests: `0.82` per episode; and
-- mean communication cost: approximately `0.246`.
-
-The policy often selected no requests. This lowers communication cost, but it
-must be compared against no-request and random-request baselines before being
-considered successful communication learning.
-
-The archived training artifacts are stored under
-`archive/pre_ttc_multirequest/results/MLPx/experiments/` and
-`archive/pre_ttc_multirequest/results/DQNx/experiments/`.
-
-[Read the DQNx documentation](docs/archive/dqnx_request_policy.md)
-
-<a href="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqnx_current_policy.mp4">
-  <img src="docs/images/dqnx_current_policy.gif" width="800" alt="DQNx multi-request policy video preview">
-</a>
-
-[Open the current DQNx policy video](docs/images/dqnx_current_policy.mp4)
-
-### Training graphs
-
-<table>
-  <tr>
-    <td><img src="docs/images/mlpx_exp3_run1_losses.png" width="480" alt="Experiment 3 MLPx run 1 losses"></td>
-    <td><img src="docs/images/mlpx_exp3_run1_loss_components.png" width="480" alt="Experiment 3 MLPx run 1 loss components"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/mlpx_exp3_run2_losses.png" width="480" alt="Experiment 3 MLPx run 2 losses"></td>
-    <td><img src="docs/images/mlpx_exp3_run2_loss_components.png" width="480" alt="Experiment 3 MLPx run 2 loss components"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/dqnx_exp3_rewards.png" width="480" alt="Experiment 3 DQNx rewards"></td>
-    <td><img src="docs/images/dqnx_exp3_loss.png" width="480" alt="Experiment 3 DQNx loss"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/dqnx_exp3_requests.png" width="480" alt="Experiment 3 DQNx requests"></td>
-    <td><img src="docs/images/dqnx_exp3_communication_cost.png" width="480" alt="Experiment 3 DQNx communication cost"></td>
-  </tr>
-</table>
-
-</details>
-
-<details>
-<summary><strong>Experiment 4 — TTC messages with MLPx and DQNx</strong></summary>
-
-This experiment adds intent and time-to-collision information to messages
-while keeping public observations limited to kinematics. MLPx was trained on
-the TTC dataset, and DQNx learned whether to request each visible vehicle.
-
-| Policy | Driving reward | Communication cost | Total reward | Requests |
-| --- | ---: | ---: | ---: | ---: |
-| No requests | `5.54` | `0.00` | `5.54` | `0.00` |
-| All visible cars | `4.51` | `5.04` | `-0.53` | `50.40` |
-| Trained DQNx | `5.54` | `0.00` | `5.54` | `0.00` |
-
-The trained policy currently selects no requests, so this experiment reduces
-communication but does not yet demonstrate a measurable driving benefit.
-
-[Read the full Experiment 4 notes](docs/archive/experiments/experiment_4_ttc_mlpx_dqnx.md).
-
-### Training graphs
-
-<table>
-  <tr>
-    <td><img src="docs/images/mlpx_exp4_losses.png" width="480" alt="Experiment 4 MLPx losses"></td>
-    <td><img src="docs/images/mlpx_exp4_loss_components.png" width="480" alt="Experiment 4 MLPx loss components"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/dqnx_exp4_rewards.png" width="480" alt="Experiment 4 DQNx rewards"></td>
-    <td><img src="docs/images/dqnx_exp4_loss.png" width="480" alt="Experiment 4 DQNx loss"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/dqnx_exp4_requests.png" width="480" alt="Experiment 4 DQNx requests"></td>
-    <td><img src="docs/images/dqnx_exp4_communication_cost.png" width="480" alt="Experiment 4 DQNx communication cost"></td>
-  </tr>
-</table>
-
-</details>
+- [docs/merge_scenario.md](docs/merge_scenario.md): how it works, results, history, next steps
+- [docs/progress_log.md](docs/progress_log.md): dated log of what was done
+- [docs/archive/](docs/archive/): earlier highway experiments ([summary](docs/archive/earlier_experiments.md)) and the full merge history

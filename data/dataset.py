@@ -8,8 +8,6 @@ import torch
 from torch.utils.data import Dataset
 
 NUM_ACTIONS = 5
-REQUEST_SLOTS = 10
-MESSAGE_FEATURES = 4
 
 
 class MultiRequestWorldModelDataset(Dataset):

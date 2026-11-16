@@ -38,15 +38,15 @@ the baseline for resumed DQN training.
 
 <table>
   <tr>
-    <td><img src="../images/dqn_1000_rewards.png" width="480" alt="Experiment 1 DQN reward"></td>
-    <td><img src="../images/dqn_1000_training.png" width="480" alt="Experiment 1 DQN loss and exploration"></td>
+    <td><img src="../../images/dqn_1000_rewards.png" width="480" alt="Experiment 1 DQN reward"></td>
+    <td><img src="../../images/dqn_1000_training.png" width="480" alt="Experiment 1 DQN loss and exploration"></td>
   </tr>
   <tr>
-    <td><img src="../images/dqn_1000_requests.png" width="480" alt="Experiment 1 DQN requests"></td>
-    <td><img src="../images/dqn_1000_communication_cost.png" width="480" alt="Experiment 1 DQN communication cost"></td>
+    <td><img src="../../images/dqn_1000_requests.png" width="480" alt="Experiment 1 DQN requests"></td>
+    <td><img src="../../images/dqn_1000_communication_cost.png" width="480" alt="Experiment 1 DQN communication cost"></td>
   </tr>
   <tr>
-    <td><img src="../images/mlp_exp1_losses.png" width="480" alt="Experiment 1 MLP losses"></td>
-    <td><img src="../images/mlp_exp1_loss_components.png" width="480" alt="Experiment 1 MLP loss components"></td>
+    <td><img src="../../images/mlp_exp1_losses.png" width="480" alt="Experiment 1 MLP losses"></td>
+    <td><img src="../../images/mlp_exp1_loss_components.png" width="480" alt="Experiment 1 MLP loss components"></td>
   </tr>
 </table>

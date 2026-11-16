@@ -66,15 +66,15 @@ and trained-DQNx policies again before deciding whether to continue training.
 
 <table>
   <tr>
-    <td><img src="../images/mlpx_exp4_losses.png" width="480" alt="Experiment 4 MLPx losses"></td>
-    <td><img src="../images/mlpx_exp4_loss_components.png" width="480" alt="Experiment 4 MLPx loss components"></td>
+    <td><img src="../../images/mlpx_exp4_losses.png" width="480" alt="Experiment 4 MLPx losses"></td>
+    <td><img src="../../images/mlpx_exp4_loss_components.png" width="480" alt="Experiment 4 MLPx loss components"></td>
   </tr>
   <tr>
-    <td><img src="../images/dqnx_exp4_rewards.png" width="480" alt="Experiment 4 DQNx rewards"></td>
-    <td><img src="../images/dqnx_exp4_loss.png" width="480" alt="Experiment 4 DQNx loss"></td>
+    <td><img src="../../images/dqnx_exp4_rewards.png" width="480" alt="Experiment 4 DQNx rewards"></td>
+    <td><img src="../../images/dqnx_exp4_loss.png" width="480" alt="Experiment 4 DQNx loss"></td>
   </tr>
   <tr>
-    <td><img src="../images/dqnx_exp4_requests.png" width="480" alt="Experiment 4 DQNx requests"></td>
-    <td><img src="../images/dqnx_exp4_communication_cost.png" width="480" alt="Experiment 4 DQNx communication cost"></td>
+    <td><img src="../../images/dqnx_exp4_requests.png" width="480" alt="Experiment 4 DQNx requests"></td>
+    <td><img src="../../images/dqnx_exp4_communication_cost.png" width="480" alt="Experiment 4 DQNx communication cost"></td>
   </tr>
 </table>

@@ -1,93 +1,73 @@
 import torch
 import torch.nn as nn
 
-
-class DQNPolicy(nn.Module):
-    def __init__(self, observation_size=90, action_size=11):
-        super().__init__()
-        self.q_network = nn.Sequential(
-            nn.Linear(observation_size, 256),
-            nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.ReLU(),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Linear(128, action_size), # 10 vehicles + None
-        )
-
-    def forward(self, observation):
-        # Flatten the 10x9 kinematics observation before estimating Q-values.
-        observation = torch.as_tensor(observation, dtype=torch.float32)
-        if observation.ndim <= 2:
-            # A single observation can be shaped (10, 9) or already be flat.
-            observation = observation.reshape(1, -1)
-        else:
-            # A batch of observations is shaped (batch_size, 10, 9).
-            observation = observation.reshape(observation.size(0), -1)
-        return self.q_network(observation)
-
-    # which visible vehicle to request information from
-    def act(self, observation, valid_actions=None):
-        # Mask cars that are not visible so the policy cannot request them.
-        with torch.no_grad():
-            q_values = self(observation)
-
-        if valid_actions is not None:
-            masked_q_values = torch.full_like(q_values, float("-inf"))
-            masked_q_values[:, valid_actions] = q_values[:, valid_actions]
-            q_values = masked_q_values
-
-        return int(q_values.argmax(dim=1).item())
+from ..communication.request_utils import MAX_REQUEST_SLOTS, NO_REQUEST_ACTION
 
 
-class MultiRequestDQNPolicy(nn.Module):
-    """DQN policy with an independent request/no-request decision per slot.
+class RequestDQNPolicy(nn.Module):
+    """Q-network for the request policy: ask one visible car, or nobody.
 
-    The output has shape ``(batch, 10, 2)``. For each visible-neighbor slot,
-    index 0 means do not request and index 1 means request. Invalid slots are
-    forced to the no-request choice by ``act``.
+    Actions ``0..9`` ask the car in that observation slot, and action
+    ``NO_REQUEST_ACTION`` (10) asks nobody, so at most one request is sent
+    per step.
+
+    The network is per-vehicle, like MLPx: the same small network scores
+    every neighbour from ``[its kinematics, ego kinematics, scene summary]``.
+    "Ask the car behind me in the target lane" is then one rule that works in
+    any slot, instead of something a flat network must learn separately for
+    each of the ten slots.
     """
 
-    MAX_REQUEST_SLOTS = 10
+    ROW_FEATURES = 6         # presence, x, y, vx, vy, vehicle_id
+    KINEMATIC_FEATURES = 5   # vehicle_id is an arbitrary label, so not used
+    NEIGHBOUR_ROWS = 9
+    ACTION_COUNT = MAX_REQUEST_SLOTS + 1
+    HIDDEN = 64
 
-    def __init__(self, observation_size=90):
+    def __init__(self):
         super().__init__()
-        self.q_network = nn.Sequential(
-            nn.Linear(observation_size, 256),
-            nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.ReLU(),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Linear(128, self.MAX_REQUEST_SLOTS * 2),
+        k = self.KINEMATIC_FEATURES
+        self.vehicle_encoder = nn.Sequential(
+            nn.Linear(2 * k, 128), nn.ReLU(), nn.Linear(128, self.HIDDEN), nn.ReLU()
+        )
+        self.scene = nn.Sequential(
+            nn.Linear(k + 2 * self.HIDDEN, 128), nn.ReLU(), nn.Linear(128, self.HIDDEN), nn.ReLU()
+        )
+        self.ask_head = nn.Sequential(
+            nn.Linear(2 * self.HIDDEN, 64), nn.ReLU(), nn.Linear(64, 1)
+        )
+        self.no_request_head = nn.Sequential(
+            nn.Linear(self.HIDDEN, 64), nn.ReLU(), nn.Linear(64, 1)
         )
 
     def forward(self, observation):
-        # Each visible slot gets two Q-values: no-request and request.
-        observation = torch.as_tensor(observation, dtype=torch.float32)
-        if observation.ndim <= 2:
-            observation = observation.reshape(1, -1)
-        else:
-            observation = observation.reshape(observation.size(0), -1)
-        return self.q_network(observation).reshape(
-            observation.shape[0],
-            self.MAX_REQUEST_SLOTS,
-            2,
+        """Return Q-values of shape (batch, 11). Slots with no car get -1e9."""
+        rows = torch.as_tensor(observation, dtype=torch.float32).reshape(
+            -1, 10, self.ROW_FEATURES
+        )[:, :, : self.KINEMATIC_FEATURES]
+        batch = rows.shape[0]
+        ego = rows[:, 0]
+        neighbours = rows[:, 1 : self.NEIGHBOUR_ROWS + 1]
+        presence = neighbours[:, :, 0]
+
+        ego_per_car = ego.unsqueeze(1).expand(-1, self.NEIGHBOUR_ROWS, -1)
+        embeddings = self.vehicle_encoder(torch.cat((neighbours, ego_per_car), dim=-1))
+        embeddings = embeddings * presence.unsqueeze(-1)
+        scene = self.scene(
+            torch.cat((ego, embeddings.sum(dim=1), embeddings.max(dim=1).values), dim=-1)
         )
 
-    def act(self, observation, visible_slots):
-        """Return the visible slots whose request Q-value beats no-request."""
-        # Return local slots; the caller maps them to actual vehicle IDs.
-        with torch.no_grad():
-            q_values = self(observation)[0]
+        scene_per_car = scene.unsqueeze(1).expand(-1, self.NEIGHBOUR_ROWS, -1)
+        ask_q = self.ask_head(torch.cat((embeddings, scene_per_car), dim=-1)).squeeze(-1)
+        ask_q = ask_q.masked_fill(presence <= 0, -1e9)
 
-        requested_slots = []
-        for slot in visible_slots:
-            if q_values[slot, 1] > q_values[slot, 0]:
-                requested_slots.append(int(slot))
-        return requested_slots
+        q_values = torch.full((batch, self.ACTION_COUNT), -1e9, device=rows.device)
+        q_values[:, : self.NEIGHBOUR_ROWS] = ask_q
+        q_values[:, NO_REQUEST_ACTION] = self.no_request_head(scene).squeeze(-1)
+        return q_values
 
-
-# Keep the old name working for existing imports.
-DQNpolicy = DQNPolicy
-
+    @torch.no_grad()
+    def act(self, observation, valid_actions):
+        """Greedy action among ``valid_actions``."""
+        q_values = self(observation)[0]
+        return max(valid_actions, key=lambda action: float(q_values[action]))

@@ -1,24 +1,52 @@
-# Echo: Co-operative Driving
+# Echo: Cooperative Driving
 
-This project explores cooperative driving with HighwayEnv, where multiple vehicles interact on a highway. Vehicles share their kinematics, current actions, and driving intent. MLP and MLPx world models predict future traffic states and rewards, an MCP planner selects driving actions, and DQN/DQNx policies learn when to request information from visible neighboring vehicles while accounting for communication cost.
+Communication-efficient cooperative sensing for autonomous driving, built on
+[HighwayEnv](https://github.com/Farama-Foundation/HighwayEnv). An ego vehicle
+plans with a learned world model and a request policy decides **when and whom
+to ask** for information, since each request has a communication cost.
 
-## Progress
+## Current experiment: cooperative merge
 
-See the [project progress log](docs/progress_log.md).
+The ego's lane is blocked by a stalled car, so it must merge into a dense
+platoon. Each platoon car is secretly **yielding** (brakes to let a merging
+car in) or **aggressive** (speeds up to close the gap). Both types drive the
+same until someone merges in front of them, so the only way to know in
+advance is to ask.
 
-## Documentation
+| Component | What it does | Code |
+| --- | --- | --- |
+| Environment | Merge scenario with hidden driver types | `src/cooperative_driving/environments/customEnv.py`, `vehicles/customVehicles.py` |
+| Messages | Asked car replies with driver type, acceleration, target lane, TTC | `communication/getMessage.py` |
+| World model (MLPx) | Per-vehicle network: next observation, reward, crash probability, crash-within-3-steps probability | `models/MLPx/mlpx.py` |
+| Planner (MCP) | 3-step tree search in MLPx, weighted by predicted crash risk (first step uses the crash-within-3-steps risk) | `planner/MCP.py` |
+| Request policy (DQN) | Each step: ask one visible car, or nobody | `policies/DQN.py` |
 
-- [Cooperative merge scenario (current)](docs/merge_scenario.md)
-- [Data collection configuration](docs/data_collection_phase1_config.md)
-- [MLP world model](docs/mlp_world_model.md)
-- [DQN request policy](docs/dqn_request_policy.md)
-- [DQNx multi-request policy](docs/dqnx_request_policy.md)
-- [MCP planner and evaluation](docs/planning_and_evaluation.md)
-- [MLPx rollout evaluation](docs/mlpx_rollout_evaluation.md)
-- [Experiment tracking](docs/experiment_tracking.md)
-- [Completed experiment index](docs/experiments/README.md)
+Pipeline:
 
-## DQN Experiments
+```bash
+# 1. Check that the hidden information matters (hand-written rules, no learning)
+.venv/bin/python -m scripts.check_information_gap --episodes 300
+# 2. Collect world-model data (random requests, merge-biased exploration)
+.venv/bin/python -m scripts.collect_multi_request_data --episodes 10000
+# 3. Train MLPx
+.venv/bin/python -m scripts.train_mlpx_wm --data data/mergeMultiRequestData.csv --epochs 50
+# 4. Train the request DQN (MLPx + planner frozen)
+.venv/bin/python -m scripts.train_DQN --episodes 3000 --communication-cost 0.05
+# 5. Compare request policies on unseen seeds
+.venv/bin/python -m scripts.evaluate_merge_policies --communication-cost 0.05
+# 6. Watch it drive (--policy dqn | rear | none | all; add --video out.mp4 to save)
+.venv/bin/python -m scripts.render_DQN --episodes 3
+```
+
+Full design, results, and diagnostics: [docs/merge_scenario.md](docs/merge_scenario.md).
+Progress: [docs/progress_log.md](docs/progress_log.md).
+
+## Earlier experiments (archived)
+
+Experiments 1–4 used the plain highway setup, where messages turned out to
+carry little information the ego could not already infer. Their code, data,
+and weights are in `archive/`, and their write-ups are in
+[docs/archive](docs/archive/experiments/README.md).
 
 <details>
 <summary><strong>Experiment 1 — DQN request policy (1,000 episodes)</strong></summary>
@@ -100,7 +128,7 @@ was approximately `0.4044` at epoch `42`, and its final test loss was `0.4117`:
 The archived metrics are in `archive/legacy_single_request/results/MLP/mlp_training_1.csv`. The best MLP
 checkpoint should be used when reproducing the resumed DQN experiment.
 
-[Read the resumed-experiment notes](docs/dqn_resume_1000_2000.md)
+[Read the resumed-experiment notes](docs/archive/dqn_resume_1000_2000.md)
 
 <a href="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_resume_1000_2000_policy.mp4">
   <img src="docs/images/dqn_resume_1000_2000_policy.gif" width="800" alt="Resumed DQN policy video preview">
@@ -150,9 +178,6 @@ The recorded DQNx run used:
 - real environment transitions for DQNx training; and
 - MLPx plus five-step MCP planning for the driving action.
 
-The current training script uses a `0.1` communication cost, so this value
-must be checked when comparing new runs with the recorded experiment.
-
 ### MLPx results
 
 The best MLPx test losses were approximately:
@@ -180,10 +205,9 @@ considered successful communication learning.
 
 The archived training artifacts are stored under
 `archive/pre_ttc_multirequest/results/MLPx/experiments/` and
-`archive/pre_ttc_multirequest/results/DQNx/experiments/`, with new active
-checkpoints in `checkpoints/MLPx/` and `checkpoints/DQNx/`.
+`archive/pre_ttc_multirequest/results/DQNx/experiments/`.
 
-[Read the DQNx documentation](docs/dqnx_request_policy.md)
+[Read the DQNx documentation](docs/archive/dqnx_request_policy.md)
 
 <a href="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqnx_current_policy.mp4">
   <img src="docs/images/dqnx_current_policy.gif" width="800" alt="DQNx multi-request policy video preview">
@@ -230,7 +254,7 @@ the TTC dataset, and DQNx learned whether to request each visible vehicle.
 The trained policy currently selects no requests, so this experiment reduces
 communication but does not yet demonstrate a measurable driving benefit.
 
-[Read the full Experiment 4 notes](docs/experiments/experiment_4_ttc_mlpx_dqnx.md).
+[Read the full Experiment 4 notes](docs/archive/experiments/experiment_4_ttc_mlpx_dqnx.md).
 
 ### Training graphs
 

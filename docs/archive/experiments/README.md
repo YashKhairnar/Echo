@@ -23,5 +23,5 @@ current TTC-based message setup.
 
 Each linked experiment folder contains the available configuration, notes,
 training metrics, graphs, and checkpoints for that run. The top-level
-[README](../../README.md) contains the user-facing summaries and visual
+[README](../../../README.md) contains the user-facing summaries and visual
 previews.

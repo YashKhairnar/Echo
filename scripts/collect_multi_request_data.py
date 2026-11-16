@@ -4,18 +4,16 @@ import json
 import os
 import random
 
-from src.cooperative_driving.communication.getMessage import encode_message
-from src.cooperative_driving.communication.request_utils import visible_neighbor_ids
-from scripts.exploration import make_exploration
-from src.cooperative_driving.environments.customEnv import ENVIRONMENTS, make_environment
+from scripts.exploration import MergeExploration
+from src.cooperative_driving.communication.request_utils import (
+    message_bundle,
+    visible_neighbor_ids,
+)
+from src.cooperative_driving.environments.customEnv import make_environment
 
 
 COMMUNICATION_COST = 0.05
-DEFAULT_OUTPUTS = {
-    "merge": "data/mergeMultiRequestData.csv",
-    "highway": "data/randomMultiRequestData_ttc.csv",
-}
-MAX_REQUEST_SLOTS = 10
+OUTPUT_PATH = "data/mergeMultiRequestData.csv"
 
 HEADERS = [
     "episode_id",
@@ -52,61 +50,33 @@ def next_episode_id(filepath):
     return max(episode_ids, default=-1) + 1
 
 
-def vehicle_by_id(environment, vehicle_id):
-    return next(
-        (
-            vehicle
-            for vehicle in environment.road.vehicles
-            if vehicle.vehicle_id == vehicle_id
-        ),
-        None,
-    )
-
-
 def choose_request_set(environment, observation):
-    """Randomly request zero, one, or several visible neighboring cars."""
-    # Independently sample visible cars so one transition can contain many.
-    visible_ids = visible_neighbor_ids(observation)
-    requested_slots = [
-        slot
-        for slot in range(len(visible_ids))
-        if random.random() < 0.5
-    ]
+    """Randomly request zero, one, or several visible neighbouring cars.
 
-    request_mask = [0] * MAX_REQUEST_SLOTS
-    messages = [[0.0] * 4 for _ in range(MAX_REQUEST_SLOTS)]
-
-    for slot in requested_slots:
-        request_mask[slot] = 1
-        vehicle = vehicle_by_id(environment, visible_ids[slot])
-        if vehicle is not None:
-            messages[slot] = encode_message(vehicle)
-
-    message_data = {
-        "request_mask": request_mask,
-        "messages": messages,
-    }
-    return requested_slots, message_data
+    Each visible car is asked independently with probability 0.5, so the
+    world model sees the same kinds of situations with and without each
+    car's message.
+    """
+    visible_count = len(visible_neighbor_ids(observation))
+    requested_slots = [slot for slot in range(visible_count) if random.random() < 0.5]
+    return requested_slots, message_bundle(environment, observation, requested_slots)
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--episodes", type=int, default=1000)
-    parser.add_argument("--env", choices=sorted(ENVIRONMENTS), default="merge")
-    parser.add_argument("--output", default=None)
+    parser.add_argument("--output", default=OUTPUT_PATH)
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
     random.seed(args.seed)
-    output_path = args.output or DEFAULT_OUTPUTS[args.env]
+    output_path = args.output
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     first_episode_id = next_episode_id(output_path)
     file_has_data = os.path.exists(output_path) and os.path.getsize(output_path) > 0
 
-    environment = make_environment(args.env, render_mode="rgb_array")
-    explorer = make_exploration(
-        args.env, environment.action_space.n, random.Random(args.seed)
-    )
+    environment = make_environment(render_mode="rgb_array")
+    explorer = MergeExploration(environment.action_space.n, rng=random.Random(args.seed))
     with open(output_path, "a", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=HEADERS)
         if not file_has_data:

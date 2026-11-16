@@ -1,78 +1,58 @@
-import torch
-
-
 class MCPPlanner:
-    """Simple model-predictive planner using a trained world model.
+    """Chooses the driving action by imagining the future with MLPx.
 
-    The planner evaluates candidate action sequences with the MLP and returns
-    only the first action. The real environment must execute that action.
-    Predicted transitions are not used for DQN training.
+    It tries every sequence of ``planning_horizon`` actions (5 x 5 x 5 for 3
+    steps) in the world model and returns the first action of the best one.
+
+    Value of one imagined step:
+
+        p_crash * crash_reward + (1 - p_crash) * (reward + discount * best future)
+
+    For the first step, p_crash is MLPx's "crash within the next 3 steps"
+    probability: it is computed from the real observation and real messages,
+    so it catches a merge that only goes wrong two steps later. Deeper steps
+    use the one-step crash probability.
     """
 
-    def __init__(
-        self,
-        world_model,
-        action_size=5,
-        planning_horizon=3,
-        discount_factor=0.99,
-    ):
+    def __init__(self, world_model, action_size=5, planning_horizon=3,
+                 discount_factor=0.99, crash_reward=-2.0):
         self.world_model = world_model
         self.action_size = action_size
         self.planning_horizon = planning_horizon
         self.discount_factor = discount_factor
+        self.crash_reward = crash_reward
 
-    @torch.no_grad()
     def plan(self, observation, message=None):
-        """Return the first action from the best predicted action sequence."""
-        observation = torch.as_tensor(observation, dtype=torch.float32).reshape(-1)
-        best_action = 0
-        best_return = float("-inf")
+        """Return the best driving action."""
+        values = self.action_values(observation, message)
+        return max(range(self.action_size), key=values.__getitem__)
 
-        # Evaluate candidate driving actions in the learned world model. Only
-        # the first action of the best predicted sequence is executed in the
-        # real environment; later actions are planning-only.
-        for action in range(self.action_size):
-            predicted_observation, predicted_reward = (
-                self.world_model.predict_step(observation, action, message)
+    def action_values(self, observation, message=None):
+        """Imagined value of each first action."""
+        return [self._value(observation, action, message, depth=0) for action in range(self.action_size)]
+
+    def _value(self, observation, action, message, depth):
+        next_observation, reward, crash, crash_soon = self.world_model.predict_step(
+            observation, action, message
+        )
+        if depth == 0:
+            crash = crash_soon
+        future = 0.0
+        if depth + 1 < self.planning_horizon:
+            future = max(
+                self._value(next_observation, next_action, message, depth + 1)
+                for next_action in range(self.action_size)
             )
-            predicted_return = float(predicted_reward.item())
+        return crash * self.crash_reward + (1.0 - crash) * (reward + self.discount_factor * future)
 
-            if self.planning_horizon > 1:
-                predicted_return = self._rollout(
-                    predicted_observation,
-                    message,
-                    predicted_return,
-                    depth=1,
-                )
 
-            if predicted_return > best_return:
-                best_return = predicted_return
-                best_action = action
+def build_planner(mlpx_checkpoint, environment, planning_horizon=3):
+    """Load MLPx and wrap it in the planner used by every script."""
+    from ..models.MLPx.mlpx import MLPxWorldModel
 
-        return best_action
-
-    @torch.no_grad()
-    def _rollout(self, observation, message, total_return, depth):
-        if depth >= self.planning_horizon:
-            return total_return
-
-        best_future_return = float("-inf")
-        for action in range(self.action_size):
-            next_observation, reward = self.world_model.predict_step(
-                observation,
-                action,
-                message,
-            )
-            future_return = total_return + (
-                self.discount_factor ** depth
-            ) * float(reward.item())
-            
-            future_return = self._rollout(
-                next_observation,
-                message,
-                future_return,
-                depth + 1,
-            )
-            best_future_return = max(best_future_return, future_return)
-
-        return best_future_return
+    return MCPPlanner(
+        MLPxWorldModel.load(mlpx_checkpoint),
+        action_size=environment.action_space.n,
+        planning_horizon=planning_horizon,
+        crash_reward=environment.config["collision_reward"],
+    )

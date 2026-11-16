@@ -242,7 +242,7 @@ def main():
     parser.add_argument("--output-dir", default="results/information_gap")
     args = parser.parse_args()
 
-    environment = make_environment("merge")
+    environment = make_environment()
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 

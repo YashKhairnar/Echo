@@ -40,15 +40,15 @@ baseline was identified as necessary.
 
 <table>
   <tr>
-    <td><img src="../images/dqn_resume_1000_2000_rewards.png" width="480" alt="Experiment 2 DQN reward"></td>
-    <td><img src="../images/dqn_resume_1000_2000_training.png" width="480" alt="Experiment 2 DQN loss and exploration"></td>
+    <td><img src="../../images/dqn_resume_1000_2000_rewards.png" width="480" alt="Experiment 2 DQN reward"></td>
+    <td><img src="../../images/dqn_resume_1000_2000_training.png" width="480" alt="Experiment 2 DQN loss and exploration"></td>
   </tr>
   <tr>
-    <td><img src="../images/dqn_resume_1000_2000_requests.png" width="480" alt="Experiment 2 DQN requests"></td>
-    <td><img src="../images/dqn_resume_1000_2000_communication_cost.png" width="480" alt="Experiment 2 DQN communication cost"></td>
+    <td><img src="../../images/dqn_resume_1000_2000_requests.png" width="480" alt="Experiment 2 DQN requests"></td>
+    <td><img src="../../images/dqn_resume_1000_2000_communication_cost.png" width="480" alt="Experiment 2 DQN communication cost"></td>
   </tr>
   <tr>
-    <td><img src="../images/mlp_exp2_losses.png" width="480" alt="Experiment 2 MLP losses"></td>
-    <td><img src="../images/mlp_exp2_loss_components.png" width="480" alt="Experiment 2 MLP loss components"></td>
+    <td><img src="../../images/mlp_exp2_losses.png" width="480" alt="Experiment 2 MLP losses"></td>
+    <td><img src="../../images/mlp_exp2_loss_components.png" width="480" alt="Experiment 2 MLP loss components"></td>
   </tr>
 </table>

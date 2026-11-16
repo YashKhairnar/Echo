@@ -7,3 +7,4 @@ checkpoints/
 *.pt
 *.mp4
 !docs/images/*.mp4
+project_description.txt

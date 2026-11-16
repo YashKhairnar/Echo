@@ -1,3 +1,3 @@
-from .MCP import MCPPlanner
+from .MCP import MCPPlanner, build_planner
 
-__all__ = ["MCPPlanner"]
+__all__ = ["MCPPlanner", "build_planner"]

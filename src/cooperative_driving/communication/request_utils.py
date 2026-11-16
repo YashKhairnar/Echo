@@ -1,51 +1,70 @@
+"""Mapping between observation slots, vehicles, and request messages.
+
+The ego observation has one row for the ego and up to nine neighbour rows.
+Visible neighbours fill the rows in order, and *slot k* means the k-th visible
+neighbour (observation row k + 1). Requests and messages are addressed by
+slot; ``vehicle_by_id`` turns a slot back into the simulator car.
+"""
+
 import numpy as np
 
+from .getMessage import encode_message
 
-NO_REQUEST_ACTION = 10
-MAX_NEIGHBOR_SLOTS = 10
-OBSERVATION_FEATURE_COUNT = 6
+MAX_REQUEST_SLOTS = 10
+MESSAGE_FEATURES = 4
+NO_REQUEST_ACTION = MAX_REQUEST_SLOTS  # request-policy action meaning "ask nobody"
+OBSERVATION_FEATURE_COUNT = 6          # presence, x, y, vx, vy, vehicle_id
 
 
 def visible_neighbor_ids(observation):
-    """Return visible vehicle IDs, excluding the ego row."""
-    # Row 0 is ego. Other rows are valid only when presence and ID are set.
-    observation = np.asarray(observation, dtype=np.float32).reshape(
-        -1,
-        OBSERVATION_FEATURE_COUNT,
+    """Return the vehicle IDs of visible neighbours, in slot order."""
+    rows = np.asarray(observation, dtype=np.float32).reshape(
+        -1, OBSERVATION_FEATURE_COUNT
     )
-
-    visible_ids = []
-    for row in observation[1:]:
-        if row[0] > 0 and row[5] >= 0:
-            visible_ids.append(int(round(row[5])))
-
-    return visible_ids[:MAX_NEIGHBOR_SLOTS]
+    visible_ids = [
+        int(round(row[5]))
+        for row in rows[1:]
+        if row[0] > 0 and row[5] >= 0
+    ]
+    return visible_ids[:MAX_REQUEST_SLOTS]
 
 
 def valid_request_actions(observation):
-    """Return visible-neighbor slots plus the no-request action."""
-    # Request actions use local observation slots, not permanent vehicle IDs.
-    return list(range(len(visible_neighbor_ids(observation)))) + [
-        NO_REQUEST_ACTION
-    ]
+    """Request-policy actions allowed now: each visible slot, or ask nobody."""
+    return list(range(len(visible_neighbor_ids(observation)))) + [NO_REQUEST_ACTION]
 
 
-def requested_vehicle(environment, observation, request_action):
-    """Map a visible-neighbor slot to its current vehicle object."""
-    # Convert the local slot back to the actual car object before messaging.
-    if request_action == NO_REQUEST_ACTION:
-        return None
-
-    visible_ids = visible_neighbor_ids(observation)
-    if not 0 <= request_action < len(visible_ids):
-        return None
-
-    requested_id = visible_ids[request_action]
+def vehicle_by_id(environment, vehicle_id):
     return next(
-        (
-            vehicle
-            for vehicle in environment.road.vehicles
-            if vehicle.vehicle_id == requested_id
-        ),
+        (vehicle for vehicle in environment.road.vehicles
+         if vehicle.vehicle_id == vehicle_id),
         None,
     )
+
+
+def slot_of_vehicle(observation, vehicle):
+    """Slot of ``vehicle`` in this observation, or None if it is not visible."""
+    if vehicle is None:
+        return None
+    visible_ids = visible_neighbor_ids(observation)
+    return visible_ids.index(vehicle.vehicle_id) if vehicle.vehicle_id in visible_ids else None
+
+
+def message_bundle(environment, observation, slots):
+    """Ask the cars in ``slots`` and return the MLPx message input.
+
+    Returns ``{"request_mask": [10], "messages": [10 x 4]}``; slots that were
+    not asked (or are not visible) stay zero.
+    """
+    visible_ids = visible_neighbor_ids(observation)
+    request_mask = [0] * MAX_REQUEST_SLOTS
+    messages = [[0.0] * MESSAGE_FEATURES for _ in range(MAX_REQUEST_SLOTS)]
+    for slot in slots:
+        if not 0 <= slot < len(visible_ids):
+            continue
+        vehicle = vehicle_by_id(environment, visible_ids[slot])
+        if vehicle is None:
+            continue
+        request_mask[slot] = 1
+        messages[slot] = encode_message(vehicle)
+    return {"request_mask": request_mask, "messages": messages}

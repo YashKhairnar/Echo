@@ -61,19 +61,19 @@ TTC-based message design, which is tracked as a separate experiment.
 
 <table>
   <tr>
-    <td><img src="../images/mlpx_exp3_run1_losses.png" width="480" alt="Experiment 3 MLPx run 1 losses"></td>
-    <td><img src="../images/mlpx_exp3_run1_loss_components.png" width="480" alt="Experiment 3 MLPx run 1 loss components"></td>
+    <td><img src="../../images/mlpx_exp3_run1_losses.png" width="480" alt="Experiment 3 MLPx run 1 losses"></td>
+    <td><img src="../../images/mlpx_exp3_run1_loss_components.png" width="480" alt="Experiment 3 MLPx run 1 loss components"></td>
   </tr>
   <tr>
-    <td><img src="../images/mlpx_exp3_run2_losses.png" width="480" alt="Experiment 3 MLPx run 2 losses"></td>
-    <td><img src="../images/mlpx_exp3_run2_loss_components.png" width="480" alt="Experiment 3 MLPx run 2 loss components"></td>
+    <td><img src="../../images/mlpx_exp3_run2_losses.png" width="480" alt="Experiment 3 MLPx run 2 losses"></td>
+    <td><img src="../../images/mlpx_exp3_run2_loss_components.png" width="480" alt="Experiment 3 MLPx run 2 loss components"></td>
   </tr>
   <tr>
-    <td><img src="../images/dqnx_exp3_rewards.png" width="480" alt="Experiment 3 DQNx rewards"></td>
-    <td><img src="../images/dqnx_exp3_loss.png" width="480" alt="Experiment 3 DQNx loss"></td>
+    <td><img src="../../images/dqnx_exp3_rewards.png" width="480" alt="Experiment 3 DQNx rewards"></td>
+    <td><img src="../../images/dqnx_exp3_loss.png" width="480" alt="Experiment 3 DQNx loss"></td>
   </tr>
   <tr>
-    <td><img src="../images/dqnx_exp3_requests.png" width="480" alt="Experiment 3 DQNx requests"></td>
-    <td><img src="../images/dqnx_exp3_communication_cost.png" width="480" alt="Experiment 3 DQNx communication cost"></td>
+    <td><img src="../../images/dqnx_exp3_requests.png" width="480" alt="Experiment 3 DQNx requests"></td>
+    <td><img src="../../images/dqnx_exp3_communication_cost.png" width="480" alt="Experiment 3 DQNx communication cost"></td>
   </tr>
 </table>

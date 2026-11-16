@@ -1,3 +1,11 @@
+"""Train MLPx, the world model.
+
+    .venv/bin/python -m scripts.train_mlpx_wm --epochs 50
+
+Saves the best model (lowest test loss) to checkpoints/MLPx/best.pt and the
+run's log and plots to results/MLPx/experiments/<time>_mlpx/.
+"""
+
 import argparse
 import csv
 from pathlib import Path
@@ -6,199 +14,136 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import torch
-from torch import nn
+from sklearn.metrics import roc_auc_score
+from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
 
 from data.dataset import MultiRequestWorldModelDataset
-from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
 from scripts.experiment_utils import create_run_dir, save_run_metadata
+from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
+
+RESULTS_ROOT = Path("results/MLPx/experiments")
+CHECKPOINT_DIR = Path("checkpoints/MLPx")
+LOG_FIELDS = ["epoch", "train_loss", "test_loss", "state_loss", "reward_loss",
+              "crash_loss", "crash_soon_loss", "crash_auc", "crash_soon_auc"]
 
 
-MLPX_RESULTS_ROOT = Path("results/MLPx/experiments")
+def compute_losses(model, batch):
+    """Return the four losses and the two crash logits for one batch.
+
+    Next state and reward are only learned on steps without a crash: after a
+    crash there is no meaningful next state, and the crash heads handle it.
+    """
+    inputs, next_states, rewards, crashes, crash_soon = batch
+    predicted_states, predicted_rewards, crash_logits, crash_soon_logits = model(inputs)
+    survived = crashes.squeeze(-1) < 0.5
+    losses = {
+        "state_loss": F.mse_loss(predicted_states[survived], next_states[survived]),
+        "reward_loss": F.mse_loss(predicted_rewards[survived], rewards[survived]),
+        "crash_loss": F.binary_cross_entropy_with_logits(crash_logits, crashes),
+        "crash_soon_loss": F.binary_cross_entropy_with_logits(crash_soon_logits, crash_soon),
+    }
+    return losses, crash_logits, crash_soon_logits
 
 
-def evaluate(model, loader, state_loss_fn, reward_loss_fn):
+@torch.no_grad()
+def evaluate(model, loader):
+    """Average test losses, plus AUC of both crash heads
+    (0.5 = guessing, 1.0 = every crash scored above every safe step)."""
     model.eval()
-    total_loss = total_state_loss = total_reward_loss = 0.0
-    batches = 0
-    with torch.no_grad():
-        for inputs, next_states, rewards in loader:
-            predicted_states, predicted_rewards = model(inputs)
-            state_loss = state_loss_fn(predicted_states, next_states)
-            reward_loss = reward_loss_fn(predicted_rewards, rewards)
-            total_loss += (state_loss + reward_loss).item()
-            total_state_loss += state_loss.item()
-            total_reward_loss += reward_loss.item()
-            batches += 1
-    batches = max(batches, 1)
-    return total_loss / batches, total_state_loss / batches, total_reward_loss / batches
+    sums, batches = {}, 0
+    crash_scores, crash_soon_scores, crash_labels, crash_soon_labels = [], [], [], []
+    for batch in loader:
+        losses, crash_logits, crash_soon_logits = compute_losses(model, batch)
+        for name, value in losses.items():
+            sums[name] = sums.get(name, 0.0) + value.item()
+        batches += 1
+        crash_scores += crash_logits.squeeze(-1).tolist()
+        crash_soon_scores += crash_soon_logits.squeeze(-1).tolist()
+        crash_labels += batch[3].squeeze(-1).tolist()
+        crash_soon_labels += batch[4].squeeze(-1).tolist()
+    metrics = {name: value / batches for name, value in sums.items()}
+    metrics["test_loss"] = sum(metrics.values())
+    metrics["crash_auc"] = roc_auc_score(crash_labels, crash_scores)
+    metrics["crash_soon_auc"] = roc_auc_score(crash_soon_labels, crash_soon_scores)
+    return metrics
 
 
-def save_plots(log_path):
-    rows = list(csv.DictReader(log_path.open(newline="")))
-    if not rows:
-        return
+def save_plot(log_path):
+    rows = list(csv.DictReader(log_path.open()))
     epochs = [int(row["epoch"]) for row in rows]
-    train = [float(row["train_loss"]) for row in rows]
-    test = [float(row["test_loss"]) for row in rows]
-    state = [float(row["test_state_loss"]) for row in rows]
-    reward = [float(row["test_reward_loss"]) for row in rows]
-
     plt.figure(figsize=(10, 6))
-    plt.plot(epochs, train, label="Train loss")
-    plt.plot(epochs, test, label="Test loss")
+    for column in ["train_loss", "test_loss", "state_loss", "reward_loss", "crash_loss", "crash_soon_loss"]:
+        plt.plot(epochs, [float(row[column]) for row in rows], label=column)
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
-    plt.title("MLPx World Model Loss")
+    plt.title("MLPx training")
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(log_path.with_name("mlpx_training_losses.png"), dpi=300)
-    plt.close()
-
-    plt.figure(figsize=(10, 6))
-    plt.plot(epochs, state, label="Next-state loss")
-    plt.plot(epochs, reward, label="Reward loss")
-    plt.xlabel("Epoch")
-    plt.ylabel("Test loss")
-    plt.title("MLPx Test Loss Components")
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(log_path.with_name("mlpx_training_loss_components.png"), dpi=300)
+    plt.savefig(log_path.with_name("mlpx_training_losses.png"), dpi=150)
     plt.close()
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data", default="data/randomMultiRequestData_ttc.csv")
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--data", default="data/mergeMultiRequestData.csv")
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--experiment-dir", default=None)
-    parser.add_argument("--resume", default=None)
+    parser.add_argument("--crash-horizon", type=int, default=3,
+                        help="steps ahead for the crash-soon label (this step included)")
     args = parser.parse_args()
 
-    dataset = MultiRequestWorldModelDataset(args.data)
-    if len(dataset) < 2:
-        raise ValueError("Collect at least two transitions before training MLPx.")
-
-    resume_checkpoint = None
-    if args.resume:
-        resume_checkpoint = torch.load(
-            args.resume,
-            map_location="cpu",
-            weights_only=False,
-        )
-
-    if args.experiment_dir:
-        run_dir = Path(args.experiment_dir)
-    elif resume_checkpoint and resume_checkpoint.get("run_dir"):
-        run_dir = Path(resume_checkpoint["run_dir"])
-    else:
-        run_dir = create_run_dir(MLPX_RESULTS_ROOT, "mlpx")
-    run_dir.mkdir(parents=True, exist_ok=True)
-    log_path = run_dir / "mlpx_training.csv"
-    checkpoint_dir = Path("checkpoints/MLPx")
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
-
-    save_run_metadata(run_dir, {
-        "model": "MLPx multi-request world model",
-        "data": args.data,
-        "epochs": args.epochs,
-        "batch_size": args.batch_size,
-        "learning_rate": args.lr,
-        "input_size": MLPxWorldModel.INPUT_SIZE,
-        "resume": args.resume,
-    })
-
+    dataset = MultiRequestWorldModelDataset(args.data, crash_horizon=args.crash_horizon)
     train_size = int(0.8 * len(dataset))
-    test_size = len(dataset) - train_size
-    train_dataset, test_dataset = random_split(
-        dataset, [train_size, test_size], generator=torch.Generator().manual_seed(42)
+    train_data, test_data = random_split(
+        dataset, [train_size, len(dataset) - train_size], generator=torch.Generator().manual_seed(42)
     )
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
+    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True)
+    test_loader = DataLoader(test_data, batch_size=args.batch_size)
+
+    run_dir = create_run_dir(RESULTS_ROOT, "mlpx")
+    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+    save_run_metadata(run_dir, {"model": "MLPx (per-vehicle)", **vars(args)})
 
     model = MLPxWorldModel()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    state_loss_fn = nn.MSELoss()
-    reward_loss_fn = nn.MSELoss()
     best_test_loss = float("inf")
-    start_epoch = 0
+    log_path = run_dir / "mlpx_training.csv"
+    with log_path.open("w", newline="") as log_file:
+        log = csv.DictWriter(log_file, fieldnames=LOG_FIELDS)
+        log.writeheader()
 
-    if args.resume:
-        checkpoint = torch.load(
-            args.resume,
-            map_location="cpu",
-            weights_only=False,
-        )
-        model.load_state_dict(checkpoint["model_state_dict"])
-        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        start_epoch = checkpoint["epoch"] + 1
-        best_test_loss = checkpoint.get("best_test_loss", float("inf"))
-        print(f"Resumed MLPx from {args.resume} at epoch {start_epoch}")
-
-    append_log = args.resume is not None and log_path.exists()
-    with log_path.open("a" if append_log else "w", newline="") as log_file:
-        writer = csv.DictWriter(log_file, fieldnames=[
-            "epoch", "train_loss", "test_loss", "test_state_loss", "test_reward_loss"
-        ])
-        if not append_log:
-            writer.writeheader()
-
-        for epoch in range(start_epoch, args.epochs):
-            # Train MLPx to predict both the next observation and total reward.
+        for epoch in range(1, args.epochs + 1):
             model.train()
-            total_loss = 0.0
-            batches = 0
-            for inputs, next_states, rewards in train_loader:
-                predicted_states, predicted_rewards = model(inputs)
-                state_loss = state_loss_fn(predicted_states, next_states)
-                reward_loss = reward_loss_fn(predicted_rewards, rewards)
-                loss = state_loss + reward_loss
+            train_loss = 0.0
+            for batch in train_loader:
+                losses, _, _ = compute_losses(model, batch)
+                loss = sum(losses.values())
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                total_loss += loss.item()
-                batches += 1
+                train_loss += loss.item()
+            train_loss /= len(train_loader)
 
-            train_loss = total_loss / max(batches, 1)
-            test_loss, test_state_loss, test_reward_loss = evaluate(
-                model, test_loader, state_loss_fn, reward_loss_fn
-            )
-            writer.writerow({
-                "epoch": epoch + 1,
-                "train_loss": train_loss,
-                "test_loss": test_loss,
-                "test_state_loss": test_state_loss,
-                "test_reward_loss": test_reward_loss,
-            })
+            metrics = evaluate(model, test_loader)
+            log.writerow({"epoch": epoch, "train_loss": train_loss, **metrics})
             log_file.flush()
-            print(
-                f"Epoch {epoch + 1}/{args.epochs} | "
-                f"train_loss={train_loss:.6f} | test_loss={test_loss:.6f}"
-            )
+            print(f"Epoch {epoch}/{args.epochs} | train={train_loss:.4f} | test={metrics['test_loss']:.4f} | "
+                  f"crash_auc={metrics['crash_auc']:.3f} | crash_soon_auc={metrics['crash_soon_auc']:.3f}")
 
-            checkpoint = {
-                "epoch": epoch,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "test_loss": test_loss,
-                "best_test_loss": best_test_loss,
-                "run_dir": str(run_dir),
-            }
-            # Keep latest and best checkpoints available for resume and inference.
-            torch.save(checkpoint, checkpoint_dir / "latest.pt")
+            checkpoint = {"epoch": epoch, "model_state_dict": model.state_dict(),
+                          "test_loss": metrics["test_loss"], "crash_horizon": args.crash_horizon,
+                          "run_dir": str(run_dir)}
             torch.save(checkpoint, run_dir / "latest.pt")
-            if test_loss < best_test_loss:
-                best_test_loss = test_loss
-                checkpoint["best_test_loss"] = best_test_loss
-                torch.save(checkpoint, checkpoint_dir / "best.pt")
+            if metrics["test_loss"] < best_test_loss:
+                best_test_loss = metrics["test_loss"]
                 torch.save(checkpoint, run_dir / "best.pt")
+                torch.save(checkpoint, CHECKPOINT_DIR / "best.pt")
 
-    save_plots(log_path)
-    print(f"MLPx experiment saved to {run_dir}")
+    save_plot(log_path)
+    print(f"Saved run to {run_dir}")
 
 
 if __name__ == "__main__":

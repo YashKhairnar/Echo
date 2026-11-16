@@ -32,23 +32,3 @@ class MergeExploration:
         if timestep == self.merge_step:
             return LANE_LEFT
         return self.rng.randrange(self.action_count)
-
-
-class UniformExploration:
-    """Uniformly random driving actions (legacy highway data)."""
-
-    def __init__(self, action_count, rng=None):
-        self.action_count = action_count
-        self.rng = rng or random.Random()
-
-    def reset(self):
-        pass
-
-    def act(self, timestep):
-        return self.rng.randrange(self.action_count)
-
-
-def make_exploration(env_name, action_count, rng=None):
-    if env_name == "merge":
-        return MergeExploration(action_count, rng=rng)
-    return UniformExploration(action_count, rng=rng)

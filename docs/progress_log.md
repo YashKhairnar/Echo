@@ -91,3 +91,94 @@
   rule, with 0% crashes and merging 4 s sooner.
 - Next: collect merge data, retrain MLPx, and repeat the check with the MLPx
   planner instead of hand-written rules.
+
+## 2026-11-15 — MLPx crash head
+
+- Trained the first merge MLPx (2,000 episodes). It reacted to driver-type
+  messages only weakly; the MLPx planner crashed about 50% of the time with or
+  without messages (`scripts/evaluate_merge_planner.py`).
+- Added a crash head to MLPx (BCE on `terminated`), trained the state and
+  reward heads on non-crash steps only, and switched the reward target to the
+  driving reward. Crash AUC on test: 0.96.
+- The MCP planner now weighs each imagined step by its crash probability, and
+  `--crash-value` sets how bad an imagined crash is.
+- With crash value −6, asking the rear car cut crashes from 21% to 8%
+  (return 4.23 → 4.86), still well below the hand-written ask-rear rule
+  (7.35, 0% crashes).
+- Diagnosis: MLPx predicts the right average merge risk (~45%) and raises it
+  for "aggressive" (65%), but does not lower it for "yielding" (44% vs 0%
+  real). Next: collect more merge data so "yielding" answers are better
+  represented.
+- Collected 8,000 more merge episodes (10,000 total) and retrained: test loss
+  0.32, crash AUC 0.99. The MLPx planner improved to returns of about 7.5–8.0,
+  but messages now barely change its predictions.
+- Confirmed that the data contains the signal (crash within 3 steps of
+  merging: aggressive 76%, not asked 51%, yielding 31%), so the flat MLPx input
+  is the bottleneck: it must match each car's observation row to its message
+  slot by itself. Next: a per-vehicle encoder that pairs each car with its
+  own message.
+- Replaced the flat MLPx with a per-vehicle encoder that pairs each car's
+  kinematics with its own message (`FlatMLPxWorldModel` kept for old
+  checkpoints). Test loss 0.286, crash AUC 0.998.
+- First clear message benefit with the learned planner: asking the rear car
+  raised return from 5.21 to 6.53 and cut crashes from 38% to 26% (100 seeds).
+  Still below the hand-written ask-rear rule (7.35, 0% crashes), and the
+  no-message baseline is worse than with the flat model.
+- Remaining issue: crashes happen 1–2 steps after the merge action, so the
+  planner predicts them through imagined intermediate states, which blurs the
+  message's effect. Candidate fix: a "crash within k steps" head.
+
+## 2026-11-15 — Cleanup and first request DQN in the merge scenario
+
+- Archived everything from the highway experiments: data, checkpoints,
+  results, and scripts in `archive/highway_ttc_multirequest/`, write-ups in
+  `docs/archive/`. Earlier merge MLPx checkpoints moved to
+  `checkpoints/MLPx_merge_history/`.
+- Made the code merge-only: shared request helpers in `request_utils.py`,
+  removed the legacy single-request dataset, highway env option, and
+  multi-request DQNx. Renamed scripts to `train_DQN.py`, `render_DQN.py`,
+  and `evaluate_merge_policies.py`.
+- New request DQN: at most one car per step (11 actions), per-vehicle
+  Q-network, Double DQN. Trained 2,000 episodes at cost 0.05.
+- On 200 unseen seeds the DQN (total 6.27) matched "ask nobody" (6.23) and
+  random at the same budget (6.29). It asked 2.2 times per episode, with 29% of
+  requests to the rear car (random: 14%). The hand-written rear rule was best
+  (6.89), but only 0.66 above "none": the planner still gets little value
+  from messages, so the request policy has little to learn.
+
+## 2026-11-15 — MLPx v5 (crash-within-3-steps head) and second DQN run
+
+- Added a crash-soon head to MLPx: probability that the episode crashes
+  within the next 3 steps, from the real observation and messages. The
+  planner uses it as the first step's risk. Crash-soon AUC 0.91.
+- With this planner, asking the rear car is worth +2.68 over asking nobody
+  (8.47 vs 5.79, 0% crashes), up from +0.66 with MLPx v4 and close to the
+  +2.7 in the true environment.
+- Retrained the request DQN (2,000 episodes, cost 0.05). It collapsed to
+  almost never asking (0.3 requests per episode) and scored like "none"
+  (5.78). The planner side now works; the request policy's exploration and
+  credit assignment are the next problem.
+
+## 2026-11-15 — Request DQN v3: target-lane exploration + 3-step returns
+
+- Exploration now asks target-lane cars most of the time when it asks, and
+  the DQN learns from 3-step returns so delayed merge rewards reach the
+  request. Trained 3,000 episodes at cost 0.05.
+- On 200 unseen seeds: DQN 6.77 vs "none" 5.79 (+0.98), crashes 2% vs 18%,
+  57% of requests to the rear car. First learned policy that beats asking
+  nobody. Still below the hand-written rear rule (8.47): it asks twice as
+  often and merges later. Training reward was still rising.
+
+## 2026-11-15 — Code simplified for readability
+
+- Shorter, plainer code with a short "what this file does" header in every
+  main file. Behaviour is unchanged: the environment, messages, MLPx
+  predictions, planner values, rule and DQN results, and the dataset give
+  exactly the same numbers as before.
+- Removed things no longer used: the old flat MLPx and its loading logic,
+  the unused highway base environment and intent vehicles, MLPx `--resume`,
+  `--architecture` and the planner's `use_crash_soon` switch (always on).
+  `build_planner` now lives in `planner/MCP.py`.
+- The code before this change is kept in
+  `archive/code_snapshot_before_simplify_2026-11-15/` (needed to load the
+  older flat MLPx checkpoints).

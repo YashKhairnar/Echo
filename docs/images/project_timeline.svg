@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="1112" viewBox="0 0 880 1112" role="img" aria-labelledby="t d">
+  <title id="t">Echo project timeline</title>
+  <desc id="d">From the first highway setup (Nov 5) to a request DQN that learned to ask in the merge scenario (Nov 15).</desc>
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .bg { fill: #ffffff; }
+    .h1 { font-size: 22px; font-weight: 700; fill: #1f2328; }
+    .sub { font-size: 14px; fill: #59636e; }
+    .band { fill: #eef2f7; }
+    .bandtext { font-size: 14px; font-weight: 700; fill: #1f2328; letter-spacing: .3px; }
+    .date { font-size: 13px; font-weight: 600; fill: #59636e; }
+    .card { fill: #f6f8fa; stroke: #d0d7de; stroke-width: 1; }
+    .turn { fill: #fff8e5; stroke: #d4a72c; stroke-width: 1.5; }
+    .now { fill: #f0f7ff; stroke: #0969da; stroke-width: 2; }
+    .next { fill: none; stroke: #8c959f; stroke-width: 1.5; stroke-dasharray: 6 5; }
+    .title { font-size: 15px; font-weight: 700; fill: #1f2328; }
+    .text { font-size: 13px; fill: #59636e; }
+    .line { stroke: #d0d7de; stroke-width: 3; }
+    .ring { stroke: #ffffff; stroke-width: 3; }
+    .good { fill: #1a7f37; } .part { fill: #9a6700; } .bad { fill: #cf222e; } .neutral { fill: #6e7781; } .blue { fill: #0969da; }
+    .tgood { font-weight: 600; fill: #1a7f37; }
+    .tpart { font-weight: 600; fill: #9a6700; }
+    .tbad { font-weight: 600; fill: #cf222e; }
+    .legend { font-size: 12px; fill: #59636e; }
+    .badge { font-size: 12px; font-weight: 700; fill: #ffffff; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; }
+      .h1, .bandtext, .title { fill: #e6edf3; }
+      .sub, .date, .text, .legend { fill: #9198a1; }
+      .band { fill: #161b22; }
+      .card { fill: #161b22; stroke: #30363d; }
+      .turn { fill: #2b2111; stroke: #d29922; }
+      .now { fill: #0c2d4f; stroke: #4493f8; }
+      .next { stroke: #6e7681; }
+      .line { stroke: #30363d; }
+      .ring { stroke: #0d1117; }
+      .good { fill: #3fb950; } .part { fill: #d29922; } .bad { fill: #f85149; } .neutral { fill: #8b949e; } .blue { fill: #1f6feb; }
+      .tgood { fill: #3fb950; } .tpart { fill: #d29922; } .tbad { fill: #f85149; }
+    }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="880" height="1112" rx="12"/>
+
+  <!-- Heading and legend -->
+  <text class="h1" x="24" y="40">Echo: project timeline</text>
+  <text class="sub" x="24" y="62">Teaching a car when to ask other cars for information, and whom</text>
+  <circle class="good" cx="604" cy="36" r="6"/><text class="legend" x="615" y="40">worked</text>
+  <circle class="part" cx="680" cy="36" r="6"/><text class="legend" x="691" y="40">partly</text>
+  <circle class="bad" cx="748" cy="36" r="6"/><text class="legend" x="759" y="40">didn't work</text>
+
+  <!-- Spine -->
+  <line class="line" x1="152" y1="126" x2="152" y2="1088"/>
+
+  <!-- Phase 1 -->
+  <rect class="band" x="24" y="84" width="836" height="30" rx="6"/>
+  <text class="bandtext" x="40" y="104">PHASE 1 · Highway with normal traffic · Nov 5 – Nov 14</text>
+
+  <text class="date" x="128" y="159" text-anchor="end">Nov 5</text>
+  <rect class="card" x="176" y="126" width="684" height="56" rx="8"/>
+  <circle class="neutral ring" cx="152" cy="154" r="8"/>
+  <text class="title" x="192" y="149">Set up the world</text>
+  <text class="text" x="192" y="170">Custom highway, stable car IDs, messages, first world model (MLP)</text>
+
+  <text class="date" x="128" y="225" text-anchor="end">Nov 12</text>
+  <rect class="card" x="176" y="192" width="684" height="56" rx="8"/>
+  <circle class="part ring" cx="152" cy="220" r="8"/>
+  <text class="title" x="192" y="215">Exp 1–2: a DQN asks one car per step</text>
+  <text class="text" x="192" y="236">5-step planner + request DQN, 2,000 episodes · <tspan class="tpart">reward 6.42 → 8.67, but no baseline to compare</tspan></text>
+
+  <text class="date" x="128" y="291" text-anchor="end">Nov 12</text>
+  <rect class="card" x="176" y="258" width="684" height="56" rx="8"/>
+  <circle class="part ring" cx="152" cy="286" r="8"/>
+  <text class="title" x="192" y="281">Exp 3: ask many cars at once (MLPx + DQNx)</text>
+  <text class="text" x="192" y="302">One ask / don't-ask choice per visible car · <tspan class="tpart">tended to ask nobody at cost 0.1</tspan></text>
+
+  <text class="date" x="128" y="357" text-anchor="end">Nov 13</text>
+  <rect class="card" x="176" y="324" width="684" height="56" rx="8"/>
+  <circle class="bad ring" cx="152" cy="352" r="8"/>
+  <text class="title" x="192" y="347">Exp 4: time-to-collision messages</text>
+  <text class="text" x="192" y="368">Messages kept apart from what the car sees · <tspan class="tbad">DQNx = asking nobody (5.54 vs 5.54)</tspan></text>
+
+  <text class="date" x="128" y="423" text-anchor="end">Nov 14</text>
+  <rect class="card" x="176" y="390" width="684" height="56" rx="8"/>
+  <circle class="good ring" cx="152" cy="418" r="8"/>
+  <text class="title" x="192" y="413">Check the world model against reality</text>
+  <text class="text" x="192" y="434">5-step imagination chose the right move 23% of the time · <tspan class="tgood">3 steps: 67%, so plan 3 steps</tspan></text>
+
+  <!-- Turning point -->
+  <text class="date" x="128" y="489" text-anchor="end">Nov 15</text>
+  <rect class="turn" x="176" y="456" width="684" height="56" rx="8"/>
+  <circle class="part ring" cx="152" cy="484" r="9"/>
+  <text class="title" x="192" y="479">Turning point: why did asking never help?</text>
+  <text class="text" x="192" y="500">Messages said nothing the car couldn't already see, and nothing forced a risky choice</text>
+
+  <!-- Phase 2 -->
+  <rect class="band" x="24" y="528" width="836" height="30" rx="6"/>
+  <text class="bandtext" x="40" y="548">PHASE 2 · Forced merge with hidden yielding / aggressive drivers · Nov 15</text>
+
+  <rect class="card" x="176" y="570" width="684" height="56" rx="8"/>
+  <circle class="good ring" cx="152" cy="598" r="8"/>
+  <text class="title" x="192" y="593">Merge scenario + information check</text>
+  <text class="text" x="192" y="614">Hand-written rules, no learning · <tspan class="tgood">asking the rear car: 4.64 → 7.35, 0% crashes</tspan></text>
+
+  <rect class="card" x="176" y="636" width="684" height="56" rx="8"/>
+  <circle class="bad ring" cx="152" cy="664" r="8"/>
+  <text class="title" x="192" y="659">MLPx v1–v3: crash prediction, 10,000 episodes</text>
+  <text class="text" x="192" y="680">Drives better overall · <tspan class="tbad">but the planner ignores messages</tspan></text>
+
+  <rect class="card" x="176" y="702" width="684" height="56" rx="8"/>
+  <circle class="part ring" cx="152" cy="730" r="8"/>
+  <text class="title" x="192" y="725">MLPx v4: each car paired with its own message</text>
+  <text class="text" x="192" y="746">Messages start to matter · <tspan class="tpart">asking the rear car worth only +0.66</tspan></text>
+
+  <rect class="card" x="176" y="768" width="684" height="56" rx="8"/>
+  <circle class="bad ring" cx="152" cy="796" r="8"/>
+  <text class="title" x="192" y="791">Request DQN, run 1</text>
+  <text class="text" x="192" y="812">One car or nobody per step · <tspan class="tbad">6.27, same as asking nobody (6.23)</tspan></text>
+
+  <rect class="card" x="176" y="834" width="684" height="56" rx="8"/>
+  <circle class="good ring" cx="152" cy="862" r="8"/>
+  <text class="title" x="192" y="857">MLPx v5: "will I crash in the next 3 steps?"</text>
+  <text class="text" x="192" y="878">Catches merges that go wrong later · <tspan class="tgood">asking the rear car worth +2.68, 0% crashes</tspan></text>
+
+  <rect class="card" x="176" y="900" width="684" height="56" rx="8"/>
+  <circle class="bad ring" cx="152" cy="928" r="8"/>
+  <text class="title" x="192" y="923">Request DQN, run 2</text>
+  <text class="text" x="192" y="944">Asked random cars while practising · <tspan class="tbad">learned never to ask (5.78)</tspan></text>
+
+  <rect class="now" x="176" y="966" width="684" height="56" rx="8"/>
+  <circle class="good ring" cx="152" cy="994" r="10"/>
+  <text class="title" x="192" y="989">Request DQN, run 3: the first one that learned to ask</text>
+  <text class="text" x="192" y="1010">Practise on target-lane cars, look 3 steps ahead · <tspan class="tgood">6.77 vs 5.79, crashes 18% → 2%</tspan></text>
+  <rect class="blue" x="790" y="978" width="58" height="22" rx="11"/>
+  <text class="badge" x="819" y="993" text-anchor="middle">NOW</text>
+
+  <!-- Next -->
+  <text class="date" x="128" y="1065" text-anchor="end">Next</text>
+  <rect class="next" x="176" y="1032" width="684" height="56" rx="8"/>
+  <circle class="neutral ring" cx="152" cy="1060" r="8"/>
+  <text class="title" x="192" y="1055">Close the gap to the rear-car rule (8.47)</text>
+  <text class="text" x="192" y="1076">Train longer · try different question costs · back to a 4-lane highway</text>
+</svg>

@@ -37,6 +37,12 @@ The planner uses messages well, and the DQN has learned to ask (crashes fall
 from 18% to 2%), but it still asks too often and is below the hand-written
 rule. Details: [docs/merge_scenario.md](docs/merge_scenario.md).
 
+## Timeline
+
+Click the graphic for the interactive version, where each step opens to show what changed, the result, and what it taught us.
+
+<a href="https://yashkhairnar.github.io/Echo/timeline.html"><img src="docs/images/project_timeline.svg" width="100%" alt="Project timeline: highway experiments (Nov 5–14) where asking never helped, the turning point, then the merge scenario (Nov 15) where the world model learned to use messages and request DQN run 3 became the first policy that learned to ask."></a>
+
 ## Run it
 
 ```bash

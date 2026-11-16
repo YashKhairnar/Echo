@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Echo Project Timeline</title>
+<meta name="description" content="How Echo got from a plain highway setup to a request policy that learned when to ask other cars for information.">
+<style>
+  :root {
+    --bg: #ffffff; --text: #1f2328; --muted: #59636e; --line: #d0d7de;
+    --card: #f6f8fa; --card-hover: #eef1f4; --band: #eef2f7;
+    --good: #1a7f37; --part: #9a6700; --bad: #cf222e; --neutral: #6e7781;
+    --turn-bg: #fff8e5; --turn-line: #d4a72c; --now-bg: #f0f7ff; --now-line: #0969da;
+    --chip-bg: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --text: #e6edf3; --muted: #9198a1; --line: #30363d;
+      --card: #161b22; --card-hover: #1c2129; --band: #161b22;
+      --good: #3fb950; --part: #d29922; --bad: #f85149; --neutral: #8b949e;
+      --turn-bg: #2b2111; --turn-line: #d29922; --now-bg: #0c2d4f; --now-line: #4493f8;
+      --chip-bg: #0d1117;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 48px; }
+  header h1 { margin: 0 0 4px; font-size: 26px; }
+  header p { margin: 0; color: var(--muted); }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin: 20px 0 8px; }
+  .legend { display: flex; gap: 16px; color: var(--muted); font-size: 13px; flex-wrap: wrap; }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; background: currentColor; }
+  .legend .good { color: var(--good); } .legend .part { color: var(--part); } .legend .bad { color: var(--bad); }
+  .legend span { color: var(--muted); }
+  .legend span.good::before { background: var(--good); } .legend span.part::before { background: var(--part); } .legend span.bad::before { background: var(--bad); }
+  button.toggle-all {
+    margin-left: auto; font: inherit; font-size: 13px; color: var(--text); background: var(--card);
+    border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; cursor: pointer;
+  }
+  button.toggle-all:hover { background: var(--card-hover); }
+
+  .phase { margin: 24px 0 8px; padding: 6px 14px; background: var(--band); border-radius: 6px; font-weight: 700; font-size: 14px; letter-spacing: .3px; }
+  .phase small { font-weight: 400; color: var(--muted); letter-spacing: 0; }
+
+  ol { list-style: none; margin: 0; padding: 0; position: relative; }
+  ol::before { content: ""; position: absolute; left: 87px; top: 0; bottom: 0; width: 3px; background: var(--line); }
+  li { display: grid; grid-template-columns: 72px 32px 1fr; align-items: start; margin: 10px 0; }
+  .date { text-align: right; padding-right: 8px; padding-top: 14px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .dot { width: 16px; height: 16px; border-radius: 50%; margin: 17px 0 0 8px; border: 3px solid var(--bg); position: relative; z-index: 1; }
+  .dot.good { background: var(--good); } .dot.part { background: var(--part); } .dot.bad { background: var(--bad); } .dot.neutral { background: var(--neutral); }
+
+  details { background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
+  details.turn { background: var(--turn-bg); border-color: var(--turn-line); }
+  details.now { background: var(--now-bg); border: 2px solid var(--now-line); }
+  details.next { background: transparent; border: 1.5px dashed var(--neutral); }
+  summary { list-style: none; cursor: pointer; padding: 10px 40px 10px 14px; position: relative; border-radius: 8px; }
+  summary::-webkit-details-marker { display: none; }
+  summary:hover { background: var(--card-hover); }
+  details.next summary:hover, details.turn summary:hover, details.now summary:hover { background: transparent; }
+  summary::after { content: "+"; position: absolute; right: 14px; top: 10px; color: var(--muted); font-size: 18px; line-height: 1.2; }
+  details[open] summary::after { content: "–"; }
+  summary:focus-visible { outline: 2px solid var(--now-line); outline-offset: 2px; }
+  .title { font-weight: 700; }
+  .badge { display: inline-block; margin-left: 8px; padding: 0 9px; border-radius: 10px; background: var(--now-line); color: #fff; font-size: 11px; font-weight: 700; vertical-align: 2px; }
+  .line2 { display: block; color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+  .result { font-weight: 600; }
+  .result.good { color: var(--good); } .result.part { color: var(--part); } .result.bad { color: var(--bad); }
+
+  .body { padding: 2px 14px 14px; font-size: 14px; }
+  .body dl { margin: 0; display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; }
+  .body dt { color: var(--muted); font-weight: 600; }
+  .body dd { margin: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip { background: var(--chip-bg); border: 1px solid var(--line); border-radius: 12px; padding: 1px 10px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--band); padding: 1px 5px; border-radius: 4px; }
+  footer { margin-top: 32px; color: var(--muted); font-size: 13px; }
+  footer a { color: var(--now-line); }
+
+  @media (max-width: 560px) {
+    ol::before { left: 11px; }
+    li { grid-template-columns: 24px 1fr; }
+    .date { grid-column: 2; text-align: left; padding: 0 0 2px; order: -1; }
+    .dot { grid-column: 1; grid-row: 2; margin: 14px 0 0 2px; }
+    details { grid-column: 2; grid-row: 2; }
+    .body dl { grid-template-columns: 1fr; gap: 2px; }
+    .body dd { margin-bottom: 6px; }
+    button.toggle-all { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Echo: project timeline</h1>
+    <p>Teaching a car when to ask other cars for information, and whom. Click a step for the details.</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="legend"><span class="good">worked</span><span class="part">partly</span><span class="bad">didn't work</span></div>
+    <button class="toggle-all" type="button" aria-pressed="false">Expand all</button>
+  </div>
+
+  <div class="phase">PHASE 1 · Highway with normal traffic <small>· Nov 5 – Nov 14</small></div>
+  <ol>
+    <li><div class="date">Nov 5</div><div class="dot neutral"></div>
+      <details><summary><span class="title">Set up the world</span>
+        <span class="line2">Custom highway, stable car IDs, messages, first world model (MLP)</span></summary>
+        <div class="body"><dl>
+          <dt>What we built</dt><dd>A custom HighwayEnv with one ego car and ten neighbours, stable vehicle IDs, intent fields, a message format, a random-policy data collector, and the first MLP world model.</dd>
+          <dt>Why</dt><dd>Everything later needs a world where cars can be identified and asked.</dd>
+        </dl></div></details></li>
+
+    <li><div class="date">Nov 12</div><div class="dot part"></div>
+      <details><summary><span class="title">Exp 1–2: a DQN asks one car per step</span>
+        <span class="line2">5-step planner + request DQN, 2,000 episodes · <span class="result part">reward rose, but no baseline</span></span></summary>
+        <div class="body"><dl>
+          <dt>What changed</dt><dd>The DQN became a request policy: ask one visible car or nobody, with a cost per question. A 5-step planner used the MLP to drive.</dd>
+          <dt>Result</dt><dd>Average reward rose from 6.42 to 8.67 after resuming training to 2,000 episodes, and the communication cost fell.</dd>
+          <dt>Lesson</dt><dd>Without comparing against "ask nobody" on the same seeds, we couldn't tell whether asking helped at all.</dd>
+        </dl><div class="chips"><span class="chip">reward 6.42 → 8.67</span><span class="chip">2,000 episodes</span></div></div></details></li>
+
+    <li><div class="date">Nov 12</div><div class="dot part"></div>
+      <details><summary><span class="title">Exp 3: ask many cars at once (MLPx + DQNx)</span>
+        <span class="line2">One ask / don't-ask choice per visible car · <span class="result part">tended to ask nobody</span></span></summary>
+        <div class="body"><dl>
+          <dt>What changed</dt><dd>MLPx, a world model that reads messages from several cars, and DQNx, which decides separately for each visible car whether to ask.</dd>
+          <dt>Result</dt><dd>At a cost of 0.1 per car, the policy drifted towards asking nobody.</dd>
+          <dt>Lesson</dt><dd>Evaluation needs a no-request baseline to show whether messages are worth their cost.</dd>
+        </dl></div></details></li>
+
+    <li><div class="date">Nov 13</div><div class="dot bad"></div>
+      <details><summary><span class="title">Exp 4: time-to-collision messages</span>
+        <span class="line2">Messages kept apart from what the car sees · <span class="result bad">same as asking nobody</span></span></summary>
+        <div class="body"><dl>
+          <dt>What changed</dt><dd>Observations only hold position and speed; messages carry intent, target lane and time to collision.</dd>
+          <dt>Result</dt><dd>On the same seeds, the trained DQNx and "ask nobody" both scored 5.54; asking everyone scored −0.53.</dd>
+          <dt>Lesson</dt><dd>Communication got cheaper, but there was still no measurable benefit from it.</dd>
+        </dl><div class="chips"><span class="chip">DQNx 5.54</span><span class="chip">ask nobody 5.54</span><span class="chip">ask everyone −0.53</span></div></div></details></li>
+
+    <li><div class="date">Nov 14</div><div class="dot good"></div>
+      <details><summary><span class="title">Check the world model against reality</span>
+        <span class="line2">Imagined vs real outcomes · <span class="result good">planning 3 steps works much better than 5</span></span></summary>
+        <div class="body"><dl>
+          <dt>What we did</dt><dd>Compared MLPx's imagined outcomes with real environment rollouts from the same state and action.</dd>
+          <dt>Result</dt><dd>Planning 5 steps ahead picked the right move only 23% of the time; 3 steps: 67%.</dd>
+          <dt>Lesson</dt><dd>Imagination errors pile up, so the planner switched to 3 steps.</dd>
+        </dl><div class="chips"><span class="chip">5 steps: 23%</span><span class="chip">3 steps: 67%</span></div></div></details></li>
+
+    <li><div class="date">Nov 15</div><div class="dot part"></div>
+      <details class="turn"><summary><span class="title">Turning point: why did asking never help?</span>
+        <span class="line2">Messages said nothing the car couldn't already see, and nothing forced a risky choice</span></summary>
+        <div class="body"><dl>
+          <dt>Diagnosis</dt><dd>The messages (current acceleration, time to collision) could mostly be worked out from what the car already observes. And on an open highway the car never <em>has</em> to make a decision that depends on them.</dd>
+          <dt>Decision</dt><dd>Build a scenario where the information is truly hidden and actually changes the best move.</dd>
+        </dl></div></details></li>
+  </ol>
+
+  <div class="phase">PHASE 2 · Forced merge with hidden yielding / aggressive drivers <small>· Nov 15</small></div>
+  <ol>
+    <li><div class="date"></div><div class="dot good"></div>
+      <details><summary><span class="title">Merge scenario + information check</span>
+        <span class="line2">Hand-written rules, no learning · <span class="result good">asking the rear car: 4.64 → 7.35</span></span></summary>
+        <div class="body"><dl>
+          <dt>The scenario</dt><dd>A stalled car blocks the ego's lane, so it must merge into a line of 9 cars. Each is secretly yielding (lets you in) or aggressive (speeds up and closes the gap).</dd>
+          <dt>Hidden?</dt><dd>A classifier guessing driver type from what the ego sees: 51.4%, exactly chance.</dd>
+          <dt>Useful?</dt><dd>Without asking: gamble (5.17, 52% crashes) or wait for a safe gap (4.64). Asking the rear car: 7.35 with 0% crashes.</dd>
+        </dl><div class="chips"><span class="chip">classifier 51.4% = chance</span><span class="chip">information worth +2.7</span><span class="chip">300 seeds</span></div></div></details></li>
+
+    <li><div class="date"></div><div class="dot bad"></div>
+      <details><summary><span class="title">MLPx v1–v3: crash prediction, 10,000 episodes</span>
+        <span class="line2">Drives better overall · <span class="result bad">but the planner ignores messages</span></span></summary>
+        <div class="body"><dl>
+          <dt>What changed</dt><dd>v1: the first merge world model. v2: a "will this step crash?" output. v3: 10,000 episodes of data.</dd>
+          <dt>Result</dt><dd>Crash prediction became very good (AUC 0.99), but messages barely changed the predictions.</dd>
+          <dt>Lesson</dt><dd>The data had the signal (merging in front of an aggressive car crashed 76% of the time, a yielding one 31%). The plain MLP couldn't match each car with its own message.</dd>
+        </dl></div></details></li>
+
+    <li><div class="date"></div><div class="dot part"></div>
+      <details><summary><span class="title">MLPx v4: each car paired with its own message</span>
+        <span class="line2">Messages start to matter · <span class="result part">asking the rear car worth only +0.66</span></span></summary>
+        <div class="body"><dl>
+          <dt>What changed</dt><dd>A per-vehicle network: each car is encoded together with its own message, then all cars are pooled into a scene summary.</dd>
+          <dt>Result</dt><dd>The planner finally drove better when it asked, but the gain was small.</dd>
+          <dt>Lesson</dt><dd>A bad merge crashes 1–2 steps later; the planner only saw that through blurry imagined states.</dd>
+        </dl></div></details></li>
+
+    <li><div class="date"></div><div class="dot bad"></div>
+      <details><summary><span class="title">Request DQN, run 1</span>
+        <span class="line2">One car or nobody per step · <span class="result bad">6.27, same as asking nobody (6.23)</span></span></summary>
+        <div class="body"><dl>
+          <dt>What changed</dt><dd>A new request DQN that scores each visible car with one shared network, like MLPx.</dd>
+          <dt>Result</dt><dd>It asked rarely and picked the rear car twice as often as random, but drove no better than asking nobody.</dd>
+          <dt>Lesson</dt><dd>With the planner gaining so little from messages, there was almost nothing for the DQN to learn.</dd>
+        </dl></div></details></li>
+
+    <li><div class="date"></div><div class="dot good"></div>
+      <details><summary><span class="title">MLPx v5: "will I crash in the next 3 steps?"</span>
+        <span class="line2">Catches merges that go wrong later · <span class="result good">asking the rear car worth +2.68</span></span></summary>
+        <div class="body"><dl>
+          <dt>What changed</dt><dd>A second crash output that predicts a crash within the next 3 steps, from the real observation and the real messages. The planner uses it to judge its first move.</dd>
+          <dt>Result</dt><dd>Asking the rear car: 8.47 with 0% crashes, against 5.79 for asking nobody. The true value of the information is +2.7.</dd>
+          <dt>Lesson</dt><dd>The planner now uses messages fully.</dd>
+        </dl><div class="chips"><span class="chip">rear rule 8.47</span><span class="chip">ask nobody 5.79</span><span class="chip">0% crashes</span></div></div></details></li>
+
+    <li><div class="date"></div><div class="dot bad"></div>
+      <details><summary><span class="title">Request DQN, run 2</span>
+        <span class="line2">Same DQN, better planner · <span class="result bad">learned never to ask (5.78)</span></span></summary>
+        <div class="body"><dl>
+          <dt>Result</dt><dd>It asked only 0.3 times per episode and scored like asking nobody.</dd>
+          <dt>Lesson</dt><dd>While practising it asked one of ~9 cars at random, so it almost never asked the right car at the right moment. And the payoff came several steps after the question.</dd>
+        </dl></div></details></li>
+
+    <li><div class="date"></div><div class="dot good"></div>
+      <details class="now" open><summary><span class="title">Request DQN, run 3: the first one that learned to ask</span><span class="badge">NOW</span>
+        <span class="line2">Practise on target-lane cars, look 3 steps ahead · <span class="result good">6.77 vs 5.79, crashes 18% → 2%</span></span></summary>
+        <div class="body"><dl>
+          <dt>What changed</dt><dd>While practising, it mostly asks cars in the lane it wants to enter, and it learns from 3-step returns so the later payoff reaches the question. 3,000 episodes.</dd>
+          <dt>Result</dt><dd>Beats asking nobody by +0.98 (about 3 standard errors), cuts crashes from 18% to 2%, and sends 57% of its questions to the rear car (random: 12%).</dd>
+          <dt>Still missing</dt><dd>It asks twice as often as the rear-car rule (13.5 vs 6.7 per episode) and merges later (7.8 s vs 4.9 s). Its training score was still rising.</dd>
+        </dl><div class="chips"><span class="chip">DQN 6.77</span><span class="chip">ask nobody 5.79</span><span class="chip">rear rule 8.47</span><span class="chip">crashes 2%</span></div></div></details></li>
+
+    <li><div class="date">Next</div><div class="dot neutral"></div>
+      <details class="next"><summary><span class="title">Close the gap to the rear-car rule (8.47)</span>
+        <span class="line2">Train longer · try different question costs · back to a 4-lane highway</span></summary>
+        <div class="body"><dl>
+          <dt>Train longer</dt><dd>The training score was still rising at 3,000 episodes.</dd>
+          <dt>Cost sweep</dt><dd>Train at several question costs and check that the DQN asks less when questions are expensive.</dd>
+          <dt>4 lanes</dt><dd>The same hidden drivers on a busier highway, where it's less obvious whom to ask.</dd>
+        </dl></div></details></li>
+  </ol>
+
+  <footer>Details: <a href="https://github.com/YashKhairnar/Echo/blob/main/docs/merge_scenario.md">merge_scenario.md</a> · <a href="https://github.com/YashKhairnar/Echo/blob/main/docs/progress_log.md">progress log</a> · <a href="https://github.com/YashKhairnar/Echo">repository</a></footer>
+</main>
+<script>
+  const button = document.querySelector(".toggle-all");
+  const items = [...document.querySelectorAll("details")];
+  button.addEventListener("click", () => {
+    const open = button.getAttribute("aria-pressed") !== "true";
+    items.forEach((d) => { d.open = open; });
+    button.setAttribute("aria-pressed", String(open));
+    button.textContent = open ? "Collapse all" : "Expand all";
+  });
+</script>
+</body>
+</html>

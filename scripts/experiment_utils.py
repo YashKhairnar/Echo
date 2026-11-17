@@ -5,11 +5,21 @@ from pathlib import Path
 
 
 def create_run_dir(root, prefix):
-    # A timestamped directory prevents a fresh run from overwriting results.
+    """Make a new timestamped run folder, so a fresh run never overwrites results.
+
+    If a folder with the same name already exists (two runs started in the
+    same second), a number is added: ..._2, ..._3, ...
+    """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir = Path(root) / f"{timestamp}_{prefix}"
-    run_dir.mkdir(parents=True, exist_ok=False)
-    return run_dir
+    name = f"{timestamp}_{prefix}"
+    for attempt in range(1, 100):
+        run_dir = Path(root) / (name if attempt == 1 else f"{name}_{attempt}")
+        try:
+            run_dir.mkdir(parents=True, exist_ok=False)
+            return run_dir
+        except FileExistsError:
+            continue
+    raise FileExistsError(f"Could not create a run folder for {name}")
 
 
 def save_run_metadata(run_dir, metadata):

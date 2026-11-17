@@ -191,3 +191,79 @@
 - `docs/merge_scenario.md` rewritten as: how it works now, current results, a
   one-line-per-version history table, where things are, next steps. The
   original step-by-step write-up is `docs/archive/merge_scenario_full_history.md`.
+
+## 2026-11-16 — Request DQN run 4: 6,000 episodes
+
+- Same settings as run 3, twice as long. After exploration ended the
+  100-episode training score swung between about 5.9 and 7.1 instead of
+  rising; best checkpoint at episode 3,637.
+- On 200 unseen seeds: 6.28 (run 3: 6.77), crashes 13% (run 3: 2%),
+  17 questions per episode. Longer training does not help; run 3 stays the
+  current DQN (`checkpoints/DQN/best.pt`), run 4 is in
+  `checkpoints/DQN_history/v4_6000/`.
+- Next: measure seed-to-seed variance and make DQN training steadier before
+  the cost sweep.
+
+## 2026-11-16 — DQN seed check and a steadier variant
+
+- `train_DQN.py` gained `--learning-rate`, `--target-update-steps` and
+  `--checkpoint-dir` (defaults unchanged), so several runs can train side by
+  side without overwriting `checkpoints/DQN/best.pt`.
+- Run 3's settings with training seeds 1 and 2: 6.87 (crashes 14%) and 5.96
+  (crashes 16%, almost never asks). With run 3 (6.77): mean 6.53 over three
+  seeds, +0.74 over asking nobody, but a spread of about 0.9 between runs.
+- Steadier settings (learning rate 5e-5, target copy every 2,000 steps,
+  seed 0): 6.11, crashes 10%. Training scores were smoother, but the result
+  was worse than run 3 with the same seed.
+- Results in `results/merge_policies/cost0.05_dqn_seed_check.json`;
+  checkpoints in `checkpoints/DQN_seeds/`. Run 3 stays the current DQN.
+- Next: choose checkpoints on fixed validation roads instead of the noisy
+  training average, and use several seeds per setting in the cost sweep.
+
+## 2026-11-16 — DQN checkpoint selection on validation roads
+
+- `train_DQN.py` now keeps the model that scores best on 100 fixed
+  validation roads (seeds 200,000+, separate from training and test roads),
+  checked every 250 episodes once epsilon is at most 0.2 and at the end.
+  Scores go to `dqn_validation.csv` in the run folder. Also fixed a plotting
+  crash for runs shorter than 50 episodes.
+- Retrained training seeds 0, 1 and 2 (training itself is identical to the
+  seed check; only the selection differs). Test scores: 6.92 / 7.45 / 6.90,
+  mean 7.09 (old selection: 6.77 / 6.87 / 5.96, mean 6.53). Crashes 1–4%.
+  Every run now beats asking nobody, by +1.30 on average.
+- Still asks a lot (18 questions per episode vs 6.7 for the rear-car rule)
+  and stays 1.4 below that rule.
+- Seed 0 (best validation score, 7.98) is now `checkpoints/DQN/best.pt`.
+  Results in `results/merge_policies/cost0.05_dqn_val_selection.json`.
+
+## 2026-11-16 — Where the DQN asks
+
+- Added `scripts/check_dqn_requests.py`. It labels each step as decisive
+  (the planner would act differently with the rear car's answer), not
+  decisive, no rear car, or after merge, and records whom the DQN asked.
+- Over the three validation-selected DQNs on the 200 test roads:
+  - decisive steps are 21–25% of all steps; there it asks the rear car only
+    36–63% of the time and the front car 27–51% (the front car's type
+    doesn't matter);
+  - it asks as much at non-decisive steps as at decisive ones;
+  - 41–59% of all its questions come after the merge, when they are useless.
+- Likely cause: a 0.05 question cost is tiny next to the ±4 episode noise,
+  and the rear and front cars look alike. Next: the cost sweep, then the
+  front/rear confusion.
+
+## 2026-11-17 — Cost sweep
+
+- Trained the request DQN at question costs 0, 0.1, 0.2 and 0.5 (3 training
+  seeds each, validation selection) and evaluated them with the 0.05 runs on
+  the 200 test roads (`scripts/evaluate_cost_sweep.py`, plot in
+  `docs/images/cost_sweep.png`). The 12 runs took about 11.5 hours, 6 at a time.
+- DQN totals (mean of seeds): 7.60 / 7.09 / 6.18 / 5.70 / 5.79 at costs
+  0 / 0.05 / 0.1 / 0.2 / 0.5. Ask nobody: 5.79. Rear-car rule: 8.80 / 8.47 /
+  8.13 / 7.46 / 5.44.
+- All or nothing: each DQN asks ~15–20 times per episode or never. From cost
+  0.2 every run stops asking, although asking the rear car pays up to a cost
+  of about 0.45. Only at 0.5 is never asking the right choice.
+- Even at cost 0 the DQN (7.60) stays below the rule (8.80): whom to ask is
+  the bigger problem, not the cost.
+- Fixed run folders: two runs started in the same second used to collide;
+  folders now include the seed and get a number added if needed.

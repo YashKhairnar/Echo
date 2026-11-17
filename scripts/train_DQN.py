@@ -52,6 +52,15 @@ EXPLORATION_FRACTION = 0.6     # epsilon falls linearly over this share of episo
 EXPLORE_ASK_NOBODY = 0.5       # random step: ask nobody this often
 EXPLORE_ASK_TARGET_LANE = 0.8  # ...otherwise ask a target-lane car this often, else any car
 
+# Choosing which model to keep: every VALIDATION_EVERY episodes once exploration
+# is mostly over, drive a fixed set of validation roads greedily and keep the
+# model that scores best there. (The training average is too noisy: it mixes
+# exploration and different roads.) Validation roads use their own seeds,
+# separate from training roads and from the 100000+ test roads.
+VALIDATION_SEEDS = range(200_000, 200_100)
+VALIDATION_EVERY = 250
+VALIDATION_FROM_EPSILON = 0.2
+
 RESULTS_ROOT = Path("results/DQN/experiments")
 CHECKPOINT_DIR = Path("checkpoints/DQN")
 LOG_FIELDS = ["episode", "driving_reward", "total_reward", "communication_cost",
@@ -142,6 +151,24 @@ def learn(buffer, online, target, optimizer):
     return loss.item()
 
 
+def validation_score(policy, environment, planner, communication_cost):
+    """Average total reward of the greedy policy on the fixed validation roads."""
+    totals = []
+    for seed in VALIDATION_SEEDS:
+        observation, _ = environment.reset(seed=seed)
+        total = 0.0
+        for _ in range(environment.config["duration"]):
+            request = policy.act(observation, valid_request_actions(observation))
+            asked = [] if request == NO_REQUEST_ACTION else [request]
+            action = planner.plan(observation, message_bundle(environment, observation, asked))
+            observation, driving_reward, crashed, time_up, _ = environment.step(action)
+            total += driving_reward - communication_cost * len(asked)
+            if crashed or time_up:
+                break
+        totals.append(total)
+    return float(np.mean(totals))
+
+
 def save_plots(log_path):
     rows = list(csv.DictReader(log_path.open()))
     episodes = np.array([int(row["episode"]) for row in rows])
@@ -155,9 +182,10 @@ def save_plots(log_path):
         plt.figure(figsize=(10, 5))
         for column in columns:
             values = np.array([float(row[column] or "nan") for row in rows])
-            smoothed = np.convolve(values, np.ones(50) / 50, mode="valid")
             plt.plot(episodes, values, alpha=0.25)
-            plt.plot(episodes[len(episodes) - len(smoothed):], smoothed, label=f"{column} (50-episode mean)")
+            if len(values) >= 50:
+                smoothed = np.convolve(values, np.ones(50) / 50, mode="valid")
+                plt.plot(episodes[49:], smoothed, label=f"{column} (50-episode mean)")
         plt.xlabel("Episode")
         plt.grid(True)
         plt.legend()
@@ -172,27 +200,34 @@ def main():
     parser.add_argument("--communication-cost", type=float, default=0.05)
     parser.add_argument("--mlpx-checkpoint", default="checkpoints/MLPx/best.pt")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--learning-rate", type=float, default=LEARNING_RATE)
+    parser.add_argument("--target-update-steps", type=int, default=TARGET_UPDATE_STEPS)
+    parser.add_argument("--checkpoint-dir", default=str(CHECKPOINT_DIR),
+                        help="where best.pt goes (use a separate folder for runs side by side)")
     args = parser.parse_args()
 
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    run_dir = create_run_dir(RESULTS_ROOT, f"dqn_cost{args.communication_cost:g}")
-    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+    run_dir = create_run_dir(RESULTS_ROOT, f"dqn_cost{args.communication_cost:g}_seed{args.seed}")
+    checkpoint_dir = Path(args.checkpoint_dir)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
     save_run_metadata(run_dir, {"model": "Request DQN (one car or nobody per step)", **vars(args),
-                                "n_step": N_STEP, "learning_rate": LEARNING_RATE})
+                                "n_step": N_STEP})
 
     environment = make_environment()
     planner = build_planner(args.mlpx_checkpoint, environment)
     online, target = RequestDQNPolicy(), RequestDQNPolicy()
     target.load_state_dict(online.state_dict())
-    optimizer = torch.optim.Adam(online.parameters(), lr=LEARNING_RATE)
+    optimizer = torch.optim.Adam(online.parameters(), lr=args.learning_rate)
     buffer = ReplayBuffer()
 
-    total_steps, best_score = 0, float("-inf")
+    total_steps, best_validation = 0, float("-inf")
     recent_totals = deque(maxlen=100)
     log_path = run_dir / "dqn_training.csv"
+    validation_path = run_dir / "dqn_validation.csv"
+    validation_path.write_text("episode,validation_score\n")
     with log_path.open("w", newline="") as log_file:
         log = csv.DictWriter(log_file, fieldnames=LOG_FIELDS)
         log.writeheader()
@@ -215,7 +250,7 @@ def main():
                 if len(buffer) >= LEARNING_STARTS:
                     losses.append(learn(buffer, online, target, optimizer))
                 total_steps += 1
-                if total_steps % TARGET_UPDATE_STEPS == 0:
+                if total_steps % args.target_update_steps == 0:
                     target.load_state_dict(online.state_dict())
 
                 driving_total += driving_reward
@@ -240,18 +275,27 @@ def main():
             })
             log_file.flush()
 
-            # Keep the latest model, and the one with the best 100-episode
-            # average once exploration is mostly over.
+            # Keep the latest model, and the one that scores best on the
+            # validation roads.
             recent_totals.append(driving_total - cost)
             score = float(np.mean(recent_totals))
             checkpoint = {"episode": episode, "online_network": online.state_dict(),
                           "communication_cost": args.communication_cost,
                           "mlpx_checkpoint": args.mlpx_checkpoint, "run_dir": str(run_dir)}
             torch.save(checkpoint, run_dir / "latest.pt")
-            if epsilon <= 0.2 and len(recent_totals) == 100 and score > best_score:
-                best_score = score
-                torch.save(checkpoint, run_dir / "best.pt")
-                torch.save(checkpoint, CHECKPOINT_DIR / "best.pt")
+            last_episode = episode + 1 == args.episodes
+            if epsilon <= VALIDATION_FROM_EPSILON and ((episode + 1) % VALIDATION_EVERY == 0 or last_episode):
+                validation = validation_score(online, environment, planner, args.communication_cost)
+                with validation_path.open("a") as file:
+                    file.write(f"{episode + 1},{validation}\n")
+                improved = validation > best_validation
+                print(f"Validation after episode {episode + 1}: {validation:.2f}"
+                      f"{' (new best)' if improved else ''}", flush=True)
+                if improved:
+                    best_validation = validation
+                    checkpoint["validation_score"] = validation
+                    torch.save(checkpoint, run_dir / "best.pt")
+                    torch.save(checkpoint, checkpoint_dir / "best.pt")
 
             if (episode + 1) % 50 == 0:
                 print(f"Episode {episode + 1}/{args.episodes} | epsilon={epsilon:.2f} | "

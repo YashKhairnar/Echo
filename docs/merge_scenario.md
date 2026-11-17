@@ -41,16 +41,68 @@ A car that is asked replies with 4 numbers (`encode_message` in
 
 The driver type is the one that matters; it can't be learned from watching.
 
-## 4. How the system works
+## 4. How we know the message matters
+
+Three checks, in this order: is the scenario worth studying, does the
+dataset contain the signal, and can the model learn it.
+
+**Step 1: before any data, prove the message matters.**
+`scripts/check_information_gap.py` uses only hand-written rules, no learning,
+on 300 seeds. It answers two questions:
+
+- *Is the driver type hidden?* A classifier guessing "yielding or
+  aggressive?" from what the ego sees (position, speed, change in speed)
+  scores **51.4%**, exactly chance. Before the merge, the two types look the same.
+- *Does knowing it help?* Three rules drive the same roads:
+
+  | Rule | What it does | Score | Crashes |
+  | --- | --- | ---: | ---: |
+  | merge now | gamble, never ask | 5.17 | 52% |
+  | no info | wait for a gap that is safe against *any* driver | 4.64 | 0% |
+  | ask rear | same, but when the gap is only safe for a yielding driver, ask the rear car | **7.35** | 0% |
+
+  "no info" and "ask rear" differ only in the message, which is worth about
+  **+2.7**. So the scenario is worth learning on: the information is hidden
+  *and* useful.
+
+**Step 2: collect data where the message's effect is visible.**
+`scripts/collect_multi_request_data.py`, 10,000 episodes (125,792 steps):
+
+- Every visible car is asked with **50% probability**, at random, every step.
+  The same kinds of situations appear with and without each car's message,
+  like a controlled experiment.
+- **Merges happen at varied moments:** each episode picks a random merge step
+  (0–12). Before it the ego only changes speed, then it merges, then it drives
+  randomly. So the data has merges from many gaps and speeds, in front of
+  both driver types.
+- The driving never uses the messages; the data records what happens after
+  each merge and what each car would have said.
+
+**Step 3: check that the data has the signal.** Every lane change into the
+target lane with a rear car within about 40 m, grouped by the rear car's
+answer:
+
+| Rear car's answer | Merges | Crashed within 3 steps |
+| --- | ---: | ---: |
+| aggressive | 2,802 | **76%** |
+| not asked | 6,632 | 51% |
+| yielding | 3,689 | **31%** |
+
+The data clearly says "aggressive means danger". So when MLPx v3 ignored
+messages, the problem was the model, not the data. That led to the
+per-vehicle MLPx and the "crash within 3 steps" output, after which the
+learned planner got +2.68 from asking the rear car (section 6). "Yielding"
+is not 0% because the random driving after the merge sometimes crashes
+anyway; the difference between the rows is what matters.
+
+## 5. How the system works
 
 ```text
 each step:  DQN picks whom to ask  ->  message  ->  planner imagines the future with MLPx  ->  driving action
 ```
 
-**Data** (`scripts/collect_multi_request_data.py`): 10,000 episodes
-(125,792 steps). The ego merges at a random moment, and every visible car is
-asked with 50% probability, so MLPx sees the same situations with and
-without each message.
+**Data** (`scripts/collect_multi_request_data.py`): 10,000 episodes with
+random asking and varied merges; see section 4, step 2.
 
 **MLPx, the world model** (`models/MLPx/mlpx.py`). Input: what the ego sees,
 the action, who was asked, and the messages. Output: next observation,
@@ -68,42 +120,97 @@ catches a merge that only goes wrong two steps later.
 asks one visible car or nobody (11 actions). It scores every car with one
 shared network, like MLPx. Reward = driving reward − 0.05 per question.
 Training: 3,000 episodes, Double DQN, 3-step returns, and exploration that
-mostly asks cars in the target lane.
+mostly asks cars in the target lane. The model that is kept is the one that
+scores best on 100 fixed validation roads (seeds 200,000+), checked every 250
+episodes once exploration is mostly over.
 
 **Evaluation** (`scripts/evaluate_merge_policies.py`): every request policy
 drives the same 200 unseen seeds with the same planner.
 
-## 5. Current results
+## 6. Current results
 
-**Is the information hidden and useful?** (`scripts/check_information_gap.py`,
-hand-written rules, no learning, 300 seeds)
-
-- A classifier guessing a car's type from what the ego sees: 51.4% (chance 51.4%).
-- Without asking, the ego must gamble (merge at once: 5.17, 52% crashes) or
-  wait for a gap that is safe against any driver (4.64, 0% crashes).
-- The safe rule plus asking the rear car: **7.35**, 0% crashes. So the
-  information is worth about +2.7.
+The information-gap check is in section 4.
 
 **Request policies with the learned planner** (200 unseen seeds, cost 0.05
-per question; `results/merge_policies/cost0.05_dqn_v3_nstep.json`):
+per question; baselines in `results/merge_policies/cost0.05_dqn_v3_nstep.json`,
+DQNs in `results/merge_policies/cost0.05_dqn_val_selection.json`):
 
 | Policy | Total score | Crashes | Merged | Questions / episode | Share to rear car |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | ask nobody | 5.79 | 18% | 78% | 0 | – |
 | ask everyone | 2.03 | 0% | 97% | 152 | 13% |
 | random car each step | 5.58 | 15% | 82% | 18.7 | 12% |
-| random, same budget as DQN | 5.53 | 17% | 80% | 12.7 | 12% |
 | rear-car rule (hand-written) | **8.47** | 0% | 97% | 6.7 | 100% |
-| **DQN** | **6.77** | 2% | 94% | 13.5 | 57% |
+| DQN, training seed 0 (current) | 6.92 | 1% | 94% | 15.3 | 60% |
+| DQN, training seed 1 | 7.45 | 3% | 94% | 19.8 | 71% |
+| DQN, training seed 2 | 6.90 | 4% | 94% | 19.5 | 28% |
+| **DQN, average of 3 runs** | **7.09** | 3% | 94% | 18.2 | 53% |
 
 - **The planner uses messages well:** the rear-car rule gains +2.68 over
   asking nobody, which is close to the true value (+2.7).
-- **The DQN learned to ask:** it beats asking nobody by +0.98 (about 3
-  standard errors) and cuts crashes from 18% to 2%.
-- **But it's not there yet:** it asks twice as often as needed, only half of
-  its questions go to the rear car, and it merges late (7.8 s vs 4.9 s).
+- **The DQN learned to ask, reliably:** every run beats asking nobody, by
+  +1.30 on average, and crashes fall from 18% to 1–4%.
+- **But it's not there yet:** it asks almost three times as often as needed
+  (18 vs 6.7 questions per episode), and it's still 1.4 below the rear-car rule.
+- The current DQN (`checkpoints/DQN/best.pt`) is training seed 0: it had the
+  best validation score (7.98). It was not chosen by test score.
 
-## 6. History
+**Where the DQN asks** (`scripts/check_dqn_requests.py`, same 200 test
+roads, results in `results/dqn_requests/`). A step is *decisive* when the
+planner would choose a different move with the rear car's answer than
+without it.
+
+| Situation | Share of steps | Asks nobody | Asks rear car | Asks front car | Share of all questions |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| decisive (before merge) | 21–25% | 0–6% | 36–63% | 27–51% | 21–31% |
+| not decisive (before merge) | 17–20% | 0–6% | 37–62% | 18–38% | 17–24% |
+| after merge | 52–59% | 0–40% | – | – | **41–59%** |
+
+(Ranges over the three training seeds. Before the merge, the remaining
+questions go to other cars.)
+
+- **Whom:** at decisive moments it asks the rear car only 36–63% of the time.
+  Most other questions go to the *front* car, the neighbour on the other side
+  of the gap, whose type doesn't matter because the ego merges behind it.
+- **When:** it asks just as much at non-decisive moments as at decisive ones,
+  and almost never chooses "nobody" before the merge.
+- **After the merge** it keeps asking: about half of all its questions are
+  asked after it has already merged, when no answer can change anything.
+- Likely cause: a question costs only 0.05, while one episode's score varies
+  by about ±4, so the cost of a useless question is too small for the DQN to
+  notice. The rear and front cars also look alike (both close, in the target
+  lane), differing mainly in whether they are behind or ahead.
+
+**Cost sweep** (`scripts/evaluate_cost_sweep.py`, 3 training seeds per cost,
+200 test roads; `results/cost_sweep/summary.json`). The baselines' scores at
+each cost are their driving reward minus cost × questions.
+
+![Score and questions per episode against the cost per question](images/cost_sweep.png)
+
+| Cost per question | DQN total (mean, min–max) | DQN questions / ep | DQN crashes | Ask nobody | Rear-car rule |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 0 | 7.60 (6.46–8.76) | 15.3 | 12% | 5.79 | 8.80 |
+| 0.05 | 7.09 (6.90–7.45) | 18.2 | 3% | 5.79 | 8.47 |
+| 0.1 | 6.18 (5.76–7.00) | 6.8 | 13% | 5.79 | 8.13 |
+| 0.2 | 5.70 (5.52–5.79) | 0.5 | 18% | 5.79 | 7.46 |
+| 0.5 | 5.79 (all three) | 0.0 | 18% | 5.79 | 5.44 |
+
+- **All or nothing.** Each DQN either asks almost every step (15–20
+  questions) or never asks. At cost 0.1 one seed asks 19.7 times per
+  episode and the other two 0.3 times; the mean of 6.8 hides that. It never
+  learns the middle option: ask a few times, at the right moments.
+- **It gives up too early.** From cost 0.2 the DQN stops asking, though the
+  rear-car rule is still worth +1.67 there. Asking the rear car stays worth it
+  up to a cost of about 0.45 (where the rule's line crosses "ask nobody").
+- **Only at 0.5 is never asking right**, and there the DQN matches it.
+- **Even free questions aren't enough:** at cost 0 the DQN reaches 7.60
+  against 8.80 for the rule, so the front/rear confusion costs more than
+  the question cost does.
+- This matches the request check above: since the DQN can't tell decisive
+  moments from the rest, its only real choices are "always ask" or "never
+  ask", and which one wins depends on the cost.
+
+## 7. History
 
 | Step | What changed | Result | What it taught us |
 | --- | --- | --- | --- |
@@ -116,19 +223,30 @@ per question; `results/merge_policies/cost0.05_dqn_v3_nstep.json`):
 | MLPx v5 | "Crash within 3 steps" head | Rear rule +2.68 over none | Planner now uses messages fully |
 | DQN run 2 | Same DQN on v5 | Learned to never ask (5.78) | It never saw a question pay off |
 | **DQN run 3** | Target-lane exploration + 3-step returns | **6.77, crashes 2%** | First DQN that learned to ask |
+| DQN run 4 | Same as run 3, 6,000 episodes | 6.28, crashes 13%, 17 questions / ep | Longer training doesn't help: the score swings between 5.9 and 7.1 after exploration ends. Run 3 stays the current DQN |
+| Seed check | Run 3's settings with training seeds 1 and 2; a steadier variant (learning rate 5e-5, target copy every 2,000 steps) | Seeds 0 / 1 / 2: 6.77 / 6.87 / 5.96 (mean 6.53); steadier: 6.11 | Results depend a lot on luck; all beat asking nobody (5.79) but seed 2 only barely. The steadier settings didn't help |
+| **Validation selection** | Same 3 trainings; keep the model that scores best on 100 fixed validation roads instead of the training average | **6.92 / 7.45 / 6.90 (mean 7.09), crashes 1–4%** | Picking the model was a big part of the problem: same training, +0.56 on average and much less luck. Seed 0 becomes the current DQN |
+| Request check | Labelled each step decisive / not / after merge, and whom the DQN asked | Rear car at only 36–63% of decisive moments; ~half of questions after the merge | It confuses the rear and front car and hasn't learned *when* to ask |
+| Cost sweep | Costs 0, 0.05, 0.1, 0.2, 0.5, 3 seeds each | Asks ~15–20 times or never; stops asking from 0.2 though asking pays up to ~0.45 | All-or-nothing: it never learned to ask a few times at the right moments |
 
-## 7. Where things are
+## 8. Where things are
 
 | What | Where |
 | --- | --- |
 | Data | `data/mergeMultiRequestData.csv` |
 | Current MLPx (v5) | `checkpoints/MLPx/best.pt` (run `results/MLPx/experiments/20261115_185956_mlpx/`) |
-| Current DQN (run 3) | `checkpoints/DQN/best.pt` (run `results/DQN/experiments/20261115_195934_dqn_cost0.05/`) |
+| Current DQN (validation selection, seed 0) | `checkpoints/DQN/best.pt` (run `results/DQN/experiments/20261116_214544_dqn_cost0.05/`) |
+| Other seeds and variants | `checkpoints/DQN_seeds/` |
+| Cost sweep models and results | `checkpoints/DQN_sweep/`, `results/cost_sweep/` |
 | Older models | `checkpoints/MLPx_merge_history/`, `checkpoints/DQN_history/` |
 | Evaluation results | `results/merge_policies/` |
 
-## 8. Next steps
+## 9. Next steps
 
-1. Train the DQN longer: its training score was still rising.
-2. Cost sweep: train at several question costs and check that it asks less when questions are expensive.
-3. Optional: the same idea on a 4-lane highway with normal traffic.
+1. Teach the DQN *when* and *whom*, so it can ask a few times at the right
+   moments instead of all or nothing. The cost sweep and the request check
+   point at the same cause: one useful question is a small, noisy signal.
+   Ideas: a lower-noise learning signal (e.g. compare asking each car on the
+   same road), more training on the steps just before a merge, or giving the
+   DQN a hint of what the planner is about to do.
+2. Optional: the same idea on a 4-lane highway with normal traffic.

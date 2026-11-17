@@ -31,11 +31,11 @@ The environment, vehicles and messages are in
 | ask nobody | 5.79 | 18% | 0 |
 | ask everyone | 2.03 | 0% | 152 |
 | rear-car rule (hand-written) | **8.47** | 0% | 6.7 |
-| **request DQN** | **6.77** | 2% | 13.5 |
+| **request DQN** (average of 3 training runs) | **7.09** | 3% | 18.2 |
 
 The planner uses messages well, and the DQN has learned to ask (crashes fall
-from 18% to 2%), but it still asks too often and is below the hand-written
-rule. Details: [docs/merge_scenario.md](docs/merge_scenario.md).
+from 18% to about 3%), but it asks far too often and is still below the
+hand-written rule. Details: [docs/merge_scenario.md](docs/merge_scenario.md).
 
 ## Timeline
 

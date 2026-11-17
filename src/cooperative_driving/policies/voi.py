@@ -7,14 +7,21 @@ For a car k, with P(yielding) = 0.5:
 
     know_answer  = 0.5 * best value if k says "yielding"
                  + 0.5 * best value if k says "aggressive"
-    dont_know    = best value of one action chosen without the answer
-                   (the action with the best 0.5/0.5 average)
+    dont_know    = 0.5/0.5 average value of the move the planner makes
+                   with NO message (what the ego actually does if it
+                   doesn't ask), judged with each possible answer
     value of asking k = know_answer - dont_know
 
-It is 0 when the same move is best whatever the car answers (after the
-merge, or for a car whose type doesn't matter, like the one in front), and
-positive when the answer would change the move. The rule asks the car with
-the highest value, if that value is larger than the cost of a question.
+It is 0 when asking wouldn't change the move the ego makes anyway (after
+the merge, or for a car whose type doesn't matter, like the one in front),
+and positive when the answer would change it. The rule asks the car with the
+highest value, if that value is larger than the cost of a question.
+
+Why compare with the no-message move: the planner without a message can be
+bolder than with either answer. Before this, the rule compared with the
+best single move for the averaged answers, so when both answers said "wait"
+it valued asking at 0 while the ego, not asking, merged anyway. That caused
+6 of its 8 crashes on the test roads.
 
 A message has four values, but only the driver type is imagined both ways;
 the other three are filled with what platoon cars almost always say
@@ -61,7 +68,8 @@ class AskValueOfInformation:
         if_aggressive = torch.tensor(self.planner.action_values_batched(
             self.observation, imagined_message(slot, AGGRESSIVE_CODE)))
         know_answer = self.p * if_yielding.max() + (1 - self.p) * if_aggressive.max()
-        dont_know = (self.p * if_yielding + (1 - self.p) * if_aggressive).max()
+        move = self.move_without_asking
+        dont_know = self.p * if_yielding[move] + (1 - self.p) * if_aggressive[move]
         return float(know_answer - dont_know)
 
     def target_lane_slots(self, environment, observation):
@@ -73,6 +81,8 @@ class AskValueOfInformation:
 
     def slots(self, environment, observation):
         self.observation = observation
+        # The move the ego makes if it asks nobody (the same planner that drives).
+        self.move_without_asking = self.planner.plan(observation, None)
         values = {slot: self.value_of_asking(slot) for slot in self.target_lane_slots(environment, observation)}
         if not values:
             return []

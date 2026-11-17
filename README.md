@@ -32,19 +32,19 @@ The environment, vehicles and messages are in
 | ask everyone | 2.03 | 0% | 152 |
 | rear-car rule (hand-written) | **8.47** | 0% | 6.7 |
 | request DQN (average of 3 training runs) | 7.09 | 3% | 18.2 |
-| **value-of-information rule** (no learning) | **8.27** | 4% | **5.6** |
+| **value-of-information rule** (no learning) | **8.52** | 4% | 9.5 |
 
 The value-of-information rule asks a car only when the planner, imagining
-both possible answers, would drive differently depending on the answer. It
-needs no training, comes close to the hand-written rule with fewer
-questions, and asks less as questions get more expensive. The request DQN
-learned to ask but asks far too often. Details: [docs/merge_scenario.md](docs/merge_scenario.md).
+both possible answers, would drive differently than it would without asking.
+It needs no training, matches or beats the hand-written rule at every
+question cost tested (0 to 0.5), and asks less as questions get more
+expensive. The request DQN learned to ask but asks far too often. Details: [docs/merge_scenario.md](docs/merge_scenario.md).
 
 ## Timeline
 
 Click the graphic for the interactive version, where each step opens to show what changed, the result, and what it taught us.
 
-<a href="https://yashkhairnar.github.io/Echo/timeline.html"><img src="docs/images/project_timeline.svg" width="100%" alt="Project timeline: highway experiments (Nov 5–14) where asking never helped, the turning point, then the merge scenario (Nov 15) where the world model learned to use messages and request DQN run 3 became the first policy that learned to ask."></a>
+<a href="https://yashkhairnar.github.io/Echo/timeline.html"><img src="docs/images/project_timeline.svg" width="100%" alt="Project timeline: highway experiments (Nov 5–14) where asking never helped, the turning point, then the merge scenario (Nov 15–17) where the world model learned to use messages, the request DQN learned to ask only partly, and a value-of-information rule built on the world model matched the hand-written rule."></a>
 
 ## Run it
 

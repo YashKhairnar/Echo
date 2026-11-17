@@ -158,7 +158,7 @@
         </dl></div></details></li>
   </ol>
 
-  <div class="phase">PHASE 2 · Forced merge with hidden yielding / aggressive drivers <small>· Nov 15</small></div>
+  <div class="phase">PHASE 2 · Forced merge with hidden yielding / aggressive drivers <small>· Nov 15 – Nov 17</small></div>
   <ol>
     <li><div class="date"></div><div class="dot good"></div>
       <details><summary><span class="title">Merge scenario + information check</span>
@@ -214,20 +214,57 @@
         </dl></div></details></li>
 
     <li><div class="date"></div><div class="dot good"></div>
-      <details class="now" open><summary><span class="title">Request DQN, run 3: the first one that learned to ask</span><span class="badge">NOW</span>
+      <details><summary><span class="title">Request DQN, run 3: the first one that learned to ask</span>
         <span class="line2">Practise on target-lane cars, look 3 steps ahead · <span class="result good">6.77 vs 5.79, crashes 18% → 2%</span></span></summary>
         <div class="body"><dl>
           <dt>What changed</dt><dd>While practising, it mostly asks cars in the lane it wants to enter, and it learns from 3-step returns so the later payoff reaches the question. 3,000 episodes.</dd>
           <dt>Result</dt><dd>Beats asking nobody by +0.98 (about 3 standard errors), cuts crashes from 18% to 2%, and sends 57% of its questions to the rear car (random: 12%).</dd>
-          <dt>Still missing</dt><dd>It asks twice as often as the rear-car rule (13.5 vs 6.7 per episode) and merges later (7.8 s vs 4.9 s). Its training score was still rising.</dd>
+          <dt>Still missing</dt><dd>It asks twice as often as the rear-car rule (13.5 vs 6.7 per episode) and merges later (7.8 s vs 4.9 s).</dd>
         </dl><div class="chips"><span class="chip">DQN 6.77</span><span class="chip">ask nobody 5.79</span><span class="chip">rear rule 8.47</span><span class="chip">crashes 2%</span></div></div></details></li>
 
-    <li><div class="date">Next</div><div class="dot neutral"></div>
-      <details class="next"><summary><span class="title">Close the gap to the rear-car rule (8.47)</span>
-        <span class="line2">Train longer · try different question costs · back to a 4-lane highway</span></summary>
+    <li><div class="date">Nov 16</div><div class="dot bad"></div>
+      <details><summary><span class="title">Longer training, other seeds</span>
+        <span class="line2">6,000 episodes: 6.28 · other seeds: 5.96–6.87 · <span class="result bad">results depend a lot on luck</span></span></summary>
         <div class="body"><dl>
-          <dt>Train longer</dt><dd>The training score was still rising at 3,000 episodes.</dd>
-          <dt>Cost sweep</dt><dd>Train at several question costs and check that the DQN asks less when questions are expensive.</dd>
+          <dt>What we tried</dt><dd>Run 3's setup for 6,000 episodes; the same setup with two other training seeds; and steadier settings (half the learning rate, slower target updates).</dd>
+          <dt>Result</dt><dd>6,000 episodes did worse (6.28, crashes 13%). The other seeds scored 6.87 and 5.96. The steadier settings scored 6.11.</dd>
+          <dt>Lesson</dt><dd>The training score swings a lot, and the saved model was picked from a noisy training average.</dd>
+        </dl></div></details></li>
+
+    <li><div class="date">Nov 16</div><div class="dot good"></div>
+      <details><summary><span class="title">Pick the saved DQN on validation roads</span>
+        <span class="line2">Same training, better choice of model · <span class="result good">3-run average 6.53 → 7.09</span></span></summary>
+        <div class="body"><dl>
+          <dt>What changed</dt><dd>Every 250 episodes the DQN drives 100 fixed validation roads without exploring, and the best-scoring model is kept.</dd>
+          <dt>Result</dt><dd>Seeds 0 / 1 / 2: 6.92 / 7.45 / 6.90. Every run now beats asking nobody, crashes 1–4%.</dd>
+          <dt>Still missing</dt><dd>It asks about 18 times per episode, against 6.7 for the rear-car rule.</dd>
+        </dl><div class="chips"><span class="chip">average 7.09</span><span class="chip">crashes 1–4%</span></div></div></details></li>
+
+    <li><div class="date">Nov 17</div><div class="dot bad"></div>
+      <details><summary><span class="title">Where the DQN asks + cost sweep</span>
+        <span class="line2">Wrong car at ~half the key moments · <span class="result bad">asks 15–20 times or never, whatever the cost</span></span></summary>
+        <div class="body"><dl>
+          <dt>Where it asks</dt><dd>At the moments where the rear car's answer changes the move, it asks the rear car only 36–63% of the time, often the front car instead. About half its questions come after the merge.</dd>
+          <dt>Cost sweep</dt><dd>Trained at costs 0, 0.1, 0.2 and 0.5 (3 seeds each). Each DQN asks almost every step or never; from cost 0.2 every run stops asking, though asking still pays.</dd>
+          <dt>Lesson</dt><dd>One useful question is a small signal in a lot of noise, so the DQN never learns <em>when</em> to ask.</dd>
+        </dl></div></details></li>
+
+    <li><div class="date">Nov 17</div><div class="dot good"></div>
+      <details class="now" open><summary><span class="title">Value-of-information rule: ask only if it changes the move</span><span class="badge">NOW</span>
+        <span class="line2">The planner imagines both answers, no training · <span class="result good">8.52, matches the hand-written rule at every cost</span></span></summary>
+        <div class="body"><dl>
+          <dt>How it works</dt><dd>For each car in the target lane, the planner imagines both answers ("yielding" and "aggressive"). Asking is worth how much better the ego could drive knowing the answer than with the move it would make without asking. It asks the most valuable car if that beats the cost.</dd>
+          <dt>Result</dt><dd>At cost 0.05: 8.52 against 8.47 for the hand-written rule. Across costs 0 to 0.5 it matches or beats that rule everywhere (6.78 vs 5.44 at 0.5) and asks less as cost rises: 16.4 → 2.7 questions per episode.</dd>
+          <dt>Fix along the way</dt><dd>The first version compared against the wrong baseline and merged without asking in 6 of its 8 crashes. Comparing with the move the ego actually makes without asking fixed that.</dd>
+          <dt>Still missing</dt><dd>It crashes 2–4%; the hand-written rule crashes 0%.</dd>
+        </dl><div class="chips"><span class="chip">8.52 at cost 0.05</span><span class="chip">rear rule 8.47</span><span class="chip">DQN 7.09</span><span class="chip">no training</span></div></div></details></li>
+
+    <li><div class="date">Next</div><div class="dot neutral"></div>
+      <details class="next"><summary><span class="title">Teach the DQN from the rule</span>
+        <span class="line2">Use the rule as a teacher · look at the last 2–4% crashes · back to a 4-lane highway</span></summary>
+        <div class="body"><dl>
+          <dt>Teacher</dt><dd>Train the DQN to copy the rule's choices, giving a fast learned policy without the noisy-reward problem.</dd>
+          <dt>Crashes</dt><dd>Look at the rule's remaining 2–4% crashes.</dd>
           <dt>4 lanes</dt><dd>The same hidden drivers on a busier highway, where it's less obvious whom to ask.</dd>
         </dl></div></details></li>
   </ol>

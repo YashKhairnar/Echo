@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="880" height="1112" viewBox="0 0 880 1112" role="img" aria-labelledby="t d">
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="1376" viewBox="0 0 880 1376" role="img" aria-labelledby="t d">
   <title id="t">Echo project timeline</title>
-  <desc id="d">From the first highway setup (Nov 5) to a request DQN that learned to ask in the merge scenario (Nov 15).</desc>
+  <desc id="d">From the first highway setup (Nov 5) to a value-of-information request rule that matches the hand-written rule in the merge scenario (Nov 17).</desc>
   <style>
     text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
     .bg { fill: #ffffff; }
@@ -39,7 +39,7 @@
     }
   </style>
 
-  <rect class="bg" x="0" y="0" width="880" height="1112" rx="12"/>
+  <rect class="bg" x="0" y="0" width="880" height="1376" rx="12"/>
 
   <!-- Heading and legend -->
   <text class="h1" x="24" y="40">Echo: project timeline</text>
@@ -49,7 +49,7 @@
   <circle class="bad" cx="748" cy="36" r="6"/><text class="legend" x="759" y="40">didn't work</text>
 
   <!-- Spine -->
-  <line class="line" x1="152" y1="126" x2="152" y2="1088"/>
+  <line class="line" x1="152" y1="126" x2="152" y2="1352"/>
 
   <!-- Phase 1 -->
   <rect class="band" x="24" y="84" width="836" height="30" rx="6"/>
@@ -94,7 +94,7 @@
 
   <!-- Phase 2 -->
   <rect class="band" x="24" y="528" width="836" height="30" rx="6"/>
-  <text class="bandtext" x="40" y="548">PHASE 2 · Forced merge with hidden yielding / aggressive drivers · Nov 15</text>
+  <text class="bandtext" x="40" y="548">PHASE 2 · Forced merge with hidden yielding / aggressive drivers · Nov 15 – Nov 17</text>
 
   <rect class="card" x="176" y="570" width="684" height="56" rx="8"/>
   <circle class="good ring" cx="152" cy="598" r="8"/>
@@ -126,17 +126,41 @@
   <text class="title" x="192" y="923">Request DQN, run 2</text>
   <text class="text" x="192" y="944">Asked random cars while practising · <tspan class="tbad">learned never to ask (5.78)</tspan></text>
 
-  <rect class="now" x="176" y="966" width="684" height="56" rx="8"/>
-  <circle class="good ring" cx="152" cy="994" r="10"/>
+  <rect class="card" x="176" y="966" width="684" height="56" rx="8"/>
+  <circle class="good ring" cx="152" cy="994" r="8"/>
   <text class="title" x="192" y="989">Request DQN, run 3: the first one that learned to ask</text>
   <text class="text" x="192" y="1010">Practise on target-lane cars, look 3 steps ahead · <tspan class="tgood">6.77 vs 5.79, crashes 18% → 2%</tspan></text>
-  <rect class="blue" x="790" y="978" width="58" height="22" rx="11"/>
-  <text class="badge" x="819" y="993" text-anchor="middle">NOW</text>
+
+  <text class="date" x="128" y="1065" text-anchor="end">Nov 16</text>
+  <rect class="card" x="176" y="1032" width="684" height="56" rx="8"/>
+  <circle class="bad ring" cx="152" cy="1060" r="8"/>
+  <text class="title" x="192" y="1055">Longer training, other seeds</text>
+  <text class="text" x="192" y="1076">6,000 episodes: 6.28 · other seeds: 5.96–6.87 · <tspan class="tbad">results depend a lot on luck</tspan></text>
+
+  <text class="date" x="128" y="1131" text-anchor="end">Nov 16</text>
+  <rect class="card" x="176" y="1098" width="684" height="56" rx="8"/>
+  <circle class="good ring" cx="152" cy="1126" r="8"/>
+  <text class="title" x="192" y="1121">Pick the saved DQN on validation roads</text>
+  <text class="text" x="192" y="1142">Same training, better choice of model · <tspan class="tgood">3-run average 6.53 → 7.09</tspan></text>
+
+  <text class="date" x="128" y="1197" text-anchor="end">Nov 17</text>
+  <rect class="card" x="176" y="1164" width="684" height="56" rx="8"/>
+  <circle class="bad ring" cx="152" cy="1192" r="8"/>
+  <text class="title" x="192" y="1187">Where the DQN asks + cost sweep</text>
+  <text class="text" x="192" y="1208">Wrong car at ~half the key moments · <tspan class="tbad">asks 15–20 times or never, whatever the cost</tspan></text>
+
+  <text class="date" x="128" y="1263" text-anchor="end">Nov 17</text>
+  <rect class="now" x="176" y="1230" width="684" height="56" rx="8"/>
+  <circle class="good ring" cx="152" cy="1258" r="10"/>
+  <text class="title" x="192" y="1253">Value-of-information rule: ask only if it changes the move</text>
+  <text class="text" x="192" y="1274">The planner imagines both answers, no training · <tspan class="tgood">8.52, matches the hand-written rule at every cost</tspan></text>
+  <rect class="blue" x="790" y="1242" width="58" height="22" rx="11"/>
+  <text class="badge" x="819" y="1257" text-anchor="middle">NOW</text>
 
   <!-- Next -->
-  <text class="date" x="128" y="1065" text-anchor="end">Next</text>
-  <rect class="next" x="176" y="1032" width="684" height="56" rx="8"/>
-  <circle class="neutral ring" cx="152" cy="1060" r="8"/>
-  <text class="title" x="192" y="1055">Close the gap to the rear-car rule (8.47)</text>
-  <text class="text" x="192" y="1076">Train longer · try different question costs · back to a 4-lane highway</text>
+  <text class="date" x="128" y="1329" text-anchor="end">Next</text>
+  <rect class="next" x="176" y="1296" width="684" height="56" rx="8"/>
+  <circle class="neutral ring" cx="152" cy="1324" r="8"/>
+  <text class="title" x="192" y="1319">Teach the DQN from the rule</text>
+  <text class="text" x="192" y="1340">Use the rule as a teacher · look at the last 2–4% crashes · back to a 4-lane highway</text>
 </svg>

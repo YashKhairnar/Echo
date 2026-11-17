@@ -283,3 +283,17 @@
   0.13–0.43 of the hand-written rear-car rule up to cost 0.2 and above it at
   0.5. Crashes 4–7% (rule: 0%).
 - `evaluate_cost_sweep.py` now includes the rule and reuses saved results.
+
+## 2026-11-17 — Value-of-information rule, v2
+
+- Replayed the 8 crashes of the first version (cost 0.05). In 6, the ego
+  merged in front of an aggressive car 11–21 m behind without asking: with
+  either answer the planner would have waited, so asking looked worthless,
+  but with no message it gambled and merged. The imagined messages matched
+  the real ones.
+- Fix: measure the value of asking against the move the ego actually makes
+  without asking (the planner's no-message choice), judged under both answers.
+- On the 200 test roads (cost 0 / 0.05 / 0.1 / 0.2 / 0.5): 9.01 / 8.52 /
+  8.35 / 7.46 / 6.78 with 16.4 / 9.5 / 8.0 / 6.5 / 2.7 questions per episode,
+  crashes 2–4%. Matches or beats the hand-written rear-car rule at every cost
+  (clearly at 0.5: 6.78 vs 5.44) and beats the DQN and asking nobody everywhere.

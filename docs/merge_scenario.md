@@ -145,15 +145,30 @@ DQNs in `results/merge_policies/cost0.05_dqn_val_selection.json`):
 | DQN, training seed 1 | 7.45 | 3% | 94% | 19.8 | 71% |
 | DQN, training seed 2 | 6.90 | 4% | 94% | 19.5 | 28% |
 | **DQN, average of 3 runs** | **7.09** | 3% | 94% | 18.2 | 53% |
+| **Value-of-information rule** (no learning) | **8.27** | 4% | 92% | **5.6** | 68% |
 
 - **The planner uses messages well:** the rear-car rule gains +2.68 over
   asking nobody, which is close to the true value (+2.7).
-- **The DQN learned to ask, reliably:** every run beats asking nobody, by
-  +1.30 on average, and crashes fall from 18% to 1–4%.
-- **But it's not there yet:** it asks almost three times as often as needed
-  (18 vs 6.7 questions per episode), and it's still 1.4 below the rear-car rule.
+- **The value-of-information rule is the best learned-model policy:** it
+  uses only MLPx and the planner, is within noise of the hand-written rule
+  (8.27 ± 0.29 vs 8.47), and asks less (5.6 vs 6.7 questions). See below.
+- **The DQN learned to ask, but poorly:** every run beats asking nobody, by
+  +1.30 on average, but it asks about three times as often as needed and is
+  1.2 below the value-of-information rule.
 - The current DQN (`checkpoints/DQN/best.pt`) is training seed 0: it had the
   best validation score (7.98). It was not chosen by test score.
+
+**Value-of-information rule** (`src/cooperative_driving/policies/voi.py`).
+For each car in the target lane, the planner imagines both answers
+("yielding" and "aggressive"; the other message values are filled with what
+platoon cars almost always say). The value of asking is how much better the
+ego could drive if it knew the answer than if it had to pick one move
+without it. That's 0 when the same move is best either way (after the merge,
+or for the front car) and positive when the answer would change the move.
+The rule asks the most valuable car, if that value beats the question's
+cost. It needs no training. To keep it fast, the planner got a batched
+version of its value calculation (`action_values_batched`, 17× faster, same
+best move in 368 of 368 test plans); the planner that drives is unchanged.
 
 **Where the DQN asks** (`scripts/check_dqn_requests.py`, same 200 test
 roads, results in `results/dqn_requests/`). A step is *decisive* when the
@@ -181,19 +196,37 @@ questions go to other cars.)
   notice. The rear and front cars also look alike (both close, in the target
   lane), differing mainly in whether they are behind or ahead.
 
-**Cost sweep** (`scripts/evaluate_cost_sweep.py`, 3 training seeds per cost,
-200 test roads; `results/cost_sweep/summary.json`). The baselines' scores at
-each cost are their driving reward minus cost × questions.
+**Cost sweep** (`scripts/evaluate_cost_sweep.py`, 3 training seeds per cost
+for the DQN, 200 test roads; `results/cost_sweep/summary.json`). The
+baselines' scores at each cost are their driving reward minus cost × questions.
 
 ![Score and questions per episode against the cost per question](images/cost_sweep.png)
 
-| Cost per question | DQN total (mean, min–max) | DQN questions / ep | DQN crashes | Ask nobody | Rear-car rule |
-| ---: | --- | ---: | ---: | ---: | ---: |
-| 0 | 7.60 (6.46–8.76) | 15.3 | 12% | 5.79 | 8.80 |
-| 0.05 | 7.09 (6.90–7.45) | 18.2 | 3% | 5.79 | 8.47 |
-| 0.1 | 6.18 (5.76–7.00) | 6.8 | 13% | 5.79 | 8.13 |
-| 0.2 | 5.70 (5.52–5.79) | 0.5 | 18% | 5.79 | 7.46 |
-| 0.5 | 5.79 (all three) | 0.0 | 18% | 5.79 | 5.44 |
+| Cost per question | Value-of-information rule | its questions / ep | its crashes | DQN total (mean, min–max) | DQN questions / ep | Ask nobody | Rear-car rule |
+| ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: |
+| 0 | 8.53 | 14.5 | 5% | 7.60 (6.46–8.76) | 15.3 | 5.79 | 8.80 |
+| 0.05 | 8.27 | 5.6 | 4% | 7.09 (6.90–7.45) | 18.2 | 5.79 | 8.47 |
+| 0.1 | 7.70 | 4.4 | 6% | 6.18 (5.76–7.00) | 6.8 | 5.79 | 8.13 |
+| 0.2 | 7.33 | 3.2 | 7% | 5.70 (5.52–5.79) | 0.5 | 5.79 | 7.46 |
+| 0.5 | **5.87** | 0.6 | 14% | 5.79 (all three) | 0.0 | 5.79 | 5.44 |
+
+(Each score has a standard error of about ±0.3.)
+
+**The value-of-information rule does what the DQN couldn't:**
+
+- **It asks less as questions get pricier, smoothly:** 14.5 → 5.6 → 4.4 →
+  3.2 → 0.6 questions per episode. No retraining, just a different cost.
+- **It beats the DQN at every cost** and asking nobody at every cost
+  (barely at 0.5).
+- **It asks the right car more as cost rises:** the share of its questions
+  going to the rear car grows from 48% to 97%.
+- **It's close to the hand-written rule** (0.13–0.43 below it up to cost 0.2,
+  within about 1–1.5 standard errors) and **beats it at 0.5**, where asking
+  the rear car every time no longer pays.
+- **Remaining gap:** it crashes 4–7% where the hand-written rule crashes 0%,
+  probably where MLPx's imagined values misjudge a merge.
+
+**The DQN, by contrast:**
 
 - **All or nothing.** Each DQN either asks almost every step (15–20
   questions) or never asks. At cost 0.1 one seed asks 19.7 times per
@@ -228,6 +261,7 @@ each cost are their driving reward minus cost × questions.
 | **Validation selection** | Same 3 trainings; keep the model that scores best on 100 fixed validation roads instead of the training average | **6.92 / 7.45 / 6.90 (mean 7.09), crashes 1–4%** | Picking the model was a big part of the problem: same training, +0.56 on average and much less luck. Seed 0 becomes the current DQN |
 | Request check | Labelled each step decisive / not / after merge, and whom the DQN asked | Rear car at only 36–63% of decisive moments; ~half of questions after the merge | It confuses the rear and front car and hasn't learned *when* to ask |
 | Cost sweep | Costs 0, 0.05, 0.1, 0.2, 0.5, 3 seeds each | Asks ~15–20 times or never; stops asking from 0.2 though asking pays up to ~0.45 | All-or-nothing: it never learned to ask a few times at the right moments |
+| **Value-of-information rule** | No learning: the planner imagines both answers of each target-lane car and asks only if the answer could change the move | **8.27 at cost 0.05 with 5.6 questions; beats the DQN and asking nobody at every cost** | The world model itself knows when asking is worth it. Close to the hand-written rule, and asks less as cost rises |
 
 ## 8. Where things are
 
@@ -243,10 +277,10 @@ each cost are their driving reward minus cost × questions.
 
 ## 9. Next steps
 
-1. Teach the DQN *when* and *whom*, so it can ask a few times at the right
-   moments instead of all or nothing. The cost sweep and the request check
-   point at the same cause: one useful question is a small, noisy signal.
-   Ideas: a lower-noise learning signal (e.g. compare asking each car on the
-   same road), more training on the steps just before a merge, or giving the
-   DQN a hint of what the planner is about to do.
-2. Optional: the same idea on a 4-lane highway with normal traffic.
+1. Close the value-of-information rule's crash gap (4–7% vs 0% for the
+   hand-written rule): look at the roads where it crashes and check whether
+   MLPx's imagined values were wrong there.
+2. Use the value-of-information rule as a teacher for the DQN: train the DQN
+   to copy its choices, giving a fast learned policy without the noisy
+   reward problem.
+3. Optional: the same idea on a 4-lane highway with normal traffic.

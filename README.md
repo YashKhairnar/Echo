@@ -31,11 +31,14 @@ The environment, vehicles and messages are in
 | ask nobody | 5.79 | 18% | 0 |
 | ask everyone | 2.03 | 0% | 152 |
 | rear-car rule (hand-written) | **8.47** | 0% | 6.7 |
-| **request DQN** (average of 3 training runs) | **7.09** | 3% | 18.2 |
+| request DQN (average of 3 training runs) | 7.09 | 3% | 18.2 |
+| **value-of-information rule** (no learning) | **8.27** | 4% | **5.6** |
 
-The planner uses messages well, and the DQN has learned to ask (crashes fall
-from 18% to about 3%), but it asks far too often and is still below the
-hand-written rule. Details: [docs/merge_scenario.md](docs/merge_scenario.md).
+The value-of-information rule asks a car only when the planner, imagining
+both possible answers, would drive differently depending on the answer. It
+needs no training, comes close to the hand-written rule with fewer
+questions, and asks less as questions get more expensive. The request DQN
+learned to ask but asks far too often. Details: [docs/merge_scenario.md](docs/merge_scenario.md).
 
 ## Timeline
 

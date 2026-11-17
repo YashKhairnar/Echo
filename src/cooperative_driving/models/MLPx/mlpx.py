@@ -103,6 +103,34 @@ class MLPxWorldModel(nn.Module):
         return model
 
     @torch.no_grad()
+    def predict_batch(self, observations, actions, message=None):
+        """Imagine one step for many (observation, action) pairs at once.
+
+        ``observations``: (N, 60) tensor, ``actions``: N ints, ``message``: one
+        message dictionary shared by all pairs (or None). Returns tensors:
+        next observations (N, 60), rewards (N,), crash and crash-soon
+        probabilities (N,).
+        """
+        count = observations.shape[0]
+        action_one_hot = torch.zeros(count, self.ACTION_SIZE)
+        action_one_hot[torch.arange(count), torch.as_tensor(actions)] = 1.0
+        if message is None:
+            request_mask, messages = torch.zeros(self.REQUEST_MASK_SIZE), torch.zeros(self.MESSAGE_SIZE)
+        else:
+            request_mask = torch.as_tensor(message["request_mask"], dtype=torch.float32)
+            messages = torch.as_tensor(message["messages"], dtype=torch.float32).reshape(-1)
+        inputs = torch.cat(
+            (observations, action_one_hot, request_mask.expand(count, -1), messages.expand(count, -1)), dim=1
+        )
+        next_observations, rewards, crash_logits, crash_soon_logits = self(inputs)
+        return (
+            next_observations,
+            rewards.squeeze(1),
+            torch.sigmoid(crash_logits).squeeze(1),
+            torch.sigmoid(crash_soon_logits).squeeze(1),
+        )
+
+    @torch.no_grad()
     def predict_step(self, observation, action, message=None):
         """Imagine one step.
 

@@ -31,6 +31,35 @@ class MCPPlanner:
         """Imagined value of each first action."""
         return [self._value(observation, action, message, depth=0) for action in range(self.action_size)]
 
+    def action_values_batched(self, observation, message=None):
+        """Same values as ``action_values``, computed level by level.
+
+        All 5 first steps, then all 25 second steps, then all 125 third steps
+        go through MLPx as three batches instead of 155 single calls. Used
+        where many plans are needed per step (the value-of-information rule).
+        Results match ``action_values`` up to floating-point rounding.
+        """
+        import torch
+
+        observations = torch.as_tensor(observation, dtype=torch.float32).reshape(1, -1)
+        levels = []
+        for depth in range(self.planning_horizon):
+            count = observations.shape[0]
+            repeated = observations.repeat_interleave(self.action_size, dim=0)
+            actions = list(range(self.action_size)) * count
+            next_observations, rewards, crash, crash_soon = self.world_model.predict_batch(
+                repeated, actions, message
+            )
+            levels.append((rewards, crash_soon if depth == 0 else crash))
+            observations = next_observations
+
+        future = None
+        for rewards, crash in reversed(levels):
+            continuing = rewards if future is None else rewards + self.discount_factor * future
+            values = crash * self.crash_reward + (1.0 - crash) * continuing
+            future = values.reshape(-1, self.action_size).max(dim=1).values
+        return values.tolist()
+
     def _value(self, observation, action, message, depth):
         next_observation, reward, crash, crash_soon = self.world_model.predict_step(
             observation, action, message

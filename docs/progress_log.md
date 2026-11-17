@@ -267,3 +267,19 @@
   the bigger problem, not the cost.
 - Fixed run folders: two runs started in the same second used to collide;
   folders now include the seed and get a number added if needed.
+
+## 2026-11-17 — Value-of-information request rule
+
+- Added `src/cooperative_driving/policies/voi.py`: for each target-lane car,
+  the planner imagines both answers (yielding / aggressive) and the rule asks
+  the car whose answer is worth most, if that beats the question's cost. No
+  training.
+- Added `predict_batch` to MLPx and `action_values_batched` to the planner:
+  3 batched calls instead of 155 single ones, 17× faster, same best move in
+  368 of 368 test plans. The driving planner is unchanged.
+- On the 200 test roads (cost 0 / 0.05 / 0.1 / 0.2 / 0.5): 8.53 / 8.27 /
+  7.70 / 7.33 / 5.87, with 14.5 / 5.6 / 4.4 / 3.2 / 0.6 questions per
+  episode. Beats the DQN and asking nobody at every cost; within about
+  0.13–0.43 of the hand-written rear-car rule up to cost 0.2 and above it at
+  0.5. Crashes 4–7% (rule: 0%).
+- `evaluate_cost_sweep.py` now includes the rule and reuses saved results.

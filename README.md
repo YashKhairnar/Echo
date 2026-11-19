@@ -49,9 +49,9 @@ crashes, so it is an active experiment rather than a final policy.
 
 ## Project timeline
 
-<iframe src="https://yashkhairnar.github.io/Echo/timeline.html" title="Echo project timeline" width="100%" height="900" style="border:1px solid #d9deea;border-radius:12px;"></iframe>
+<a href="https://yashkhairnar.github.io/Echo/timeline.html"><img src="docs/images/project_timeline.svg" width="100%" alt="Echo project timeline"></a>
 
-[Open the interactive timeline directly](https://yashkhairnar.github.io/Echo/timeline.html) if your Markdown viewer blocks embedded HTML.
+[Open the interactive timeline](https://yashkhairnar.github.io/Echo/timeline.html) directly.
 
 ## Run it
 

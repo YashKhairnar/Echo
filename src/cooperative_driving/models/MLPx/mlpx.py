@@ -1,98 +1,47 @@
-"""MLPx: the world model ("the car's imagination").
+"""Simple MLP world model for the combined driving dataset.
 
-Input (115 numbers):
-    observation       60  = 10 rows x [presence, x, y, vx, vy, vehicle_id]
-    driving action     5  one-hot
-    request mask      10  1 = that slot's car was asked
-    messages          40  = 10 slots x 4 message values (zeros if not asked)
+Input: current observation, ego action, and requested vehicle messages.
+Output: next observation and reward.
 
-Outputs:
-    next observation      60 numbers
-    reward                driving reward of this step, assuming no crash
-    crash logit           will this step end in a crash?
-    crash-soon logit      will the episode crash within the next 3 steps?
-
-How it works ("per-vehicle"): each neighbour car is encoded *together with
-its own message* by one shared small network. The car encodings are pooled
-into a scene summary, and the outputs are predicted from that summary.
+The current observation is 11 rows x 5 features = 55 values.  Eight message
+slots x 7 features = 56 values, so the complete input is 116 values.
 """
 
+from __future__ import annotations
+from collections.abc import Mapping
 import torch
 import torch.nn as nn
 
 
 class MLPxWorldModel(nn.Module):
-    OBSERVATION_SIZE = 60
+    """A small baseline world model with shared hidden layers."""
+
+    STATE_SIZE = 11 * 5
     ACTION_SIZE = 5
-    REQUEST_MASK_SIZE = 10
-    MESSAGE_FEATURES = 4
-    MESSAGE_SIZE = REQUEST_MASK_SIZE * MESSAGE_FEATURES
-    INPUT_SIZE = OBSERVATION_SIZE + ACTION_SIZE + REQUEST_MASK_SIZE + MESSAGE_SIZE
+    MAX_MESSAGE_SLOTS = 8
+    MESSAGE_FEATURES = 7
+    MESSAGE_SIZE = MAX_MESSAGE_SLOTS * MESSAGE_FEATURES
+    INPUT_SIZE = STATE_SIZE + ACTION_SIZE + MESSAGE_SIZE
 
-    ROW_FEATURES = 6        # presence, x, y, vx, vy, vehicle_id
-    KINEMATICS = 5          # the same without vehicle_id (just a label)
-    NEIGHBOURS = 9          # observation rows 1..9; row k pairs with message slot k-1
-    CAR_SIZE = 64
-    SCENE_SIZE = 128
-    # Rough scales that bring message values to about [-1, 1].
-    MESSAGE_SCALE = (1.0, 1 / 5.0, 1.0, 1 / 10.0)
-
-    def __init__(self):
+    def __init__(self, hidden_size=256):
         super().__init__()
-        # One car = its kinematics, asked flag, message, ego kinematics, action.
-        car_input = self.KINEMATICS + 1 + self.MESSAGE_FEATURES + self.KINEMATICS + self.ACTION_SIZE
-        self.vehicle_encoder = nn.Sequential(
-            nn.Linear(car_input, 128), nn.ReLU(),
-            nn.Linear(128, self.CAR_SIZE), nn.ReLU(),
+        self.encoder = nn.Sequential(
+            nn.Linear(self.INPUT_SIZE, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, 128),
+            nn.ReLU(),
         )
-        # Scene = ego kinematics, action, sum and max of all car encodings.
-        scene_input = self.KINEMATICS + self.ACTION_SIZE + 2 * self.CAR_SIZE
-        self.scene = nn.Sequential(
-            nn.Linear(scene_input, 256), nn.ReLU(),
-            nn.Linear(256, self.SCENE_SIZE), nn.ReLU(),
-        )
-        self.ego_head = nn.Linear(self.SCENE_SIZE, self.ROW_FEATURES)
-        self.neighbour_head = nn.Sequential(
-            nn.Linear(self.CAR_SIZE + self.SCENE_SIZE, 64), nn.ReLU(),
-            nn.Linear(64, self.ROW_FEATURES),
-        )
-        self.reward_head = nn.Linear(self.SCENE_SIZE, 1)
-        self.crash_head = nn.Linear(self.SCENE_SIZE, 1)
-        self.crash_soon_head = nn.Linear(self.SCENE_SIZE, 1)
-        self.register_buffer("message_scale", torch.tensor(self.MESSAGE_SCALE))
+        self.next_state_head = nn.Linear(128, self.STATE_SIZE)
+        self.reward_head = nn.Linear(128, 1)
 
     def forward(self, inputs):
-        """inputs: (batch, 115) -> next observation, reward, crash logit, crash-soon logit."""
-        observation, action, request_mask, messages = torch.split(
-            inputs, [self.OBSERVATION_SIZE, self.ACTION_SIZE, self.REQUEST_MASK_SIZE, self.MESSAGE_SIZE],
-            dim=-1,
+        hidden = self.encoder(inputs)
+        return (
+            self.next_state_head(hidden),
+            self.reward_head(hidden),
         )
-        batch, n = inputs.shape[0], self.NEIGHBOURS
-        rows = observation.reshape(batch, 10, self.ROW_FEATURES)[:, :, : self.KINEMATICS]
-        ego, cars = rows[:, 0], rows[:, 1:]
-        present = cars[:, :, :1]
-        asked = request_mask[:, :n].unsqueeze(-1)
-        car_messages = messages.reshape(batch, 10, self.MESSAGE_FEATURES)[:, :n] * self.message_scale
-
-        # 1. Encode every car together with its own message.
-        ego_and_action = torch.cat((ego, action), dim=-1)
-        car_inputs = torch.cat(
-            (cars, asked, car_messages, ego_and_action.unsqueeze(1).expand(batch, n, -1)), dim=-1
-        )
-        car_codes = self.vehicle_encoder(car_inputs) * present  # empty slots -> 0
-
-        # 2. Summarise the scene.
-        scene = self.scene(torch.cat(
-            (ego_and_action, car_codes.sum(dim=1), car_codes.max(dim=1).values), dim=-1
-        ))
-
-        # 3. Predict.
-        next_ego = self.ego_head(scene).unsqueeze(1)
-        next_cars = self.neighbour_head(
-            torch.cat((car_codes, scene.unsqueeze(1).expand(batch, n, -1)), dim=-1)
-        )
-        next_observation = torch.cat((next_ego, next_cars), dim=1).reshape(batch, self.OBSERVATION_SIZE)
-        return next_observation, self.reward_head(scene), self.crash_head(scene), self.crash_soon_head(scene)
 
     @classmethod
     def load(cls, path):
@@ -102,56 +51,91 @@ class MLPxWorldModel(nn.Module):
         model.eval()
         return model
 
-    @torch.no_grad()
-    def predict_batch(self, observations, actions, message=None):
-        """Imagine one step for many (observation, action) pairs at once.
+    @staticmethod
+    def _action_one_hot(action):
+        result = torch.zeros(MLPxWorldModel.ACTION_SIZE, dtype=torch.float32)
+        result[int(action)] = 1.0
+        return result
 
-        ``observations``: (N, 60) tensor, ``actions``: N ints, ``message``: one
-        message dictionary shared by all pairs (or None). Returns tensors:
-        next observations (N, 60), rewards (N,), crash and crash-soon
-        probabilities (N,).
-        """
-        count = observations.shape[0]
-        action_one_hot = torch.zeros(count, self.ACTION_SIZE)
-        action_one_hot[torch.arange(count), torch.as_tensor(actions)] = 1.0
+    @staticmethod
+    def _encode_message(message):
+        behavior_code = {
+            "aggressive": 1.0,
+            "defensive": -1.0,
+            "idm": 0.0,
+        }.get(message.get("behavior_type", "unknown"), 0.0)
+        target_lane = message.get("target_lane")
+        target_lane_id = float(target_lane[2]) / 3.0 if target_lane is not None else 0.0
+        return [
+            1.0,
+            behavior_code,
+            target_lane_id,
+            float(message.get("target_speed", 0.0)) / 30.0,
+            float(message.get("acceleration", 0.0)) / 6.0,
+            float(message.get("steering", 0.0)),
+            float(bool(message.get("crashed", False))),
+        ]
+
+    @classmethod
+    def _message_vector(cls, message):
+        """Convert a message bundle or vehicle-message mapping to 56 values."""
         if message is None:
-            request_mask, messages = torch.zeros(self.REQUEST_MASK_SIZE), torch.zeros(self.MESSAGE_SIZE)
-        else:
-            request_mask = torch.as_tensor(message["request_mask"], dtype=torch.float32)
-            messages = torch.as_tensor(message["messages"], dtype=torch.float32).reshape(-1)
-        inputs = torch.cat(
-            (observations, action_one_hot, request_mask.expand(count, -1), messages.expand(count, -1)), dim=1
-        )
-        next_observations, rewards, crash_logits, crash_soon_logits = self(inputs)
-        return (
-            next_observations,
-            rewards.squeeze(1),
-            torch.sigmoid(crash_logits).squeeze(1),
-            torch.sigmoid(crash_soon_logits).squeeze(1),
-        )
+            return torch.zeros(cls.MESSAGE_SIZE, dtype=torch.float32)
+
+        if "message_vector" in message:
+            values = torch.as_tensor(message["message_vector"], dtype=torch.float32).reshape(-1)
+            if values.numel() != cls.MESSAGE_SIZE:
+                raise ValueError(f"message_vector must contain {cls.MESSAGE_SIZE} values")
+            return values
+
+        if "messages_by_slot" in message:
+            values = []
+            for item in message["messages_by_slot"][: cls.MAX_MESSAGE_SLOTS]:
+                values.extend(cls._encode_message(item) if item else [0.0] * cls.MESSAGE_FEATURES)
+            values.extend([0.0] * (cls.MESSAGE_SIZE - len(values)))
+            return torch.tensor(values, dtype=torch.float32)
+
+        if "messages" in message:
+            values = torch.as_tensor(message["messages"], dtype=torch.float32).reshape(-1)
+            if values.numel() == cls.MESSAGE_SIZE:
+                return values
+
+        values = []
+        for vehicle_id in sorted(message, key=lambda value: int(value)):
+            item = message[vehicle_id]
+            if isinstance(item, Mapping):
+                values.extend(cls._encode_message(item))
+            if len(values) >= cls.MESSAGE_SIZE:
+                break
+        values = values[: cls.MESSAGE_SIZE]
+        values.extend([0.0] * (cls.MESSAGE_SIZE - len(values)))
+        return torch.tensor(values, dtype=torch.float32)
 
     @torch.no_grad()
     def predict_step(self, observation, action, message=None):
-        """Imagine one step.
-
-        ``message`` is the dictionary from ``message_bundle`` (request mask +
-        messages), or None for "nobody asked".
-        Returns (next observation, reward, crash probability, crash-soon probability).
-        """
-        action_one_hot = torch.zeros(self.ACTION_SIZE)
-        action_one_hot[int(action)] = 1.0
-        if message is None:
-            request_mask, messages = torch.zeros(self.REQUEST_MASK_SIZE), torch.zeros(self.MESSAGE_SIZE)
-        else:
-            request_mask = torch.as_tensor(message["request_mask"], dtype=torch.float32)
-            messages = torch.as_tensor(message["messages"], dtype=torch.float32).reshape(-1)
         observation = torch.as_tensor(observation, dtype=torch.float32).reshape(-1)
-        inputs = torch.cat((observation, action_one_hot, request_mask, messages)).unsqueeze(0)
-
-        next_observation, reward, crash_logit, crash_soon_logit = self(inputs)
+        if observation.numel() != self.STATE_SIZE:
+            raise ValueError(f"observation must contain {self.STATE_SIZE} values")
+        inputs = torch.cat((observation, self._action_one_hot(action), self._message_vector(message)))
+        next_state, reward = self(inputs.unsqueeze(0))
         return (
-            next_observation.squeeze(0),
-            float(reward),
-            float(torch.sigmoid(crash_logit)),
-            float(torch.sigmoid(crash_soon_logit)),
+            next_state.squeeze(0),
+            float(reward.squeeze()),
+        )
+
+    @torch.no_grad()
+    def predict_batch(self, observations, actions, message=None):
+        observations = torch.as_tensor(observations, dtype=torch.float32).reshape(-1, self.STATE_SIZE)
+        actions = torch.as_tensor(actions, dtype=torch.long).reshape(-1)
+        if observations.shape[0] != actions.shape[0]:
+            raise ValueError("observations and actions must have the same batch size")
+        action_one_hot = torch.zeros(observations.shape[0], self.ACTION_SIZE)
+        action_one_hot[torch.arange(observations.shape[0]), actions] = 1.0
+        message_vector = self._message_vector(message).expand(observations.shape[0], -1)
+        next_state, reward = self(
+            torch.cat((observations, action_one_hot, message_vector), dim=1)
+        )
+        return (
+            next_state,
+            reward.squeeze(1),
         )

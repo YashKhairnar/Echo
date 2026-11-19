@@ -4,14 +4,8 @@ class MCPPlanner:
     It tries every sequence of ``planning_horizon`` actions (5 x 5 x 5 for 3
     steps) in the world model and returns the first action of the best one.
 
-    Value of one imagined step:
-
-        p_crash * crash_reward + (1 - p_crash) * (reward + discount * best future)
-
-    For the first step, p_crash is MLPx's "crash within the next 3 steps"
-    probability: it is computed from the real observation and real messages,
-    so it catches a merge that only goes wrong two steps later. Deeper steps
-    use the one-step crash probability.
+    The simplified MLPx predicts reward only, so planning uses discounted
+    predicted rewards without a learned crash penalty.
     """
 
     def __init__(self, world_model, action_size=5, planning_horizon=3,
@@ -47,32 +41,29 @@ class MCPPlanner:
             count = observations.shape[0]
             repeated = observations.repeat_interleave(self.action_size, dim=0)
             actions = list(range(self.action_size)) * count
-            next_observations, rewards, crash, crash_soon = self.world_model.predict_batch(
+            next_observations, rewards = self.world_model.predict_batch(
                 repeated, actions, message
             )
-            levels.append((rewards, crash_soon if depth == 0 else crash))
+            levels.append(rewards)
             observations = next_observations
 
         future = None
-        for rewards, crash in reversed(levels):
-            continuing = rewards if future is None else rewards + self.discount_factor * future
-            values = crash * self.crash_reward + (1.0 - crash) * continuing
+        for rewards in reversed(levels):
+            values = rewards if future is None else rewards + self.discount_factor * future
             future = values.reshape(-1, self.action_size).max(dim=1).values
         return values.tolist()
 
     def _value(self, observation, action, message, depth):
-        next_observation, reward, crash, crash_soon = self.world_model.predict_step(
+        next_observation, reward = self.world_model.predict_step(
             observation, action, message
         )
-        if depth == 0:
-            crash = crash_soon
         future = 0.0
         if depth + 1 < self.planning_horizon:
             future = max(
                 self._value(next_observation, next_action, message, depth + 1)
                 for next_action in range(self.action_size)
             )
-        return crash * self.crash_reward + (1.0 - crash) * (reward + self.discount_factor * future)
+        return reward + self.discount_factor * future
 
 
 def build_planner(mlpx_checkpoint, environment, planning_horizon=3):

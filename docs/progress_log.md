@@ -1,5 +1,124 @@
 # Project Progress Log
 
+## Current snapshot
+
+| Area | Current state |
+| --- | --- |
+| Environment | Four lanes, one ego, aggressive and defensive traffic, stable vehicle IDs |
+| Visibility | Up to 60 m, ego lane plus immediate left/right lanes, eight spatial slots |
+| Dataset | 26,597 merged informed and random no-message transitions |
+| World model | Simple MLPx: 116 inputs → next state and reward |
+| Planner | Reward-only MLPx planner with a three-step horizon |
+| Request policy | Request DQN: eight vehicle slots plus ask-nobody |
+| Documentation | HTML site with dedicated system, data, training, rendering, and history pages |
+
+## Active pipeline
+
+```text
+CustomEnv
+  → visible spatial neighbor slots
+  → optional intent requests
+  → Request DQN chooses whom to ask
+  → MLPx imagines three-step ego action outcomes
+  → HighwayEnv executes the selected ego action
+  → transition and training metrics are logged
+```
+
+Current active artifacts:
+
+- MLPx checkpoint: `checkpoints/MLPx/best.pt`
+- Request DQN checkpoint: `checkpoints/RequestDQN/best.pt`
+- Combined dataset: `data/combined_world_model_dataset.jsonl`
+- Training logs: `results/RequestDQN/experiments/`
+- Documentation home: `docs/index.html`
+
+## Latest milestone
+
+## 2026-11-19 — Request DQN, rendering, and documentation polish
+
+- Added a Request DQN that chooses among eight ordered spatial request slots or
+  asks nobody. The frozen three-step MLPx planner then chooses the ego's
+  driving action.
+- Added per-episode DQN logging for return, mean loss, epsilon, request count,
+  crashes, and truncations under `results/RequestDQN/experiments/`.
+- Added open-loop WM evaluation at three and five steps. Three-step prediction
+  is more accurate and substantially cheaper than five-step planning, so the
+  current planner uses a three-step horizon.
+- Added a larger policy renderer with configurable `--width`, `--height`, and
+  `--scaling` options. The renderer shows the ego in green, aggressive cars in
+  orange, defensive cars in blue, IDM cars in yellow, and crashed vehicles in
+  red. Requested vehicles are circled in yellow.
+- Added MLPx and Request DQN training graphs to the HTML Training page.
+- Separated the documentation into dedicated MLPx, Planner, Data-collection
+  Policy, Request DQN, Rendering, Training, dashboard, and timeline pages.
+- Reorganized scripts into `data_collection`, `training`, `evaluation`,
+  `policy`, `docs`, and `utils` folders, and updated all current commands and
+  imports.
+- Improved Phase 3 of the project timeline to describe the complete informed
+  world-model pipeline from data creation through DQN training and policy
+  inspection.
+
+## 2026-11-19 — HTML documentation site
+
+- Added a static HTML documentation site with a shared sidebar, topic pages,
+  archive pages, the intent-aware collection guide, dataset dashboard, and
+  project timeline.
+- Added `scripts/docs/build_docs_site.py` so the Markdown source pages can be
+  regenerated into the shared HTML layout.
+
+## 2026-11-19 — Project cleanup
+
+- Kept only the active four-lane environment, custom vehicles, MLPx model,
+  reward-only planner, intent-aware data collectors, dataset adapter, and
+  documentation tooling.
+- Removed generated Python caches, obsolete CSV/message artifacts, old code
+  snapshots, legacy DQN checkpoints, and unused request-policy/communication
+  source packages.
+- Kept the active MLPx checkpoint at `checkpoints/MLPx/` and preserved older
+  experiment results under `results/archive/`.
+
+## 2026-11-19 — Intent-aware vehicle scenarios and dataset collection
+
+- Rebuilt the active environment around standard HighwayEnv behavior classes:
+  one controlled ego vehicle plus configurable aggressive and defensive
+  background vehicles.
+- Added stable vehicle IDs and lookup tables for retrieving each vehicle and
+  its behavior type.
+- Limited intent-aware visibility to 60 m, the ego lane, and the immediate
+  left/right lanes. The selector keeps at most eight vehicles.
+- Added `get_vehicle_state()` for current state inspection and
+  `preview_next_action()` for calculating a neighbor's next action on a copied
+  road without modifying the real environment.
+- Added smoke tests for messages, visible neighbors, and current state versus
+  previewed action.
+- Added a rule-based intent-aware ego policy supporting all five discrete
+  actions: left, idle, right, faster, and slower.
+- Added request-subset enumeration. For `n` visible vehicles it evaluates all
+  `2^n - 1` non-empty request subsets, plus an optional no-message scenario.
+- Added counterfactual evaluation on copied environments and JSONL collection
+  of state, requested messages, ego action, next state, reward, termination,
+  and truncation.
+- The initial 100-episode collection produced 4,824 scenario records and 400
+  counterfactual terminated scenarios (8.29%). This is a scenario crash rate,
+  not the actual full-message policy crash rate.
+- Updated the collector to report counterfactual scenario crashes separately
+  from actual rollout crashes.
+- Replaced the fixed goal-lane behavior with natural lane changes: the ego
+  accelerates until a slower vehicle enters the caution range, then selects a
+  safe left/right lane or slows if neither is safe.
+- Staggered background lead vehicles by lane so the safe escape direction can
+  vary and the dataset includes natural left-lane and right-lane examples.
+- Randomized the lane-to-lead-offset assignment on every reset after the first
+  dataset remained biased toward `LANE_LEFT`.
+- Added `collect_random_no_message_dataset.py`, which requests no vehicles and
+  samples random ego actions to collect uninformed safe and crash transitions
+  for World Model training.
+- Merged the intent-aware and random no-message datasets into
+  `data/combined_world_model_dataset.jsonl` with source labels, source episode
+  IDs, global episode IDs, and unique record IDs: 26,597 records total.
+
+## Earlier chronological history
+
 ## 2026-11-05
 
 - Configured the custom HighwayEnv with one ego vehicle and ten neighboring vehicles.
@@ -283,6 +402,24 @@
   0.13–0.43 of the hand-written rear-car rule up to cost 0.2 and above it at
   0.5. Crashes 4–7% (rule: 0%).
 - `evaluate_cost_sweep.py` now includes the rule and reuses saved results.
+
+## 2026-11-19 — Simplified MLPx world model
+
+- Replaced the previous world-model implementation with a simple MLP in
+  `src/cooperative_driving/models/MLPx/mlpx.py`.
+- The model receives 116 values: 55 state values, a five-value one-hot ego
+  action, and eight seven-value message slots. It predicts only the 55-value
+  next state and the next reward; crash heads are not used.
+- Message slots now follow a fixed spatial order: left front/beside/rear,
+  same-lane front/rear, and right front/beside/rear. Collectors save this
+  ordering as `visible_vehicle_slots`.
+- The merged dataset contains 26,597 transitions. The trained checkpoint is
+  `checkpoints/MLPx/best.pt`.
+- Held-out one-step metrics were next-state RMSE `0.0677` and reward RMSE
+  `0.0828`. Open-loop evaluation gave state RMSE `0.0935` at three steps and
+  `0.1201` at five steps on the random no-message sequences.
+- Older experiment outputs were consolidated under `results/archive/`.
+  The active run is `results/MLPx/experiments/20261119_110113_mlpx`.
 
 ## 2026-11-17 — Value-of-information rule, v2
 

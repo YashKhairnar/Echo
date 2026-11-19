@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Progress Log · Echo Docs</title>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
+    * { box-sizing: border-box; } body { margin: 0; }
+    .layout { display: flex; min-height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+    .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
+    .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
+    nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
+    nav a:hover, nav a.active { background: #263b78; color: white; }
+    .nav-group { margin: 0 0 18px; }
+    .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
+    main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
+    article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
+    h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    p { line-height: 1.65; } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
+    pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
+    @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
+  </style>
+</head>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a class="active" href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Project Progress Log</h1>
+<h2>Current snapshot</h2>
+<table><thead><tr><th>Area</th><th>Current state</th></tr></thead><tbody><tr><td>Environment</td><td>Four lanes, one ego, aggressive and defensive traffic, stable vehicle IDs</td></tr><tr><td>Visibility</td><td>Up to 60 m, ego lane plus immediate left/right lanes, eight spatial slots</td></tr><tr><td>Dataset</td><td>26,597 merged informed and random no-message transitions</td></tr><tr><td>World model</td><td>Simple MLPx: 116 inputs → next state and reward</td></tr><tr><td>Planner</td><td>Reward-only MLPx planner with a three-step horizon</td></tr><tr><td>Request policy</td><td>Request DQN: eight vehicle slots plus ask-nobody</td></tr><tr><td>Documentation</td><td>HTML site with dedicated system, data, training, rendering, and history pages</td></tr></tbody></table>
+<h2>Active pipeline</h2>
+<pre><code>CustomEnv
+  → visible spatial neighbor slots
+  → optional intent requests
+  → Request DQN chooses whom to ask
+  → MLPx imagines three-step ego action outcomes
+  → HighwayEnv executes the selected ego action
+  → transition and training metrics are logged</code></pre>
+<p>Current active artifacts:</p>
+<ul>
+<li>MLPx checkpoint: <code>checkpoints/MLPx/best.pt</code></li>
+<li>Request DQN checkpoint: <code>checkpoints/RequestDQN/best.pt</code></li>
+<li>Combined dataset: <code>data/combined_world_model_dataset.jsonl</code></li>
+<li>Training logs: <code>results/RequestDQN/experiments/</code></li>
+<li>Documentation home: <code>docs/index.html</code></li>
+</ul>
+<h2>Latest milestone</h2>
+<h2>2026-11-19 — Request DQN, rendering, and documentation polish</h2>
+<ul>
+<li>Added a Request DQN that chooses among eight ordered spatial request slots or asks nobody. The frozen three-step MLPx planner then chooses the ego's driving action.</li>
+<li>Added per-episode DQN logging for return, mean loss, epsilon, request count, crashes, and truncations under <code>results/RequestDQN/experiments/</code>.</li>
+<li>Added open-loop WM evaluation at three and five steps. Three-step prediction is more accurate and substantially cheaper than five-step planning, so the current planner uses a three-step horizon.</li>
+<li>Added a larger policy renderer with configurable <code>--width</code>, <code>--height</code>, and <code>--scaling</code> options. The renderer shows the ego in green, aggressive cars in orange, defensive cars in blue, IDM cars in yellow, and crashed vehicles in red. Requested vehicles are circled in yellow.</li>
+<li>Added MLPx and Request DQN training graphs to the HTML Training page.</li>
+<li>Separated the documentation into dedicated MLPx, Planner, Data-collection Policy, Request DQN, Rendering, Training, dashboard, and timeline pages.</li>
+<li>Reorganized scripts into <code>data_collection</code>, <code>training</code>, <code>evaluation</code>, <code>policy</code>, <code>docs</code>, and <code>utils</code> folders, and updated all current commands and imports.</li>
+<li>Improved Phase 3 of the project timeline to describe the complete informed world-model pipeline from data creation through DQN training and policy inspection.</li>
+</ul>
+<h2>2026-11-19 — HTML documentation site</h2>
+<ul>
+<li>Added a static HTML documentation site with a shared sidebar, topic pages, archive pages, the intent-aware collection guide, dataset dashboard, and project timeline.</li>
+<li>Added <code>scripts/docs/build_docs_site.py</code> so the Markdown source pages can be regenerated into the shared HTML layout.</li>
+</ul>
+<h2>2026-11-19 — Project cleanup</h2>
+<ul>
+<li>Kept only the active four-lane environment, custom vehicles, MLPx model, reward-only planner, intent-aware data collectors, dataset adapter, and documentation tooling.</li>
+<li>Removed generated Python caches, obsolete CSV/message artifacts, old code snapshots, legacy DQN checkpoints, and unused request-policy/communication source packages.</li>
+<li>Kept the active MLPx checkpoint at <code>checkpoints/MLPx/</code> and preserved older experiment results under <code>results/archive/</code>.</li>
+</ul>
+<h2>2026-11-19 — Intent-aware vehicle scenarios and dataset collection</h2>
+<ul>
+<li>Rebuilt the active environment around standard HighwayEnv behavior classes: one controlled ego vehicle plus configurable aggressive and defensive background vehicles.</li>
+<li>Added stable vehicle IDs and lookup tables for retrieving each vehicle and its behavior type.</li>
+<li>Limited intent-aware visibility to 60 m, the ego lane, and the immediate left/right lanes. The selector keeps at most eight vehicles.</li>
+<li>Added <code>get_vehicle_state()</code> for current state inspection and <code>preview_next_action()</code> for calculating a neighbor's next action on a copied road without modifying the real environment.</li>
+<li>Added smoke tests for messages, visible neighbors, and current state versus previewed action.</li>
+<li>Added a rule-based intent-aware ego policy supporting all five discrete actions: left, idle, right, faster, and slower.</li>
+<li>Added request-subset enumeration. For <code>n</code> visible vehicles it evaluates all <code>2^n - 1</code> non-empty request subsets, plus an optional no-message scenario.</li>
+<li>Added counterfactual evaluation on copied environments and JSONL collection of state, requested messages, ego action, next state, reward, termination, and truncation.</li>
+<li>The initial 100-episode collection produced 4,824 scenario records and 400 counterfactual terminated scenarios (8.29%). This is a scenario crash rate, not the actual full-message policy crash rate.</li>
+<li>Updated the collector to report counterfactual scenario crashes separately from actual rollout crashes.</li>
+<li>Replaced the fixed goal-lane behavior with natural lane changes: the ego accelerates until a slower vehicle enters the caution range, then selects a safe left/right lane or slows if neither is safe.</li>
+<li>Staggered background lead vehicles by lane so the safe escape direction can vary and the dataset includes natural left-lane and right-lane examples.</li>
+<li>Randomized the lane-to-lead-offset assignment on every reset after the first dataset remained biased toward <code>LANE_LEFT</code>.</li>
+<li>Added <code>collect_random_no_message_dataset.py</code>, which requests no vehicles and samples random ego actions to collect uninformed safe and crash transitions for World Model training.</li>
+<li>Merged the intent-aware and random no-message datasets into <code>data/combined_world_model_dataset.jsonl</code> with source labels, source episode IDs, global episode IDs, and unique record IDs: 26,597 records total.</li>
+</ul>
+<h2>Earlier chronological history</h2>
+<h2>2026-11-05</h2>
+<ul>
+<li>Configured the custom HighwayEnv with one ego vehicle and ten neighboring vehicles.</li>
+<li>Added stable vehicle IDs for tracking vehicles across observations.</li>
+<li>Added vehicle intent fields for acceleration, steering, and lane changes.</li>
+<li>Simplified the observation to Kinematics only with shape <code>(10, 9)</code>.</li>
+<li>Implemented vehicle communication messages containing vehicle state, action, and intent.</li>
+<li>Completed the random-policy data collector and CSV transition format.</li>
+<li>Added JSON preprocessing through <code>WorldModelDataset</code>.</li>
+<li>Started the MLP world model and training pipeline.</li>
+<li>Added checkpoint saving, best/latest checkpoints, and resume support.</li>
+<li>Updated data collection to append safely without duplicate headers or episode IDs.</li>
+</ul>
+<h2>2026-11-12</h2>
+<ul>
+<li>Added the MLP world-model checkpoint and training-metric graphs under <code>results/MLP/</code>.</li>
+<li>Added the five-step MCP planner for selecting driving actions from MLP predictions.</li>
+<li>Changed the DQN into a request policy with visible-neighbor action masking.</li>
+<li>Added a no-request action and communication cost to the DQN reward.</li>
+<li>Updated data collection to store request actions, visibility-consistent messages, and episode-end flags.</li>
+<li>Added DQN training logs and reward, loss, request, and communication-cost graphs under <code>results/DQN/</code>.</li>
+<li>Added a renderer that displays the requested vehicle and its intent.</li>
+<li>Added automatic experiment folders with configurations, notes, metrics, graphs, and checkpoint copies.</li>
+<li>Added dynamic request masking so the DQN can request only visible neighboring vehicles.</li>
+<li>Added resumable DQN training with replay-buffer restoration.</li>
+<li>Added rendered policy video recording, a Play/Pause button, and a visual highlight for the requested vehicle.</li>
+<li>Resumed DQN training from 1000 to 2000 episodes.</li>
+<li>Observed average reward improvement from <code>6.42</code> to <code>8.67</code> and reduced communication cost.</li>
+<li>Recorded continued Q-loss instability and identified no-request baseline evaluation as the next step.</li>
+</ul>
+<h2>2026-11-12 — Multi-request DQNx</h2>
+<ul>
+<li>Added multi-request data collection with up to ten visible request slots.</li>
+<li>Added the MLPx world model for observation, reward, and multi-request message inputs.</li>
+<li>Added DQNx, which predicts request/no-request values independently for each visible slot.</li>
+<li>Kept driving control separate: MLPx plus the five-step MCP planner selects the driving action.</li>
+<li>Added automatic DQNx/MLPx experiment folders, checkpoints, metrics, graphs, and resume support.</li>
+<li>Added DQNx rendering with requested-vehicle highlighting, IDs, and intent overlays.</li>
+<li>Documented that the current <code>0.1</code> cost per requested vehicle can encourage the learned policy to request nobody; evaluation should include a no-request baseline.</li>
+<li>Separated public kinematics from private messages: observations now contain position/velocity fields and IDs, while messages contain intent, target lane, and capped time-to-collision.</li>
+<li>Updated MLPx input size from <code>205</code> to <code>115</code> to match the new four-value message format.</li>
+</ul>
+<h2>2026-11-13 — TTC MLPx/DQNx evaluation</h2>
+<ul>
+<li>Trained MLPx on the TTC dataset for 50 epochs; best test loss was <code>0.1693</code> at epoch 23.</li>
+<li>Trained DQNx for 1,000 episodes with communication cost <code>0.1</code>.</li>
+<li>Reward improved during training, but the final policy requested no vehicles in a ten-seed evaluation.</li>
+<li>Compared no-request, all-visible-request, and trained-DQNx policies using the same seeds. The no-request and trained-DQNx policies both achieved mean total reward <code>5.54</code>; all-visible requests achieved <code>-0.53</code>.</li>
+<li>The current experiment therefore reduces communication but does not yet show a measurable communication benefit. The next candidate is a <code>0.05</code> cost experiment with separate driving-reward logging.</li>
+</ul>
+<h2>2026-11-14 — MLPx rollout evaluation</h2>
+<ul>
+<li>Compared MLPx predictions with real-environment rollouts from the same state and candidate driving action.</li>
+<li>Five-step planning achieved <code>23.1%</code> action-ranking agreement.</li>
+<li>Three-step planning achieved <code>66.7%</code> agreement without messages and <code>42.9%</code> with all messages.</li>
+<li>Set the active MCP planner horizon to three steps because shorter rollouts reduce accumulated world-model error.</li>
+<li>Re-evaluated the current MLPx checkpoint with three-step rollouts: action ranking agreement was <code>70.6%</code> without messages and <code>45.5%</code> with all messages.</li>
+<li>Expanded the random multi-request WM dataset to 5,000 episodes; MLPx has not yet been retrained on that expanded dataset.</li>
+</ul>
+<h2>2026-11-15 — Cooperative merge scenario with hidden driver types</h2>
+<ul>
+<li>Diagnosed why requests never helped: messages (current acceleration, TTC) were largely inferable from kinematics, and the highway task rarely made the best action depend on them.</li>
+<li>Added <code>CooperativeMergeEnv</code>: the ego lane is blocked by a stalled car, so the ego must merge into a dense target-lane platoon.</li>
+<li>Added <code>DriverTypeIDMVehicle</code> with a private <code>yielding</code> / <code>aggressive</code> type that only shows when someone merges in front of it, and a cruise-controlled ego (<code>CruiseControlledVehicle</code>) so crashes come from merge decisions, not rear-ending.</li>
+<li>Messages now carry driver type through a single <code>encode_message()</code> helper (slot 1 replaces intent steering; MLPx input size unchanged).</li>
+<li>Collectors take <code>--env merge|highway</code>, write merge data to new files, and use merge-biased exploration. The matched collector adds a <code>rear</code> branch.</li>
+<li>Added <code>scripts/check_information_gap.py</code>. On 300 seeds, driver type is unpredictable from observation before a merge (51.4% vs 51.4% chance). Asking the rear car gave return 7.35 vs 4.64 for the best no-information rule, with 0% crashes and merging 4 s sooner.</li>
+<li>Next: collect merge data, retrain MLPx, and repeat the check with the MLPx planner instead of hand-written rules.</li>
+</ul>
+<h2>2026-11-15 — MLPx crash head</h2>
+<ul>
+<li>Trained the first merge MLPx (2,000 episodes). It reacted to driver-type messages only weakly; the MLPx planner crashed about 50% of the time with or without messages (<code>scripts/evaluate_merge_planner.py</code>).</li>
+<li>Added a crash head to MLPx (BCE on <code>terminated</code>), trained the state and reward heads on non-crash steps only, and switched the reward target to the driving reward. Crash AUC on test: 0.96.</li>
+<li>The MCP planner now weighs each imagined step by its crash probability, and <code>--crash-value</code> sets how bad an imagined crash is.</li>
+<li>With crash value −6, asking the rear car cut crashes from 21% to 8% (return 4.23 → 4.86), still well below the hand-written ask-rear rule (7.35, 0% crashes).</li>
+<li>Diagnosis: MLPx predicts the right average merge risk (~45%) and raises it for "aggressive" (65%), but does not lower it for "yielding" (44% vs 0% real). Next: collect more merge data so "yielding" answers are better represented.</li>
+<li>Collected 8,000 more merge episodes (10,000 total) and retrained: test loss 0.32, crash AUC 0.99. The MLPx planner improved to returns of about 7.5–8.0, but messages now barely change its predictions.</li>
+<li>Confirmed that the data contains the signal (crash within 3 steps of merging: aggressive 76%, not asked 51%, yielding 31%), so the flat MLPx input is the bottleneck: it must match each car's observation row to its message slot by itself. Next: a per-vehicle encoder that pairs each car with its own message.</li>
+<li>Replaced the flat MLPx with a per-vehicle encoder that pairs each car's kinematics with its own message (<code>FlatMLPxWorldModel</code> kept for old checkpoints). Test loss 0.286, crash AUC 0.998.</li>
+<li>First clear message benefit with the learned planner: asking the rear car raised return from 5.21 to 6.53 and cut crashes from 38% to 26% (100 seeds). Still below the hand-written ask-rear rule (7.35, 0% crashes), and the no-message baseline is worse than with the flat model.</li>
+<li>Remaining issue: crashes happen 1–2 steps after the merge action, so the planner predicts them through imagined intermediate states, which blurs the message's effect. Candidate fix: a "crash within k steps" head.</li>
+</ul>
+<h2>2026-11-15 — Cleanup and first request DQN in the merge scenario</h2>
+<ul>
+<li>Archived everything from the highway experiments: data, checkpoints, results, and scripts in <code>archive/highway_ttc_multirequest/</code>, write-ups in <code>docs/archive/</code>. Earlier merge MLPx checkpoints moved to <code>checkpoints/MLPx_merge_history/</code>.</li>
+<li>Made the code merge-only: shared request helpers in <code>request_utils.py</code>, removed the legacy single-request dataset, highway env option, and multi-request DQNx. Renamed scripts to <code>train_DQN.py</code>, <code>render_DQN.py</code>, and <code>evaluate_merge_policies.py</code>.</li>
+<li>New request DQN: at most one car per step (11 actions), per-vehicle Q-network, Double DQN. Trained 2,000 episodes at cost 0.05.</li>
+<li>On 200 unseen seeds the DQN (total 6.27) matched "ask nobody" (6.23) and random at the same budget (6.29). It asked 2.2 times per episode, with 29% of requests to the rear car (random: 14%). The hand-written rear rule was best (6.89), but only 0.66 above "none": the planner still gets little value from messages, so the request policy has little to learn.</li>
+</ul>
+<h2>2026-11-15 — MLPx v5 (crash-within-3-steps head) and second DQN run</h2>
+<ul>
+<li>Added a crash-soon head to MLPx: probability that the episode crashes within the next 3 steps, from the real observation and messages. The planner uses it as the first step's risk. Crash-soon AUC 0.91.</li>
+<li>With this planner, asking the rear car is worth +2.68 over asking nobody (8.47 vs 5.79, 0% crashes), up from +0.66 with MLPx v4 and close to the +2.7 in the true environment.</li>
+<li>Retrained the request DQN (2,000 episodes, cost 0.05). It collapsed to almost never asking (0.3 requests per episode) and scored like "none" (5.78). The planner side now works; the request policy's exploration and credit assignment are the next problem.</li>
+</ul>
+<h2>2026-11-15 — Request DQN v3: target-lane exploration + 3-step returns</h2>
+<ul>
+<li>Exploration now asks target-lane cars most of the time when it asks, and the DQN learns from 3-step returns so delayed merge rewards reach the request. Trained 3,000 episodes at cost 0.05.</li>
+<li>On 200 unseen seeds: DQN 6.77 vs "none" 5.79 (+0.98), crashes 2% vs 18%, 57% of requests to the rear car. First learned policy that beats asking nobody. Still below the hand-written rear rule (8.47): it asks twice as often and merges later. Training reward was still rising.</li>
+</ul>
+<h2>2026-11-15 — Code simplified for readability</h2>
+<ul>
+<li>Shorter, plainer code with a short "what this file does" header in every main file. Behaviour is unchanged: the environment, messages, MLPx predictions, planner values, rule and DQN results, and the dataset give exactly the same numbers as before.</li>
+<li>Removed things no longer used: the old flat MLPx and its loading logic, the unused highway base environment and intent vehicles, MLPx <code>--resume</code>, <code>--architecture</code> and the planner's <code>use_crash_soon</code> switch (always on). <code>build_planner</code> now lives in <code>planner/MCP.py</code>.</li>
+<li>The code before this change is kept in <code>archive/code_snapshot_before_simplify_2026-11-15/</code> (needed to load the older flat MLPx checkpoints).</li>
+</ul>
+<h2>2026-11-15 — Docs simplified</h2>
+<ul>
+<li>README cut to the essentials: the idea, the three parts, current results, commands, and links. The old highway experiments moved to <code>docs/archive/earlier_experiments.md</code>.</li>
+<li><code>docs/merge_scenario.md</code> rewritten as: how it works now, current results, a one-line-per-version history table, where things are, next steps. The original step-by-step write-up is <code>docs/archive/merge_scenario_full_history.md</code>.</li>
+</ul>
+<h2>2026-11-16 — Request DQN run 4: 6,000 episodes</h2>
+<ul>
+<li>Same settings as run 3, twice as long. After exploration ended the 100-episode training score swung between about 5.9 and 7.1 instead of rising; best checkpoint at episode 3,637.</li>
+<li>On 200 unseen seeds: 6.28 (run 3: 6.77), crashes 13% (run 3: 2%), 17 questions per episode. Longer training does not help; run 3 stays the current DQN (<code>checkpoints/DQN/best.pt</code>), run 4 is in <code>checkpoints/DQN_history/v4_6000/</code>.</li>
+<li>Next: measure seed-to-seed variance and make DQN training steadier before the cost sweep.</li>
+</ul>
+<h2>2026-11-16 — DQN seed check and a steadier variant</h2>
+<ul>
+<li><code>train_DQN.py</code> gained <code>--learning-rate</code>, <code>--target-update-steps</code> and <code>--checkpoint-dir</code> (defaults unchanged), so several runs can train side by side without overwriting <code>checkpoints/DQN/best.pt</code>.</li>
+<li>Run 3's settings with training seeds 1 and 2: 6.87 (crashes 14%) and 5.96 (crashes 16%, almost never asks). With run 3 (6.77): mean 6.53 over three seeds, +0.74 over asking nobody, but a spread of about 0.9 between runs.</li>
+<li>Steadier settings (learning rate 5e-5, target copy every 2,000 steps, seed 0): 6.11, crashes 10%. Training scores were smoother, but the result was worse than run 3 with the same seed.</li>
+<li>Results in <code>results/merge_policies/cost0.05_dqn_seed_check.json</code>; checkpoints in <code>checkpoints/DQN_seeds/</code>. Run 3 stays the current DQN.</li>
+<li>Next: choose checkpoints on fixed validation roads instead of the noisy training average, and use several seeds per setting in the cost sweep.</li>
+</ul>
+<h2>2026-11-16 — DQN checkpoint selection on validation roads</h2>
+<ul>
+<li><code>train_DQN.py</code> now keeps the model that scores best on 100 fixed validation roads (seeds 200,000+, separate from training and test roads), checked every 250 episodes once epsilon is at most 0.2 and at the end. Scores go to <code>dqn_validation.csv</code> in the run folder. Also fixed a plotting crash for runs shorter than 50 episodes.</li>
+<li>Retrained training seeds 0, 1 and 2 (training itself is identical to the seed check; only the selection differs). Test scores: 6.92 / 7.45 / 6.90, mean 7.09 (old selection: 6.77 / 6.87 / 5.96, mean 6.53). Crashes 1–4%. Every run now beats asking nobody, by +1.30 on average.</li>
+<li>Still asks a lot (18 questions per episode vs 6.7 for the rear-car rule) and stays 1.4 below that rule.</li>
+<li>Seed 0 (best validation score, 7.98) is now <code>checkpoints/DQN/best.pt</code>. Results in <code>results/merge_policies/cost0.05_dqn_val_selection.json</code>.</li>
+</ul>
+<h2>2026-11-16 — Where the DQN asks</h2>
+<ul>
+<li>Added <code>scripts/check_dqn_requests.py</code>. It labels each step as decisive (the planner would act differently with the rear car's answer), not decisive, no rear car, or after merge, and records whom the DQN asked.</li>
+<li>Over the three validation-selected DQNs on the 200 test roads:</li>
+<li>decisive steps are 21–25% of all steps; there it asks the rear car only 36–63% of the time and the front car 27–51% (the front car's type doesn't matter);</li>
+<li>it asks as much at non-decisive steps as at decisive ones;</li>
+<li>41–59% of all its questions come after the merge, when they are useless.</li>
+<li>Likely cause: a 0.05 question cost is tiny next to the ±4 episode noise, and the rear and front cars look alike. Next: the cost sweep, then the front/rear confusion.</li>
+</ul>
+<h2>2026-11-17 — Cost sweep</h2>
+<ul>
+<li>Trained the request DQN at question costs 0, 0.1, 0.2 and 0.5 (3 training seeds each, validation selection) and evaluated them with the 0.05 runs on the 200 test roads (<code>scripts/evaluate_cost_sweep.py</code>, plot in <code>docs/images/cost_sweep.png</code>). The 12 runs took about 11.5 hours, 6 at a time.</li>
+<li>DQN totals (mean of seeds): 7.60 / 7.09 / 6.18 / 5.70 / 5.79 at costs 0 / 0.05 / 0.1 / 0.2 / 0.5. Ask nobody: 5.79. Rear-car rule: 8.80 / 8.47 / 8.13 / 7.46 / 5.44.</li>
+<li>All or nothing: each DQN asks ~15–20 times per episode or never. From cost 0.2 every run stops asking, although asking the rear car pays up to a cost of about 0.45. Only at 0.5 is never asking the right choice.</li>
+<li>Even at cost 0 the DQN (7.60) stays below the rule (8.80): whom to ask is the bigger problem, not the cost.</li>
+<li>Fixed run folders: two runs started in the same second used to collide; folders now include the seed and get a number added if needed.</li>
+</ul>
+<h2>2026-11-17 — Value-of-information request rule</h2>
+<ul>
+<li>Added <code>src/cooperative_driving/policies/voi.py</code>: for each target-lane car, the planner imagines both answers (yielding / aggressive) and the rule asks the car whose answer is worth most, if that beats the question's cost. No training.</li>
+<li>Added <code>predict_batch</code> to MLPx and <code>action_values_batched</code> to the planner: 3 batched calls instead of 155 single ones, 17× faster, same best move in 368 of 368 test plans. The driving planner is unchanged.</li>
+<li>On the 200 test roads (cost 0 / 0.05 / 0.1 / 0.2 / 0.5): 8.53 / 8.27 / 7.70 / 7.33 / 5.87, with 14.5 / 5.6 / 4.4 / 3.2 / 0.6 questions per episode. Beats the DQN and asking nobody at every cost; within about 0.13–0.43 of the hand-written rear-car rule up to cost 0.2 and above it at 0.5. Crashes 4–7% (rule: 0%).</li>
+<li><code>evaluate_cost_sweep.py</code> now includes the rule and reuses saved results.</li>
+</ul>
+<h2>2026-11-19 — Simplified MLPx world model</h2>
+<ul>
+<li>Replaced the previous world-model implementation with a simple MLP in <code>src/cooperative_driving/models/MLPx/mlpx.py</code>.</li>
+<li>The model receives 116 values: 55 state values, a five-value one-hot ego action, and eight seven-value message slots. It predicts only the 55-value next state and the next reward; crash heads are not used.</li>
+<li>Message slots now follow a fixed spatial order: left front/beside/rear, same-lane front/rear, and right front/beside/rear. Collectors save this ordering as <code>visible_vehicle_slots</code>.</li>
+<li>The merged dataset contains 26,597 transitions. The trained checkpoint is <code>checkpoints/MLPx/best.pt</code>.</li>
+<li>Held-out one-step metrics were next-state RMSE <code>0.0677</code> and reward RMSE <code>0.0828</code>. Open-loop evaluation gave state RMSE <code>0.0935</code> at three steps and <code>0.1201</code> at five steps on the random no-message sequences.</li>
+<li>Older experiment outputs were consolidated under <code>results/archive/</code>. The active run is <code>results/MLPx/experiments/20261119_110113_mlpx</code>.</li>
+</ul>
+<h2>2026-11-17 — Value-of-information rule, v2</h2>
+<ul>
+<li>Replayed the 8 crashes of the first version (cost 0.05). In 6, the ego merged in front of an aggressive car 11–21 m behind without asking: with either answer the planner would have waited, so asking looked worthless, but with no message it gambled and merged. The imagined messages matched the real ones.</li>
+<li>Fix: measure the value of asking against the move the ego actually makes without asking (the planner's no-message choice), judged under both answers.</li>
+<li>On the 200 test roads (cost 0 / 0.05 / 0.1 / 0.2 / 0.5): 9.01 / 8.52 / 8.35 / 7.46 / 6.78 with 16.4 / 9.5 / 8.0 / 6.5 / 2.7 questions per episode, crashes 2–4%. Matches or beats the hand-written rear-car rule at every cost (clearly at 0.5: 6.78 vs 5.44) and beats the DQN and asking nobody everywhere.</li>
+</ul></article></main></div></body>
+</html>

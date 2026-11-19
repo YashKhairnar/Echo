@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Intent-Aware Data Collection</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --ink: #172033;
+      --muted: #667085;
+      --blue: #3457d5;
+      --blue-light: #eef2ff;
+      --border: #d9deea;
+      --panel: #ffffff;
+      --background: #f6f7fb;
+    }
+    body { margin: 0; background: var(--background); color: var(--ink); line-height: 1.6; }
+    main { max-width: 980px; margin: 0 auto; padding: 42px 24px 70px; }
+    header { margin-bottom: 34px; }
+    h1 { margin: 0 0 8px; font-size: 38px; line-height: 1.15; }
+    h2 { margin-top: 38px; color: #243b7a; }
+    h3 { color: #344054; }
+    .subtitle { color: var(--muted); margin: 0; }
+    section, .callout { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin: 18px 0; box-shadow: 0 2px 8px #1018280b; }
+    code { background: #f0f2f7; color: #24324a; border-radius: 5px; padding: 2px 5px; }
+    pre { overflow-x: auto; background: #101828; color: #e6eaff; padding: 16px; border-radius: 9px; }
+    pre code { background: transparent; color: #f8fafc; padding: 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+    .card { background: var(--blue-light); border: 1px solid #c7d2fe; border-radius: 10px; padding: 15px; }
+    .card strong { display: block; color: #293c9b; margin-bottom: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+    th, td { text-align: left; border-bottom: 1px solid var(--border); padding: 10px; }
+    th { color: var(--muted); font-size: 14px; }
+    .flow { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
+    .flow-step { flex: 1 1 125px; background: var(--blue-light); border: 1px solid #c7d2fe; border-radius: 10px; padding: 13px; }
+    .flow-step strong { display: block; color: #293c9b; }
+    .arrow { align-self: center; color: var(--blue); font-size: 24px; font-weight: 700; }
+    .callout { border-left: 5px solid var(--blue); }
+    .muted { color: var(--muted); }
+    a { color: var(--blue); }
+    .site-layout { display: flex; min-height: 100vh; }
+    .site-sidebar { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+    .site-brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
+    .site-tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
+    .site-sidebar nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
+    .site-sidebar nav a:hover, .site-sidebar nav a.active { background: #263b78; color: white; }
+    .nav-group { margin: 0 0 18px; }
+    .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
+    .site-content { flex: 1; }
+    @media (max-width: 720px) { .site-layout { display: block; } .site-sidebar { width: 100%; height: auto; position: static; } .site-sidebar nav a { display: inline-block; } }
+  </style>
+</head>
+<body>
+<div class="site-layout">
+<aside class="site-sidebar">
+  <div class="site-brand">Echo Docs</div>
+  <p class="site-tagline">Cooperative driving and intent-aware world models</p>
+  <nav>
+    <div class="nav-group"><div class="nav-label">Overview</div>
+      <a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a>
+    </div>
+    <div class="nav-group"><div class="nav-label">System</div>
+      <a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a>
+    </div>
+    <div class="nav-group"><div class="nav-label">Data and experiments</div>
+      <a class="active" href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="merge_scenario.html">Merge scenario</a>
+    </div>
+  </nav>
+</aside>
+<div class="site-content">
+<main>
+  <header>
+    <h1>Intent-Aware Data Collection</h1>
+    <p class="subtitle">HighwayEnv setup and rule-based dataset workflow · 2026-11-19</p>
+  </header>
+
+  <section>
+    <h2>Environment and vehicles</h2>
+    <p><code>CustomEnv</code> is defined in <code>src/cooperative_driving/environments/customEnv.py</code>.</p>
+    <div class="grid">
+      <div class="card"><strong>Road</strong>Four highway lanes</div>
+      <div class="card"><strong>Ego</strong>One controlled vehicle</div>
+      <div class="card"><strong>Traffic</strong>Ten background vehicles</div>
+      <div class="card"><strong>Types</strong>Five aggressive and five defensive</div>
+      <div class="card"><strong>Speed</strong>Ego target speed: 27 m/s</div>
+      <div class="card"><strong>Visibility</strong>60 m intent-aware radius</div>
+    </div>
+    <p>By default the ego starts in any lane from 0 through 3, chosen per episode. Background traffic types are shuffled at reset, and lead-vehicle offsets are randomly assigned to lanes.</p>
+    <p>Every vehicle receives a stable ID:</p>
+    <pre><code>vehicle.vehicle_id = self.next_vehicle_id
+self.next_vehicle_id += 1</code></pre>
+    <pre><code>self.vehicles_by_id[vehicle_id] = vehicle
+self.vehicle_types[vehicle_id] = vehicle_type</code></pre>
+  </section>
+
+  <section>
+    <h2>Visible neighbors</h2>
+    <p><code>scripts/show_visible_neighbors.py</code> considers the ego lane and its immediate left and right lanes. It keeps the closest vehicle in each slot within 60 m.</p>
+    <table>
+      <tr><th>Lane</th><th>Front</th><th>Beside</th><th>Rear</th></tr>
+      <tr><td>Left</td><td>1</td><td>1</td><td>1</td></tr>
+      <tr><td>Ego lane</td><td>1</td><td>—</td><td>1</td></tr>
+      <tr><td>Right</td><td>1</td><td>1</td><td>1</td></tr>
+    </table>
+    <p>The theoretical maximum is eight visible vehicles, although the actual number can be zero through eight. A vehicle is classified as beside the ego within a 10 m longitudinal side window.</p>
+    <pre><code>.venv/bin/python -m scripts.data_collection.show_visible_neighbors</code></pre>
+  </section>
+
+  <section>
+    <h2>State and intent messages</h2>
+    <p><code>get_vehicle_state(vehicle)</code> returns the vehicle's current ID, behavior type, position, velocity, speed, heading, current lane, target lane, target speed, acceleration, steering, and crash status.</p>
+    <p><code>preview_next_action(vehicle_id)</code> deep-copies the road and calculates the neighbor's next controller action without changing the real environment.</p>
+    <pre><code>{
+  "vehicle_id": ...,      // stable ID
+  "behavior_type": ...,   // aggressive, defensive, or idm
+  "crashed": ...,         // crash status
+  "target_lane": ...,     // predicted target lane
+  "target_speed": ...,    // desired speed
+  "acceleration": ...,    // predicted acceleration
+  "steering": ...,        // predicted steering
+}</code></pre>
+    <p class="muted">The current state describes what the vehicle is doing now. The preview describes what its controller would do next.</p>
+    <pre><code>.venv/bin/python -m scripts.data_collection.smoke_test_messages
+.venv/bin/python -m scripts.data_collection.compare_neighbor_state_action</code></pre>
+  </section>
+
+  <section>
+    <h2>Rule-based informed ego action</h2>
+    <p><code>scripts/intent_aware_policy.py</code> combines geometry with requested messages. It checks distance, closing speed, time to collision, beside vehicles, lane-entry intentions, braking front vehicles, and accelerating aggressive rear vehicles.</p>
+    <p>It supports all five discrete actions:</p>
+    <pre><code>LANE_LEFT, IDLE, LANE_RIGHT, FASTER, SLOWER</code></pre>
+    <ol>
+      <li>When a front vehicle enters the caution range, choose a safe adjacent lane.</li>
+      <li>If neither adjacent lane is safe, choose <code>SLOWER</code>.</li>
+      <li>If the lane is clear and the ego is below target speed, choose <code>FASTER</code>.</li>
+      <li>Otherwise choose <code>IDLE</code>.</li>
+    </ol>
+    <pre><code>.venv/bin/python -m scripts.policy.intent_aware_policy --steps 10</code></pre>
+  </section>
+
+  <section>
+    <h2>Request-subset scenarios</h2>
+    <p><code>scripts/enumerate_message_requests.py</code> evaluates every non-empty subset of visible vehicles. For <code>n</code> visible vehicles, there are <code>2^n - 1</code> scenarios.</p>
+    <div class="grid">
+      <div class="card"><strong>1 visible</strong>1 scenario</div>
+      <div class="card"><strong>2 visible</strong>3 scenarios</div>
+      <div class="card"><strong>8 visible</strong>255 scenarios</div>
+      <div class="card"><strong>With none</strong>256 scenarios at the maximum</div>
+    </div>
+    <p>Each subset uses only the messages requested in that subset. Unrequested vehicles contribute observable geometry but not private intent. Each scenario is evaluated on a deep-copied environment.</p>
+  </section>
+
+  <section>
+    <h2>Dataset collection flow</h2>
+    <div class="flow">
+      <div class="flow-step"><strong>1. Reset</strong>Randomize lanes, types, and traffic offsets.</div>
+      <div class="arrow">→</div>
+      <div class="flow-step"><strong>2. Observe</strong>Find neighbors within 60 m.</div>
+      <div class="arrow">→</div>
+      <div class="flow-step"><strong>3. Request</strong>Enumerate message subsets.</div>
+      <div class="arrow">→</div>
+      <div class="flow-step"><strong>4. Preview</strong>Calculate requested neighbor intent.</div>
+      <div class="arrow">→</div>
+      <div class="flow-step"><strong>5. Decide</strong>Choose an ego action.</div>
+      <div class="arrow">→</div>
+      <div class="flow-step"><strong>6. Record</strong>Save the transition.</div>
+    </div>
+    <div class="callout"><strong>Transition format</strong><br><code>state + requested messages + ego action → next state + reward + terminated/truncated</code></div>
+    <p>The real rollout advances separately using the action chosen with all currently visible messages. The dataset records counterfactual one-step outcomes for every request subset.</p>
+    <pre><code>.venv/bin/python -m scripts.data_collection.collect_intent_aware_dataset \
+    --episodes 100 \
+    --include-none \
+    --output data/intent_aware_dataset.jsonl</code></pre>
+  </section>
+
+  <section>
+    <h2>Crash metrics</h2>
+    <ul>
+      <li><strong>Counterfactual scenario crash rate:</strong> crashes among request/action combinations evaluated on copied environments.</li>
+      <li><strong>Actual rollout crash rate:</strong> crashes from the real rollout using all currently visible messages. This is the metric for judging policy safety.</li>
+    </ul>
+    <p>The initial 100-episode collection produced 11,505 scenario records, zero terminated/crashed records, and 632 truncated records. The collected message counts were 7,836 aggressive and 7,643 defensive.</p>
+  </section>
+
+  <section>
+    <h2>Uninformed random-action baseline</h2>
+    <p><code>scripts/collect_random_no_message_dataset.py</code> collects a separate baseline in which the ego requests no vehicles and chooses a random action. It records the same transition fields, including <code>messages=None</code>, and preserves crash transitions instead of stopping data collection globally.</p>
+    <pre><code>.venv/bin/python -m scripts.data_collection.collect_random_no_message_dataset \
+    --episodes 1000 \
+    --output data/random_no_message_dataset.jsonl</code></pre>
+    <p>This dataset gives the World Model uninformed examples of both safe and unsafe actions, including the outcomes that lead to crashes.</p>
+  </section>
+
+  <section>
+    <h2>Combining datasets</h2>
+    <p>The two JSONL datasets can be merged while preserving provenance. Each merged record contains <code>dataset_source</code>, <code>source_episode</code>, <code>global_episode</code>, and a unique <code>record_id</code>.</p>
+    <pre><code>.venv/bin/python -m scripts.data_collection.merge_world_model_datasets</code></pre>
+    <p>The current merged file contains 26,597 records:</p>
+    <ul>
+      <li>11,505 intent-aware records</li>
+      <li>15,092 random no-message records</li>
+      <li>441 terminated/crashed random records</li>
+      <li>0 terminated/crashed intent-aware records</li>
+    </ul>
+  </section>
+</main>
+</div>
+</div>
+</body>
+</html>

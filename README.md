@@ -1,70 +1,101 @@
 # Echo: Cooperative Driving
 
-A self-driving car learns **when to ask other cars for information, and whom
-to ask**. Every question costs something, so it should only ask when the answer
-changes how it drives. Built on [HighwayEnv](https://github.com/Farama-Foundation/HighwayEnv).
+A self-driving car learns **when to ask nearby cars for information, and whom
+to ask**. Every request can cost something, so it should only ask when the
+answer can change how it drives. Built on
+[HighwayEnv](https://github.com/Farama-Foundation/HighwayEnv).
 
-## The scenario
+## Active scenario
 
-The ego's lane is blocked by a stalled car, so it has to merge into a line of
-traffic. Each car in that line is secretly **yielding** (lets you in) or
-**aggressive** (speeds up and closes the gap). They look the same until you
-try to merge, so the only way to know in advance is to ask.
+The active environment has four lanes, one controlled ego vehicle, and ten
+background vehicles. Background traffic uses HighwayEnv's aggressive and
+defensive behavior classes. Vehicles have stable IDs, and the ego can inspect
+up to eight nearby spatial slots within 60 m: left-front, left-beside,
+left-rear, same-lane-front, same-lane-rear, and the corresponding right-lane
+slots.
 
-## The three parts
+The older hidden-driver merge scenario is preserved in the documentation
+archive as historical experiment material.
+
+## The main parts
 
 | Part | Job | Code |
 | --- | --- | --- |
-| **MLPx** (world model) | Predicts what happens next from what the car sees plus any messages, including "crash within 3 steps?" | `src/cooperative_driving/models/MLPx/mlpx.py` |
-| **Planner** | Tries out moves in MLPx and picks the best one | `src/cooperative_driving/planner/MCP.py` |
-| **Request DQN** | Each step: ask one car, or nobody | `src/cooperative_driving/policies/DQN.py` |
+| **CustomEnv** | Creates the four-lane scene, vehicle types, IDs, visibility, and intent previews | `src/cooperative_driving/environments/customEnv.py` |
+| **MLPx** (world model) | Predicts the next observation and reward from the current state, ego action, and ordered vehicle messages | `src/cooperative_driving/models/MLPx/mlpx.py` |
+| **Planner** | Imagines three steps for each candidate ego action and picks the best one | `src/cooperative_driving/planner/MCP.py` |
+| **Data-collection policy** | Uses visible neighbors and requested intents to choose one of five ego actions | `scripts/policy/intent_aware_policy.py` |
+| **Request DQN** | Chooses one of eight vehicle slots or asks nobody | `src/cooperative_driving/policies/request_dqn.py` |
+| **Renderer** | Shows the learned request policy, vehicle types, crashes, and requested vehicles | `scripts/evaluation/render_request_dqn.py` |
 
-The environment, vehicles and messages are in
-`src/cooperative_driving/environments/`, `vehicles/` and `communication/`.
+## Current snapshot
 
-## Current results
+| Item | Current state |
+| --- | --- |
+| Combined dataset | 26,597 informed and random no-message transitions |
+| MLPx input | 116 values: 55 state, 5 ego-action, and 56 message values |
+| MLPx output | 55-value next state plus reward |
+| Planner horizon | Three steps |
+| Request DQN actions | Eight spatial request slots plus ask-nobody |
+| Active checkpoints | `checkpoints/MLPx/best.pt` and `checkpoints/RequestDQN/best.pt` |
 
-200 unseen episodes, cost 0.05 per question:
+Held-out MLPx evaluation currently reports one-step next-state RMSE `0.0677`
+and reward RMSE `0.0828`. Open-loop state RMSE is `0.0935` at three steps and
+`0.1201` at five steps, which is why the active planner uses three steps.
 
-| Policy | Total score | Crashes | Questions / episode |
-| --- | ---: | ---: | ---: |
-| ask nobody | 5.79 | 18% | 0 |
-| ask everyone | 2.03 | 0% | 152 |
-| rear-car rule (hand-written) | **8.47** | 0% | 6.7 |
-| request DQN (average of 3 training runs) | 7.09 | 3% | 18.2 |
-| **value-of-information rule** (no learning) | **8.52** | 4% | 9.5 |
+The current Request DQN training run logs return, loss, epsilon, request count,
+crashes, and truncations. Its latest run still shows unstable loss and frequent
+crashes, so it is an active experiment rather than a final policy.
 
-The value-of-information rule asks a car only when the planner, imagining
-both possible answers, would drive differently than it would without asking.
-It needs no training, matches or beats the hand-written rule at every
-question cost tested (0 to 0.5), and asks less as questions get more
-expensive. The request DQN learned to ask but asks far too often. Details: [docs/merge_scenario.md](docs/merge_scenario.md).
+## Project timeline
 
-## Timeline
+<iframe src="https://yashkhairnar.github.io/Echo/timeline.html" title="Echo project timeline" width="100%" height="900" style="border:1px solid #d9deea;border-radius:12px;"></iframe>
 
-Click the graphic for the interactive version, where each step opens to show what changed, the result, and what it taught us.
-
-<a href="https://yashkhairnar.github.io/Echo/timeline.html"><img src="docs/images/project_timeline.svg" width="100%" alt="Project timeline: highway experiments (Nov 5–14) where asking never helped, the turning point, then the merge scenario (Nov 15–17) where the world model learned to use messages, the request DQN learned to ask only partly, and a value-of-information rule built on the world model matched the hand-written rule."></a>
+[Open the interactive timeline directly](https://yashkhairnar.github.io/Echo/timeline.html) if your Markdown viewer blocks embedded HTML.
 
 ## Run it
 
 ```bash
-# 1. Check that the hidden information matters (hand-written rules, no learning)
-.venv/bin/python -m scripts.check_information_gap --episodes 300
-# 2. Collect world-model data
-.venv/bin/python -m scripts.collect_multi_request_data --episodes 10000
-# 3. Train MLPx
-.venv/bin/python -m scripts.train_mlpx_wm --epochs 50
-# 4. Train the request DQN (MLPx and the planner stay frozen)
-.venv/bin/python -m scripts.train_DQN --episodes 3000 --communication-cost 0.05
-# 5. Compare request policies on unseen seeds
-.venv/bin/python -m scripts.evaluate_merge_policies --episodes 200 --communication-cost 0.05
-# 6. Watch it drive (--policy dqn | rear | none | all; add --video out.mp4 to save)
-.venv/bin/python -m scripts.render_DQN --episodes 3
+# 1. Collect intent-aware transitions
+.venv/bin/python -m scripts.data_collection.collect_intent_aware_dataset \
+  --episodes 100 --include-none --visibility 60 \
+  --output data/intent_aware_dataset.jsonl
+# 2. Collect random no-message transitions
+.venv/bin/python -m scripts.data_collection.collect_random_no_message_dataset \
+  --episodes 1000 --visibility 60 \
+  --output data/random_no_message_dataset.jsonl
+# 3. Merge informed and uninformed transition datasets
+.venv/bin/python -m scripts.data_collection.merge_world_model_datasets
+# 4. Train MLPx
+.venv/bin/python -m scripts.training.train_mlpx_wm --epochs 50
+# 5. Train the request DQN with a frozen three-step MLPx planner
+.venv/bin/python -m scripts.training.train_request_dqn \
+  --episodes 1000 --planning-horizon 3 --communication-cost 0.05
+# 6. Render the learned request policy (default window: 1800x800)
+.venv/bin/python -m scripts.evaluation.render_request_dqn --episodes 1 --seed 42
+# 7. Rebuild the HTML documentation site
+.venv/bin/python -m scripts.docs.build_docs_site
 ```
 
 ## Docs
 
-- [docs/merge_scenario.md](docs/merge_scenario.md): how it works, results, history, next steps
-- [docs/progress_log.md](docs/progress_log.md): dated log of what was done
-- [docs/archive/](docs/archive/): earlier highway experiments ([summary](docs/archive/earlier_experiments.md)) and the full merge history
+- [docs/index.html](docs/index.html): HTML documentation site
+- [docs/mlpx.html](docs/mlpx.html): MLPx world-model definition and evaluation
+- [docs/planner.html](docs/planner.html): three-step model-predictive planner
+- [docs/policy.html](docs/policy.html): rule-based data-collection policy
+- [docs/dqn_policy.html](docs/dqn_policy.html): learned Request DQN policy
+- [docs/rendering.html](docs/rendering.html): renderer controls, colors, and highlights
+- [docs/training.html](docs/training.html): MLPx and DQN training commands and graphs
+- [docs/intent_aware_data_collection.html](docs/intent_aware_data_collection.html): current vehicle, intent, rule, and dataset workflow
+- [docs/dataset_dashboard.html](docs/dataset_dashboard.html): dataset statistics dashboard
+- [docs/progress_log.html](docs/progress_log.html): dated log of what was done
+- [docs/archive/](docs/archive/): earlier highway and merge experiments
+
+## Publish the docs
+
+The repository includes a GitHub Pages workflow at
+`.github/workflows/deploy-docs.yml`. In the repository settings, set
+**Pages → Build and deployment → Source** to **GitHub Actions**. Every push to
+`main` then publishes the `docs/` folder at:
+
+<https://yashkhairnar.github.io/Echo/>

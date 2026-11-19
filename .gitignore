@@ -1,10 +1,28 @@
+# Python environments and caches
+.venv/
 __pycache__/
 *.pyc
-.venv/
+
+# Generated datasets and experiment outputs
 data/*.csv
+data/*.jsonl
 results/
 checkpoints/
+
+# Model checkpoints and rendered videos
 *.pt
+*.pth
+*.ckpt
 *.mp4
 !docs/images/*.mp4
+
+# Local logs and OS/tooling files
+*.log
+*.tmp
+.DS_Store
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# This project description is local-only.
 project_description.txt

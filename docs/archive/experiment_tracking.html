@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Experiment Tracking · Echo Docs</title>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
+    * { box-sizing: border-box; } body { margin: 0; }
+    .layout { display: flex; min-height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+    .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
+    .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
+    nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
+    nav a:hover, nav a.active { background: #263b78; color: white; }
+    .nav-group { margin: 0 0 18px; }
+    .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
+    main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
+    article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
+    h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    p { line-height: 1.65; } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
+    pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
+    @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
+  </style>
+</head>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="../index.html">Home</a><a href="../timeline.html">Timeline</a><a href="../progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="../mlpx.html">MLPx world model</a><a href="../planner.html">Planner</a><a href="../policy.html">Policy</a><a href="../dqn_policy.html">Request DQN</a><a href="../rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="../intent_aware_data_collection.html">Intent-aware collection</a><a href="../training.html">Training</a><a href="../dataset_dashboard.html">Dataset dashboard</a><a href="../merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Experiment Tracking</h1>
+<p>Every training run now creates an automatically named experiment folder. The folder name contains a timestamp and model name, so fresh runs never overwrite older runs:</p>
+<pre><code>results/
+├── MLP/
+│   └── experiments/&lt;timestamp&gt;_mlp/
+├── MLPx/
+│   └── experiments/&lt;timestamp&gt;_mlpx/
+├── DQN/
+│   └── experiments/&lt;timestamp&gt;_dqn/
+└── DQNx/
+    └── experiments/&lt;timestamp&gt;_dqnx/</code></pre>
+<p>Each experiment folder contains its fixed filenames:</p>
+<pre><code>results/&lt;model&gt;/experiments/&lt;run-name&gt;/
+├── config.json
+├── notes.md
+├── &lt;model&gt;_training.csv
+├── training graphs
+├── best.pt
+└── latest.pt</code></pre>
+<p>The active checkpoint shortcuts remain in:</p>
+<pre><code>checkpoints/
+├── MLP/
+├── MLPx/
+├── DQN/
+└── DQNx/</code></pre>
+<p>Train the new multi-request models with:</p>
+<pre><code>PYTHONPATH=. .venv/bin/python -m scripts.train_mlpx_wm \
+    --data data/randomMultiRequestData_ttc.csv
+
+PYTHONPATH=. .venv/bin/python -m scripts.train_DQNx \
+    --mlpx-checkpoint checkpoints/MLPx/best.pt \
+    --communication-cost 0.05</code></pre>
+<p>The multi-request collector used for the MLPx dataset is:</p>
+<pre><code>PYTHONPATH=. .venv/bin/python -m scripts.collect_multi_request_data</code></pre>
+<p>The active TTC dataset is <code>data/randomMultiRequestData_ttc.csv</code>. Older datasets are archived under <code>archive/</code>.</p>
+<p>You do not need to provide a folder name for a normal run. The scripts create the run folder automatically. <code>--experiment-dir</code> remains available only when you explicitly need a custom location.</p>
+<p>Run training normally to create a new experiment folder automatically:</p>
+<p>The original single-request commands are archived in <code>archive/legacy_single_request/</code>. The active multi-request commands are documented in <a href="dqnx_request_policy.md">the DQNx experiment guide</a>.</p>
+<p>To continue the latest MLPx experiment, pass only its active checkpoint:</p>
+<pre><code>PYTHONPATH=. .venv/bin/python -m scripts.train_mlpx_wm \
+    --resume checkpoints/MLPx/latest.pt</code></pre>
+<p>After each run, edit <code>notes.md</code> with what changed, what worked, and what should be improved.</p>
+<p>Its results should be interpreted using both reward and communication cost. A higher reward with fewer requests is preferable, but increasing DQN loss should be investigated before treating the policy as fully converged.</p>
+<p>DQNx also records driving reward before communication cost. This makes it possible to distinguish improved driving from reward gains caused only by requesting fewer vehicles.</p>
+<h2>Resuming DQNx training</h2>
+<p>DQNx checkpoints restore the networks, optimizer, exploration probability, episode number, and replay buffer:</p>
+<pre><code>PYTHONPATH=. .venv/bin/python -m scripts.train_DQNx \
+    --resume checkpoints/DQNx/latest.pt \
+    --episodes 2000</code></pre></article></main></div></body>
+</html>

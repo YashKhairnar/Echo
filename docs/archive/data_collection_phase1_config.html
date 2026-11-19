@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Data Collection Phase1 Config · Echo Docs</title>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
+    * { box-sizing: border-box; } body { margin: 0; }
+    .layout { display: flex; min-height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+    .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
+    .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
+    nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
+    nav a:hover, nav a.active { background: #263b78; color: white; }
+    .nav-group { margin: 0 0 18px; }
+    .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
+    main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
+    article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
+    h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    p { line-height: 1.65; } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
+    pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
+    @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
+  </style>
+</head>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="../index.html">Home</a><a href="../timeline.html">Timeline</a><a href="../progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="../mlpx.html">MLPx world model</a><a href="../planner.html">Planner</a><a href="../policy.html">Policy</a><a href="../dqn_policy.html">Request DQN</a><a href="../rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="../intent_aware_data_collection.html">Intent-aware collection</a><a href="../training.html">Training</a><a href="../dataset_dashboard.html">Dataset dashboard</a><a href="../merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Data Collection Configuration</h1>
+<p>This document describes the current configuration used to collect cooperative-driving data.</p>
+<h2>Environment</h2>
+<p>The project uses a custom <code>HighwayEnv</code> environment with:</p>
+<ul>
+<li><code>1</code> controlled ego vehicle</li>
+<li><code>10</code> neighboring vehicles</li>
+<li><code>11</code> vehicles total</li>
+<li>Stable vehicle IDs assigned from <code>0</code> to <code>10</code></li>
+<li><code>1</code> action selected per second</li>
+<li>A maximum episode duration of <code>40</code> seconds</li>
+<li><code>15</code> internal simulation updates per second</li>
+</ul>
+<p>The collector uses random driving actions for the ego vehicle:</p>
+<pre><code>action = env.action_space.sample()</code></pre>
+<p>The current collector runs for <code>1000</code> episodes by default and uses:</p>
+<pre><code>CustomHighwayEnv(render_mode=&quot;rgb_array&quot;)</code></pre>
+<p>Only the Kinematics observation is currently used. Lidar has been removed from the active configuration.</p>
+<h2>Kinematics observation</h2>
+<p>The environment returns up to <code>10</code> vehicle rows for each observation:</p>
+<ul>
+<li>Row <code>0</code> is the ego vehicle.</li>
+<li>The remaining rows contain up to <code>9</code> nearby vehicles.</li>
+<li>Empty rows have <code>presence = 0</code>.</li>
+<li>The observed vehicle IDs can change as vehicles move, but each ID remains stable for the episode.</li>
+<li>One of the <code>10</code> neighboring vehicles may therefore be outside the current observation.</li>
+</ul>
+<p>Each row contains these nine values:</p>
+<pre><code>presence
+x
+y
+vx
+vy
+intent_acceleration
+intent_steering
+intent_lane_change
+vehicle_id</code></pre>
+<p>The observation shape is:</p>
+<pre><code>(10, 9)</code></pre>
+<p>Coordinates and velocities are provided in the Kinematics observation format. Intent values describe the vehicle's current acceleration, steering, and lane-change commands.</p>
+<h2>Communication messages</h2>
+<p>At each timestep, the collector randomly selects one visible neighboring-vehicle slot or selects the no-request action. The request actions are:</p>
+<pre><code>0–9   visible neighboring-vehicle slots
+10    no request</code></pre>
+<p>The collector never requests a vehicle outside the current observation frame. It calls <code>getMessage()</code> only when a visible vehicle is selected.</p>
+<p>The message contains:</p>
+<pre><code>vehicle_id
+position
+velocity
+action
+intent</code></pre>
+<h2>Collected transition</h2>
+<p>Each CSV row stores one transition:</p>
+<pre><code>episode_id
+timestep
+observation_t
+request_action_t
+action_t
+message_t
+observation_t+1
+reward_t+1
+terminated
+truncated
+done</code></pre>
+<p>The observations and messages are stored as JSON strings inside the CSV file so that their array and dictionary structures are preserved. The current dataset is:</p>
+<pre><code>archive/legacy_single_request/data/randomPolicyData_requestPolicy.csv</code></pre>
+<p><code>request_action_t</code> describes the randomly selected request. The MLP currently uses the resulting message rather than the request action directly.</p></article></main></div></body>
+</html>

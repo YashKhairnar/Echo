@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dqn Request Policy · Echo Docs</title>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
+    * { box-sizing: border-box; } body { margin: 0; }
+    .layout { display: flex; min-height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+    .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
+    .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
+    nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
+    nav a:hover, nav a.active { background: #263b78; color: white; }
+    .nav-group { margin: 0 0 18px; }
+    .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
+    main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
+    article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
+    h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    p { line-height: 1.65; } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
+    pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
+    @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
+  </style>
+</head>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="../index.html">Home</a><a href="../timeline.html">Timeline</a><a href="../progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="../mlpx.html">MLPx world model</a><a href="../planner.html">Planner</a><a href="../policy.html">Policy</a><a href="../dqn_policy.html">Request DQN</a><a href="../rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="../intent_aware_data_collection.html">Intent-aware collection</a><a href="../training.html">Training</a><a href="../dataset_dashboard.html">Dataset dashboard</a><a href="../merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>DQN Request Policy</h1>
+<p>The DQN learns which visible neighboring vehicle, if any, should be requested at each timestep.</p>
+<h2>Action space</h2>
+<p>The DQN has <code>11</code> output actions:</p>
+<pre><code>0–9   visible-neighbor slots
+10    no request</code></pre>
+<p>The mapping is dynamic. A request slot refers to a visible neighboring vehicle in the current observation, not to a fixed global vehicle ID. Invalid slots are masked before action selection and when calculating target Q-values.</p>
+<p>The same visibility rule is used by data collection and rendering. A vehicle outside the current observation cannot be requested.</p>
+<p>The environment's driving action space is separate and has <code>5</code> actions. The DQN does not select the driving action.</p>
+<h2>Interaction flow</h2>
+<pre><code>observation
+    ↓
+DQN selects visible request slot or no request
+    ↓
+requested vehicle message
+    ↓
+MLP world model + MCP planner select driving action
+    ↓
+real environment executes driving action
+    ↓
+real transition trains the DQN</code></pre>
+<p>The DQN is trained only on real environment transitions. Predicted MLP transitions are not placed in the replay buffer.</p>
+<h2>Reward</h2>
+<p>The request policy uses:</p>
+<pre><code>total reward = driving reward − communication cost</code></pre>
+<p>The current communication cost is:</p>
+<pre><code>COMMUNICATION_COST = 0.3</code></pre>
+<p>No-request actions have zero communication cost.</p>
+<h2>Training</h2>
+<p>The training script uses:</p>
+<ul>
+<li>Replay buffer size: <code>10,000</code></li>
+<li>Batch size: <code>128</code></li>
+<li>Learning rate: <code>1e-5</code></li>
+<li>Discount factor: <code>0.99</code></li>
+<li>Initial exploration: <code>1.0</code></li>
+<li>Minimum exploration: <code>0.01</code></li>
+<li>Target-network update frequency: <code>100</code> steps</li>
+<li>Default training length: <code>1000</code> episodes</li>
+</ul>
+<p>The original single-request trainer is archived in <code>archive/legacy_single_request/scripts/train_DQN.py</code>. The active trainer is the multi-request DQNx pipeline described in <a href="dqnx_request_policy.md">the DQNx guide</a>.</p>
+<p>Historical training used:</p>
+<pre><code>PYTHONPATH=. .venv/bin/python -m archive.legacy_single_request.scripts.train_DQN</code></pre>
+<p>The DQN checkpoint is saved to:</p>
+<pre><code>archive/legacy_single_request/checkpoints/DQN/latest.pt</code></pre>
+<p>Training logs and graphs are saved under:</p>
+<pre><code>archive/legacy_single_request/results/DQN/</code></pre>
+<p>Logged metrics include reward, loss, exploration probability, episode length, request count, no-request count, and communication cost.</p>
+<h2>Latest training result</h2>
+<p>The resumed <code>1000→2000</code> episode experiment achieved:</p>
+<pre><code>Average reward:       8.67
+Previous run average: 6.42
+Average episode length: 10.73 steps</code></pre>
+<p>Communication decreased during the resumed run:</p>
+<pre><code>Requests:       1.5 → 0.8 per episode
+Communication cost: 0.45 → 0.24 per episode</code></pre>
+<p>The reward improved overall, but the average DQN loss increased from approximately <code>1.76</code> to <code>7.63</code>. This indicates that Q-value learning is still unstable. The next evaluation should use <code>epsilon = 0</code> and compare the trained policy against a no-request baseline.</p></article></main></div></body>
+</html>

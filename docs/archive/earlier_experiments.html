@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Earlier Experiments · Echo Docs</title>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
+    * { box-sizing: border-box; } body { margin: 0; }
+    .layout { display: flex; min-height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+    .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
+    .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
+    nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
+    nav a:hover, nav a.active { background: #263b78; color: white; }
+    .nav-group { margin: 0 0 18px; }
+    .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
+    main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
+    article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
+    h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    p { line-height: 1.65; } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
+    pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
+    @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
+  </style>
+</head>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="../index.html">Home</a><a href="../timeline.html">Timeline</a><a href="../progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="../mlpx.html">MLPx world model</a><a href="../planner.html">Planner</a><a href="../policy.html">Policy</a><a href="../dqn_policy.html">Request DQN</a><a href="../rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="../intent_aware_data_collection.html">Intent-aware collection</a><a href="../training.html">Training</a><a href="../dataset_dashboard.html">Dataset dashboard</a><a href="../merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Earlier experiments (highway, archived)</h1>
+<p>This was the "earlier experiments" part of the README before the docs were simplified on 2026-11-15.</p>
+<p>Experiments 1–4 used the plain highway setup, where messages turned out to carry little information the ego could not already infer. Their code, data, and weights are in <code>archive/</code>, and their write-ups are in <a href="experiments/README.md">docs/archive</a>.</p>
+<p>&lt;details&gt; &lt;summary&gt;&lt;strong&gt;Experiment 1 — DQN request policy (1,000 episodes)&lt;/strong&gt;&lt;/summary&gt;</p>
+<p>The current DQN request-policy experiment uses:</p>
+<ul>
+<li><code>1000</code> training episodes</li>
+<li><code>1e-5</code> learning rate</li>
+<li><code>0.3</code> communication cost per request</li>
+<li>Visible-neighbor request masking</li>
+<li>Five-step MCP planning</li>
+<li>MLP checkpoint: <code>archive/legacy_single_request/checkpoints/MLP/best.pt</code></li>
+</ul>
+<p>The DQN learns to request information from visible neighboring vehicles or choose no request. The archived training results are stored under <code>archive/legacy_single_request/results/DQN/</code>.</p>
+<h3>Supporting MLP world model</h3>
+<p>The supporting MLP world-model run trained for <code>50</code> epochs. Its best and final test loss was approximately <code>0.3922</code> at epoch <code>50</code>:</p>
+<table><thead><tr><th>Test state loss</th><th>Test reward loss</th><th>Test loss</th></tr></thead><tbody><tr><td>0.3642</td><td>0.0280</td><td>0.3922</td></tr></tbody></table>
+<p>The archived metrics are in <code>archive/legacy_single_request/results/MLP/mlp_training.csv</code> and the model checkpoint used by the request-policy pipeline is <code>archive/legacy_single_request/checkpoints/MLP/best.pt</code>.</p>
+<p>&lt;a href="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_1000_policy.mp4"&gt; &lt;img src="../images/dqn_1000_policy.gif" width="800" alt="DQN policy video preview"&gt; &lt;/a&gt;</p>
+<p><a href="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_1000_policy.mp4">Open the DQN policy video directly</a></p>
+<h3>Training graphs</h3>
+<p>&lt;table&gt; &lt;tr&gt; &lt;td&gt;&lt;img src="../images/dqn_1000_rewards.png" width="480" alt="DQN reward"&gt;&lt;/td&gt; &lt;td&gt;&lt;img src="../images/dqn_1000_training.png" width="480" alt="DQN loss and exploration"&gt;&lt;/td&gt; &lt;/tr&gt; &lt;tr&gt; &lt;td&gt;&lt;img src="../images/dqn_1000_requests.png" width="480" alt="DQN request actions"&gt;&lt;/td&gt; &lt;td&gt;&lt;img src="../images/dqn_1000_communication_cost.png" width="480" alt="DQN communication cost"&gt;&lt;/td&gt; &lt;/tr&gt; &lt;/table&gt;</p>
+<h3>MLP world-model graphs</h3>
+<p>&lt;table&gt; &lt;tr&gt; &lt;td&gt;&lt;img src="../images/mlp_exp1_losses.png" width="480" alt="Experiment 1 MLP losses"&gt;&lt;/td&gt; &lt;td&gt;&lt;img src="../images/mlp_exp1_loss_components.png" width="480" alt="Experiment 1 MLP loss components"&gt;&lt;/td&gt; &lt;/tr&gt; &lt;/table&gt;</p>
+<p>&lt;/details&gt;</p>
+<p>&lt;details&gt; &lt;summary&gt;&lt;strong&gt;Experiment 2 — DQN resumed training (1,000 → 2,000 episodes)&lt;/strong&gt;&lt;/summary&gt;</p>
+<p>The resumed run achieved an average reward of <code>8.67</code>, compared with <code>6.42</code> for the previous 1000-episode run. Communication cost decreased as the policy requested information less often. The run is stored under:</p>
+<pre><code>archive/legacy_single_request/results/DQN/</code></pre>
+<p>The reward improved, but the DQN loss remained unstable, so the policy should be evaluated against a no-request baseline before drawing final conclusions.</p>
+<h3>Supporting MLP world model</h3>
+<p>The second archived MLP run also trained for <code>50</code> epochs. Its best test loss was approximately <code>0.4044</code> at epoch <code>42</code>, and its final test loss was <code>0.4117</code>:</p>
+<table><thead><tr><th>Final test state loss</th><th>Final test reward loss</th><th>Final test loss</th></tr></thead><tbody><tr><td>0.3827</td><td>0.0290</td><td>0.4117</td></tr></tbody></table>
+<p>The archived metrics are in <code>archive/legacy_single_request/results/MLP/mlp_training_1.csv</code>. The best MLP checkpoint should be used when reproducing the resumed DQN experiment.</p>
+<p><a href="dqn_resume_1000_2000.md">Read the resumed-experiment notes</a></p>
+<p>&lt;a href="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_resume_1000_2000_policy.mp4"&gt; &lt;img src="../images/dqn_resume_1000_2000_policy.gif" width="800" alt="Resumed DQN policy video preview"&gt; &lt;/a&gt;</p>
+<p><a href="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqn_resume_1000_2000_policy.mp4">Open the resumed-policy video directly</a></p>
+<h3>Training graphs</h3>
+<p>&lt;table&gt; &lt;tr&gt; &lt;td&gt;&lt;img src="../images/dqn_resume_1000_2000_rewards.png" width="480" alt="Resumed DQN reward"&gt;&lt;/td&gt; &lt;td&gt;&lt;img src="../images/dqn_resume_1000_2000_training.png" width="480" alt="Resumed DQN loss and exploration"&gt;&lt;/td&gt; &lt;/tr&gt; &lt;tr&gt; &lt;td&gt;&lt;img src="../images/dqn_resume_1000_2000_requests.png" width="480" alt="Resumed DQN request actions"&gt;&lt;/td&gt; &lt;td&gt;&lt;img src="../images/dqn_resume_1000_2000_communication_cost.png" width="480" alt="Resumed DQN communication cost"&gt;&lt;/td&gt; &lt;/tr&gt; &lt;/table&gt;</p>
+<h3>MLP world-model graphs</h3>
+<p>&lt;table&gt; &lt;tr&gt; &lt;td&gt;&lt;img src="../images/mlp_exp2_losses.png" width="480" alt="Experiment 2 MLP losses"&gt;&lt;/td&gt; &lt;td&gt;&lt;img src="../images/mlp_exp2_loss_components.png" width="480" alt="Experiment 2 MLP loss components"&gt;&lt;/td&gt; &lt;/tr&gt; &lt;/table&gt;</p>
+<p>&lt;/details&gt;</p>
+<p>&lt;details&gt; &lt;summary&gt;&lt;strong&gt;Experiment 3 — MLPx + DQNx multi-request communication&lt;/strong&gt;&lt;/summary&gt;</p>
+<p>This experiment extends the original request policy so the ego vehicle can request information from multiple visible neighboring vehicles at the same timestep. MLPx predicts the next observation and reward from the current observation, driving action, request mask, and received messages. DQNx chooses the request mask, while the five-step MCP planner uses MLPx to choose the driving action.</p>
+<p>The recorded DQNx run used:</p>
+<ul>
+<li><code>2,000</code> episodes;</li>
+<li>ten request slots with visibility masking;</li>
+<li>a <code>0.3</code> communication cost per requested vehicle;</li>
+<li>real environment transitions for DQNx training; and</li>
+<li>MLPx plus five-step MCP planning for the driving action.</li>
+</ul>
+<h3>MLPx results</h3>
+<p>The best MLPx test losses were approximately:</p>
+<table><thead><tr><th>Run</th><th>Epochs</th><th>Best test loss</th><th>Best epoch</th></tr></thead><tbody><tr><td><code>20261112_132150_mlpx</code></td><td>100</td><td>0.4292</td><td>30</td></tr><tr><td><code>20261112_132315_mlpx</code></td><td>200</td><td>0.4329</td><td>24</td></tr></tbody></table>
+<p>The second run became worse after its early best epoch, suggesting overfitting or limited data diversity. The <code>best.pt</code> checkpoint should be used for planning.</p>
+<h3>DQNx results</h3>
+<p>For the final 100 episodes of the recorded run:</p>
+<ul>
+<li>mean reward: approximately <code>10.93</code>;</li>
+<li>mean DQNx loss: approximately <code>5.02</code>;</li>
+<li>mean requests: <code>0.82</code> per episode; and</li>
+<li>mean communication cost: approximately <code>0.246</code>.</li>
+</ul>
+<p>The policy often selected no requests. This lowers communication cost, but it must be compared against no-request and random-request baselines before being considered successful communication learning.</p>
+<p>The archived training artifacts are stored under <code>archive/pre_ttc_multirequest/results/MLPx/experiments/</code> and <code>archive/pre_ttc_multirequest/results/DQNx/experiments/</code>.</p>
+<p><a href="dqnx_request_policy.md">Read the DQNx documentation</a></p>
+<p>&lt;a href="https://raw.githubusercontent.com/YashKhairnar/Echo/main/docs/images/dqnx_current_policy.mp4"&gt; &lt;img src="../images/dqnx_current_policy.gif" width="800" alt="DQNx multi-request policy video preview"&gt; &lt;/a&gt;</p>
+<p><a href="../images/dqnx_current_policy.mp4">Open the current DQNx policy video</a></p>
+<h3>Training graphs</h3>
+<p>&lt;table&gt; &lt;tr&gt; &lt;td&gt;&lt;img src="../images/mlpx_exp3_run1_losses.png" width="480" alt="Experiment 3 MLPx run 1 losses"&gt;&lt;/td&gt; &lt;td&gt;&lt;img src="../images/mlpx_exp3_run1_loss_components.png" width="480" alt="Experiment 3 MLPx run 1 loss components"&gt;&lt;/td&gt; &lt;/tr&gt; &lt;tr&gt; &lt;td&gt;&lt;img src="../images/mlpx_exp3_run2_losses.png" width="480" alt="Experiment 3 MLPx run 2 losses"&gt;&lt;/td&gt; &lt;td&gt;&lt;img src="../images/mlpx_exp3_run2_loss_components.png" width="480" alt="Experiment 3 MLPx run 2 loss components"&gt;&lt;/td&gt; &lt;/tr&gt; &lt;tr&gt; &lt;td&gt;&lt;img src="../images/dqnx_exp3_rewards.png" width="480" alt="Experiment 3 DQNx rewards"&gt;&lt;/td&gt; &lt;td&gt;&lt;img src="../images/dqnx_exp3_loss.png" width="480" alt="Experiment 3 DQNx loss"&gt;&lt;/td&gt; &lt;/tr&gt; &lt;tr&gt; &lt;td&gt;&lt;img src="../images/dqnx_exp3_requests.png" width="480" alt="Experiment 3 DQNx requests"&gt;&lt;/td&gt; &lt;td&gt;&lt;img src="../images/dqnx_exp3_communication_cost.png" width="480" alt="Experiment 3 DQNx communication cost"&gt;&lt;/td&gt; &lt;/tr&gt; &lt;/table&gt;</p>
+<p>&lt;/details&gt;</p>
+<p>&lt;details&gt; &lt;summary&gt;&lt;strong&gt;Experiment 4 — TTC messages with MLPx and DQNx&lt;/strong&gt;&lt;/summary&gt;</p>
+<p>This experiment adds intent and time-to-collision information to messages while keeping public observations limited to kinematics. MLPx was trained on the TTC dataset, and DQNx learned whether to request each visible vehicle.</p>
+<table><thead><tr><th>Policy</th><th>Driving reward</th><th>Communication cost</th><th>Total reward</th><th>Requests</th></tr></thead><tbody><tr><td>No requests</td><td><code>5.54</code></td><td><code>0.00</code></td><td><code>5.54</code></td><td><code>0.00</code></td></tr><tr><td>All visible cars</td><td><code>4.51</code></td><td><code>5.04</code></td><td><code>-0.53</code></td><td><code>50.40</code></td></tr><tr><td>Trained DQNx</td><td><code>5.54</code></td><td><code>0.00</code></td><td><code>5.54</code></td><td><code>0.00</code></td></tr></tbody></table>
+<p>The trained policy currently selects no requests, so this experiment reduces communication but does not yet demonstrate a measurable driving benefit.</p>
+<p><a href="experiments/experiment_4_ttc_mlpx_dqnx.md">Read the full Experiment 4 notes</a>.</p>
+<h3>Training graphs</h3>
+<p>&lt;table&gt; &lt;tr&gt; &lt;td&gt;&lt;img src="../images/mlpx_exp4_losses.png" width="480" alt="Experiment 4 MLPx losses"&gt;&lt;/td&gt; &lt;td&gt;&lt;img src="../images/mlpx_exp4_loss_components.png" width="480" alt="Experiment 4 MLPx loss components"&gt;&lt;/td&gt; &lt;/tr&gt; &lt;tr&gt; &lt;td&gt;&lt;img src="../images/dqnx_exp4_rewards.png" width="480" alt="Experiment 4 DQNx rewards"&gt;&lt;/td&gt; &lt;td&gt;&lt;img src="../images/dqnx_exp4_loss.png" width="480" alt="Experiment 4 DQNx loss"&gt;&lt;/td&gt; &lt;/tr&gt; &lt;tr&gt; &lt;td&gt;&lt;img src="../images/dqnx_exp4_requests.png" width="480" alt="Experiment 4 DQNx requests"&gt;&lt;/td&gt; &lt;td&gt;&lt;img src="../images/dqnx_exp4_communication_cost.png" width="480" alt="Experiment 4 DQNx communication cost"&gt;&lt;/td&gt; &lt;/tr&gt; &lt;/table&gt;</p>
+<p>&lt;/details&gt;</p></article></main></div></body>
+</html>

@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="880" height="1376" viewBox="0 0 880 1376" role="img" aria-labelledby="t d">
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="1880" viewBox="0 0 880 1880" role="img" aria-labelledby="t d">
   <title id="t">Echo project timeline</title>
-  <desc id="d">From the first highway setup (Nov 5) to a value-of-information request rule that matches the hand-written rule in the merge scenario (Nov 17).</desc>
+  <desc id="d">From the first highway setup (Nov 5) through the four-lane intent-aware dataset, simple MLPx world model, evaluation, documentation, and project cleanup (Nov 19).</desc>
   <style>
     text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
     .bg { fill: #ffffff; }
@@ -39,7 +39,7 @@
     }
   </style>
 
-  <rect class="bg" x="0" y="0" width="880" height="1376" rx="12"/>
+  <rect class="bg" x="0" y="0" width="880" height="1880" rx="12"/>
 
   <!-- Heading and legend -->
   <text class="h1" x="24" y="40">Echo: project timeline</text>
@@ -49,7 +49,8 @@
   <circle class="bad" cx="748" cy="36" r="6"/><text class="legend" x="759" y="40">didn't work</text>
 
   <!-- Spine -->
-  <line class="line" x1="152" y1="126" x2="152" y2="1352"/>
+  <line class="line" x1="152" y1="126" x2="152" y2="1286"/>
+  <line class="line" x1="152" y1="1326" x2="152" y2="1828"/>
 
   <!-- Phase 1 -->
   <rect class="band" x="24" y="84" width="836" height="30" rx="6"/>
@@ -155,12 +156,60 @@
   <text class="title" x="192" y="1253">Value-of-information rule: ask only if it changes the move</text>
   <text class="text" x="192" y="1274">The planner imagines both answers, no training · <tspan class="tgood">8.52, matches the hand-written rule at every cost</tspan></text>
   <rect class="blue" x="790" y="1242" width="58" height="22" rx="11"/>
-  <text class="badge" x="819" y="1257" text-anchor="middle">NOW</text>
+  <text class="badge" x="819" y="1257" text-anchor="middle">PAST</text>
+
+  <!-- Phase 3 -->
+  <rect class="band" x="24" y="1296" width="836" height="30" rx="6"/>
+  <text class="bandtext" x="40" y="1316">PHASE 3 · Build and test the informed world-model pipeline · Nov 19</text>
+
+  <text class="date" x="128" y="1371" text-anchor="end">Nov 19</text>
+  <rect class="card" x="176" y="1338" width="684" height="56" rx="8"/>
+  <circle class="good ring" cx="152" cy="1366" r="8"/>
+  <text class="title" x="192" y="1361">Build the informed dataset</text>
+  <text class="text" x="192" y="1382">Four lanes, hidden driver behavior, eight spatial message slots · <tspan class="tgood">26,597 transitions merged</tspan></text>
+
+  <text class="date" x="128" y="1437" text-anchor="end">Nov 19</text>
+  <rect class="card" x="176" y="1404" width="684" height="56" rx="8"/>
+  <circle class="good ring" cx="152" cy="1432" r="8"/>
+  <text class="title" x="192" y="1427">Define and train the simple MLPx</text>
+  <text class="text" x="192" y="1448">116 inputs, next-state + reward heads · <tspan class="tgood">one-step RMSE 0.0677</tspan></text>
+
+  <text class="date" x="128" y="1503" text-anchor="end">Nov 19</text>
+  <rect class="card" x="176" y="1470" width="684" height="56" rx="8"/>
+  <circle class="part ring" cx="152" cy="1498" r="8"/>
+  <text class="title" x="192" y="1493">Choose a practical planning horizon</text>
+  <text class="text" x="192" y="1514">Open-loop state RMSE: <tspan class="tgood">0.0935 at 3 steps</tspan> vs <tspan class="tpart">0.1201 at 5</tspan></text>
+
+  <text class="date" x="128" y="1569" text-anchor="end">Nov 19</text>
+  <rect class="card" x="176" y="1536" width="684" height="56" rx="8"/>
+  <circle class="good ring" cx="152" cy="1564" r="8"/>
+  <text class="title" x="192" y="1559">Train the request DQN</text>
+  <text class="text" x="192" y="1580">Ask eight spatial slots or nobody · <tspan class="tpart">returns rose, but crashes and loss remain high</tspan></text>
+
+  <text class="date" x="128" y="1635" text-anchor="end">Nov 19</text>
+  <rect class="card" x="176" y="1602" width="684" height="56" rx="8"/>
+  <circle class="part ring" cx="152" cy="1630" r="8"/>
+  <text class="title" x="192" y="1625">Make the policy inspectable</text>
+  <text class="text" x="192" y="1646">Color-coded vehicles, crash frames, and requested-car highlight · <tspan class="tgood">behavior is easy to verify</tspan></text>
+
+  <text class="date" x="128" y="1701" text-anchor="end">Nov 19</text>
+  <rect class="card" x="176" y="1668" width="684" height="56" rx="8"/>
+  <circle class="good ring" cx="152" cy="1696" r="8"/>
+  <text class="title" x="192" y="1691">Make the project reproducible</text>
+  <text class="text" x="192" y="1712">Training graphs, dedicated docs, organized scripts · <tspan class="tgood">legacy outputs archived</tspan></text>
+
+  <text class="date" x="128" y="1767" text-anchor="end">Nov 19</text>
+  <rect class="now" x="176" y="1734" width="684" height="56" rx="8"/>
+  <circle class="good ring" cx="152" cy="1762" r="10"/>
+  <text class="title" x="192" y="1757">Current lesson</text>
+  <text class="text" x="192" y="1778">The pipeline works end to end; next we need fixed-seed policy evaluation against baselines</text>
+  <rect class="blue" x="790" y="1746" width="58" height="22" rx="11"/>
+  <text class="badge" x="819" y="1761" text-anchor="middle">NOW</text>
 
   <!-- Next -->
-  <text class="date" x="128" y="1329" text-anchor="end">Next</text>
-  <rect class="next" x="176" y="1296" width="684" height="56" rx="8"/>
-  <circle class="neutral ring" cx="152" cy="1324" r="8"/>
-  <text class="title" x="192" y="1319">Teach the DQN from the rule</text>
-  <text class="text" x="192" y="1340">Use the rule as a teacher · look at the last 2–4% crashes · back to a 4-lane highway</text>
+  <text class="date" x="128" y="1833" text-anchor="end">Next</text>
+  <rect class="next" x="176" y="1800" width="684" height="56" rx="8"/>
+  <circle class="neutral ring" cx="152" cy="1828" r="8"/>
+  <text class="title" x="192" y="1823">Evaluate action planning with the trained WM</text>
+  <text class="text" x="192" y="1844">Compare imagined actions against real rollouts and improve long-horizon stability</text>
 </svg>

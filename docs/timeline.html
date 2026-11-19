@@ -28,6 +28,15 @@
     font: 15px/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
   }
   main { max-width: 860px; margin: 0 auto; padding: 32px 16px 48px; }
+  .site-layout { display: flex; min-height: 100vh; }
+  .site-sidebar { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+  .site-brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; color: white; }
+  .site-tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
+  .site-sidebar nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
+  .site-sidebar nav a:hover, .site-sidebar nav a.active { background: #263b78; color: white; }
+  .nav-group { margin: 0 0 18px; }
+  .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
+  .site-content { flex: 1; }
   header h1 { margin: 0 0 4px; font-size: 26px; }
   header p { margin: 0; color: var(--muted); }
   .toolbar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin: 20px 0 8px; }
@@ -42,7 +51,7 @@
   }
   button.toggle-all:hover { background: var(--card-hover); }
 
-  .phase { margin: 24px 0 8px; padding: 6px 14px; background: var(--band); border-radius: 6px; font-weight: 700; font-size: 14px; letter-spacing: .3px; }
+  .phase { position: relative; z-index: 3; margin: 24px 0 8px; padding: 6px 14px; background: var(--band); border-radius: 6px; font-weight: 700; font-size: 14px; letter-spacing: .3px; }
   .phase small { font-weight: 400; color: var(--muted); letter-spacing: 0; }
 
   ol { list-style: none; margin: 0; padding: 0; position: relative; }
@@ -80,6 +89,9 @@
   footer a { color: var(--now-line); }
 
   @media (max-width: 560px) {
+    .site-layout { display: block; }
+    .site-sidebar { width: 100%; height: auto; position: static; }
+    .site-sidebar nav a { display: inline-block; }
     ol::before { left: 11px; }
     li { grid-template-columns: 24px 1fr; }
     .date { grid-column: 2; text-align: left; padding: 0 0 2px; order: -1; }
@@ -92,6 +104,7 @@
 </style>
 </head>
 <body>
+<div class="site-layout"><aside class="site-sidebar"><div class="site-brand">Echo Docs</div><p class="site-tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a class="active" href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><div class="site-content">
 <main>
   <header>
     <h1>Echo: project timeline</h1>
@@ -250,7 +263,7 @@
         </dl></div></details></li>
 
     <li><div class="date">Nov 17</div><div class="dot good"></div>
-      <details class="now" open><summary><span class="title">Value-of-information rule: ask only if it changes the move</span><span class="badge">NOW</span>
+      <details class="now"><summary><span class="title">Value-of-information rule: ask only if it changes the move</span><span class="badge">PAST</span>
         <span class="line2">The planner imagines both answers, no training · <span class="result good">8.52, matches the hand-written rule at every cost</span></span></summary>
         <div class="body"><dl>
           <dt>How it works</dt><dd>For each car in the target lane, the planner imagines both answers ("yielding" and "aggressive"). Asking is worth how much better the ego could drive knowing the answer than with the move it would make without asking. It asks the most valuable car if that beats the cost.</dd>
@@ -259,18 +272,54 @@
           <dt>Still missing</dt><dd>It crashes 2–4%; the hand-written rule crashes 0%.</dd>
         </dl><div class="chips"><span class="chip">8.52 at cost 0.05</span><span class="chip">rear rule 8.47</span><span class="chip">DQN 7.09</span><span class="chip">no training</span></div></div></details></li>
 
-    <li><div class="date">Next</div><div class="dot neutral"></div>
-      <details class="next"><summary><span class="title">Teach the DQN from the rule</span>
-        <span class="line2">Use the rule as a teacher · look at the last 2–4% crashes · back to a 4-lane highway</span></summary>
+    <div class="phase">PHASE 3 · Build and test the informed world-model pipeline <small>· Nov 19</small></div>
+
+    <li><div class="date">Nov 19</div><div class="dot good"></div>
+      <details><summary><span class="title">Four-lane intent-aware world model</span>
+        <span class="line2">Four lanes, hidden behavior, eight spatial message slots · <span class="result good">26,597 transitions merged</span></span></summary>
         <div class="body"><dl>
-          <dt>Teacher</dt><dd>Train the DQN to copy the rule's choices, giving a fast learned policy without the noisy-reward problem.</dd>
-          <dt>Crashes</dt><dd>Look at the rule's remaining 2–4% crashes.</dd>
-          <dt>4 lanes</dt><dd>The same hidden drivers on a busier highway, where it's less obvious whom to ask.</dd>
+          <dt>Data</dt><dd>Combined informed and random no-message transitions from a four-lane HighwayEnv setup, with aggressive and defensive vehicles and fixed spatial message slots.</dd>
+          <dt>Model</dt><dd>A compact 116-input MLPx predicts next state and reward only. One-step evaluation is strong; open-loop error grows across three- and five-step imagination.</dd>
+          <dt>Result</dt><dd>26,597 transitions are available for world-model training.</dd>
+        </dl><div class="chips"><span class="chip">26,597 transitions</span><span class="chip">116 inputs</span><span class="chip">3 / 5-step evaluation</span></div></div></details></li>
+
+    <li><div class="date">Nov 19</div><div class="dot part"></div>
+      <details><summary><span class="title">Train the request DQN</span>
+        <span class="line2">Ask eight spatial slots or nobody · <span class="result part">returns rose, but crashes and loss remain high</span></span></summary>
+        <div class="body"><dl>
+          <dt>What changed</dt><dd>The DQN chooses which visible spatial slot to ask. A frozen three-step MLPx planner then chooses the ego driving action.</dd>
+          <dt>Logging</dt><dd>Each episode records return, mean loss, epsilon, request count, crash, and truncation status.</dd>
+          <dt>Lesson</dt><dd>Returns improved during training, but crash frequency remains high and the rising loss indicates that the request DQN needs stabilization.</dd>
+        </dl></div></details></li>
+
+    <li><div class="date">Nov 19</div><div class="dot good"></div>
+      <details><summary><span class="title">Render and inspect the learned policy</span>
+        <span class="line2">Color-coded vehicles, crash frames, and requested-car highlights · <span class="result good">behavior is easy to verify</span></span></summary>
+        <div class="body"><dl>
+          <dt>Visualization</dt><dd>The ego is green, aggressive vehicles orange, defensive vehicles blue, and crashed vehicles red. A yellow circle marks the vehicle whose message was requested.</dd>
+          <dt>Tool</dt><dd><code>scripts.evaluation.render_request_dqn</code> displays the DQN request and the planner's ego action at every step.</dd>
+        </dl></div></details></li>
+
+    <li><div class="date">Nov 19</div><div class="dot good"></div>
+      <details class="now" open><summary><span class="title">Current lesson</span><span class="badge">NOW</span>
+        <span class="line2">The pipeline works end to end · <span class="result good">next: fixed-seed evaluation against baselines</span></span></summary>
+        <div class="body"><dl>
+          <dt>Reproducibility</dt><dd>Training graphs, dedicated docs, organized scripts, and archived legacy outputs make the current pipeline easy to inspect and rerun.</dd>
+          <dt>Next</dt><dd>Evaluate the DQN-planner system against ask-nobody and rule-based baselines on fixed seeds.</dd>
+        </dl></div></details></li>
+
+    <li><div class="date">Next</div><div class="dot neutral"></div>
+      <details class="next"><summary><span class="title">Evaluate action planning with the trained WM</span>
+        <span class="line2">Compare imagined actions against real rollouts · improve long-horizon stability</span></summary>
+        <div class="body"><dl>
+          <dt>Planning</dt><dd>Use predicted rewards to compare candidate ego action sequences.</dd>
+          <dt>Evaluation</dt><dd>Measure whether the action selected by the WM avoids unsafe real-environment outcomes.</dd>
         </dl></div></details></li>
   </ol>
 
   <footer>Details: <a href="https://github.com/YashKhairnar/Echo/blob/main/docs/merge_scenario.md">merge_scenario.md</a> · <a href="https://github.com/YashKhairnar/Echo/blob/main/docs/progress_log.md">progress log</a> · <a href="https://github.com/YashKhairnar/Echo">repository</a></footer>
 </main>
+</div></div>
 <script>
   const button = document.querySelector(".toggle-all");
   const items = [...document.querySelectorAll("details")];

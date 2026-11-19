@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mlp World Model · Echo Docs</title>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
+    * { box-sizing: border-box; } body { margin: 0; }
+    .layout { display: flex; min-height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+    .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
+    .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
+    nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
+    nav a:hover, nav a.active { background: #263b78; color: white; }
+    .nav-group { margin: 0 0 18px; }
+    .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
+    main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
+    article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
+    h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    p { line-height: 1.65; } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
+    pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
+    @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
+  </style>
+</head>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="../index.html">Home</a><a href="../timeline.html">Timeline</a><a href="../progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="../mlpx.html">MLPx world model</a><a href="../planner.html">Planner</a><a href="../policy.html">Policy</a><a href="../dqn_policy.html">Request DQN</a><a href="../rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="../intent_aware_data_collection.html">Intent-aware collection</a><a href="../training.html">Training</a><a href="../dataset_dashboard.html">Dataset dashboard</a><a href="../merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>MLP World Model</h1>
+<p>The current world model is a multilayer perceptron that predicts the next Kinematics state and driving reward from one collected transition. It is frozen during DQN training and used by the MCP planner to evaluate candidate driving actions.</p>
+<h2>Model input</h2>
+<p>Each input combines:</p>
+<pre><code>observation_t: 10 × 6 = 60 values
+action_t:      5 one-hot values
+message_t:     4 values</code></pre>
+<p>The complete input is therefore a <code>69</code>-value vector:</p>
+<pre><code>60 + 5 + 4 = 69</code></pre>
+<p>The observation contains vehicle presence, position, velocity, and vehicle ID. The message contains the communicating vehicle's intent acceleration, intent steering, target lane, and time to collision.</p>
+<h2>Architecture</h2>
+<p>The shared MLP is:</p>
+<pre><code>69 → 256 → 256 → 128</code></pre>
+<p>Each layer is followed by a ReLU activation. The final shared representation is passed to two output heads:</p>
+<pre><code>next-state head: 128 → 60
+reward head:     128 → 1</code></pre>
+<p>The model therefore returns:</p>
+<pre><code>predicted_next_state, predicted_reward = model(inputs)</code></pre>
+<h2>Training</h2>
+<p><code>WorldModelDataset</code> reads the collected CSV and returns:</p>
+<pre><code>input:       69 values
+next_state:  60 values
+reward:       1 value</code></pre>
+<p>The training script uses:</p>
+<ul>
+<li>An 80/20 random train/test split.</li>
+<li>Mean squared error for next-state prediction.</li>
+<li>Mean squared error for reward prediction.</li>
+<li>Total loss equal to state loss plus reward loss.</li>
+<li>Adam optimizer with a default learning rate of <code>1e-3</code>.</li>
+<li>Batch size <code>64</code>.</li>
+<li>Default training length of <code>50</code> epochs.</li>
+</ul>
+<p>Training metrics are saved under:</p>
+<pre><code>archive/legacy_single_request/results/MLP/</code></pre>
+<p>The CSV contains total, next-state, and reward losses. The script also saves loss graphs. New runs are versioned instead of overwriting previous logs; resuming with the same <code>--log</code> path appends to that run's history.</p>
+<h2>Checkpoints</h2>
+<p>Checkpoints are saved in:</p>
+<pre><code>archive/legacy_single_request/checkpoints/MLP/</code></pre>
+<p>The files are:</p>
+<pre><code>latest.pt  # Most recent checkpoint
+best.pt    # Checkpoint with the lowest test loss</code></pre>
+<p>Each checkpoint stores the model parameters, optimizer parameters, epoch, training loss, and test loss.</p>
+<p>The original single-message MLP trainer is archived in <code>archive/legacy_single_request/scripts/train_mlp_wm.py</code>. Historical commands were:</p>
+<pre><code>PYTHONPATH=. .venv/bin/python -m archive.legacy_single_request.scripts.train_mlp_wm \
+    --resume checkpoints/MLP/latest.pt \
+    --epochs 100</code></pre>
+<p>To train from the current request-policy dataset:</p>
+<pre><code>PYTHONPATH=. .venv/bin/python -m archive.legacy_single_request.scripts.train_mlp_wm \
+    --data archive/legacy_single_request/data/randomPolicyData_requestPolicy.csv</code></pre>
+<p>The MLP input does not include <code>request_action_t</code> because the message already represents the information received. Communication cost is applied separately by the request-policy DQN.</p></article></main></div></body>
+</html>

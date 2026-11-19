@@ -9,11 +9,20 @@
     body { margin: 0; background: #f3f4f6; color: #111827; }
     main { max-width: 1180px; margin: 0 auto; padding: 32px; }
     h1 { margin-bottom: 6px; }
-    .subtitle { color: #6b7280; margin-top: 0; }
-    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin: 24px 0; }
-    .card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px #00000012; }
-    .card-label { color: #6b7280; font-size: 13px; }
-    .card-value { font-size: 26px; font-weight: 700; margin-top: 6px; }
+    .subtitle { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: 0 0 8px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }
+    .experiment-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; background: linear-gradient(135deg, #fffdf0, #fff8cf); border: 1px solid #f3d66b; border-radius: 16px; padding: 18px 20px; margin: 22px 0 26px; }
+    .experiment-header .subtitle { margin-bottom: 4px; }
+    .experiment-tag { flex: 0 0 auto; background: #172033; color: #ffe66d; border-radius: 999px; padding: 7px 12px; font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+    .stat-section { margin: 22px 0 28px; }
+    .stat-section h2 { font-size: 20px; margin: 0 0 12px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin: 0; }
+    .card { position: relative; overflow: hidden; background: white; border: 1px solid #e5e7eb; border-top: 4px solid #6366f1; border-radius: 12px; padding: 17px 18px 16px; box-shadow: 0 4px 12px #1118270d; }
+    .card:nth-child(2) { border-top-color: #f59e0b; }
+    .card:nth-child(3) { border-top-color: #10b981; }
+    .card:nth-child(4) { border-top-color: #8b5cf6; }
+    .card:nth-child(5) { border-top-color: #ec4899; }
+    .card-label { color: #6b7280; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+    .card-value { color: #172033; font-size: 29px; font-weight: 800; margin-top: 7px; }
     .card-detail { color: #9ca3af; font-size: 12px; margin-top: 4px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 18px; }
     .panel { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px #00000012; }
@@ -48,22 +57,8 @@
 <div class="site-layout"><aside class="site-sidebar"><div class="site-brand">Echo Docs</div><p class="site-tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training</a><a class="active" href="dataset_dashboard.html">Dataset dashboard</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><div class="site-content">
 <main>
   <h1>Intent-Aware Dataset Dashboard</h1>
-  <p class="subtitle">Source: data/intent_aware_dataset.jsonl</p>
-  <div class="cards">
-    <div class="card"><div class="card-label">Records</div><div class="card-value">11,505</div><div class="card-detail"></div></div>
-    <div class="card"><div class="card-label">Mean reward</div><div class="card-value">0.883</div><div class="card-detail"></div></div>
-    <div class="card"><div class="card-label">Scenario crashes</div><div class="card-value">0</div><div class="card-detail">0.00%</div></div>
-    <div class="card"><div class="card-label">Scenario truncations</div><div class="card-value">632</div><div class="card-detail">5.49%</div></div>
-    <div class="card"><div class="card-label">Episodes represented</div><div class="card-value">100</div><div class="card-detail"></div></div>
-    <div class="card"><div class="card-label">Actual rollout episodes</div><div class="card-value">100</div><div class="card-detail"></div></div><div class="card"><div class="card-label">Actual rollout steps</div><div class="card-value">2,000</div><div class="card-detail"></div></div><div class="card"><div class="card-label">Actual rollout crashes</div><div class="card-value">0</div><div class="card-detail"></div></div><div class="card"><div class="card-label">Actual crash rate</div><div class="card-value">0.00%</div><div class="card-detail"></div></div><div class="card"><div class="card-label">Actual truncations</div><div class="card-value">100</div><div class="card-detail"></div></div>
-  </div>
-  <div class="panel">
-    <p class="note"><span class="safe">No scenario crashes were recorded.</span>
-    Scenario metrics are counterfactual one-step outcomes. Actual rollout
-    metrics are shown only when supplied on the command line.</p>
-  </div>
   <div class="panel" style="margin: 18px 0;">
-    <h2>How the dataset was created</h2>
+    <h2>Shared dataset-creation pipeline</h2>
     <div class="flow">
       <div class="flow-step"><strong>1. Reset</strong><span>Start an episode with randomized lanes, vehicle types, and traffic offsets.</span></div>
       <div class="flow-arrow">→</div>
@@ -78,6 +73,38 @@
       <div class="flow-step"><strong>6. Record</strong><span>Step a copied environment and save state, messages, action, next state, reward, and flags.</span></div>
     </div>
     <div class="flow-branch"><strong>Real rollout branch:</strong> after all counterfactual scenarios are evaluated, the real environment advances once using the action selected with all currently visible messages.</div>
+  </div>
+  <div class="experiment-header">
+    <div>
+      <p class="subtitle">Experiment 1 · Intent-aware dataset statistics</p>
+      <p class="note">Source: data/intent_aware_dataset.jsonl</p>
+    </div>
+    <div class="experiment-tag">BASELINE</div>
+  </div>
+  <div class="stat-section">
+    <h2>Dataset summary</h2>
+    <div class="cards">
+      <div class="card"><div class="card-label">Records</div><div class="card-value">11,505</div><div class="card-detail"></div></div>
+      <div class="card"><div class="card-label">Mean reward</div><div class="card-value">0.883</div><div class="card-detail"></div></div>
+      <div class="card"><div class="card-label">Scenario crashes</div><div class="card-value">0</div><div class="card-detail">0.00%</div></div>
+      <div class="card"><div class="card-label">Scenario truncations</div><div class="card-value">632</div><div class="card-detail">5.49%</div></div>
+      <div class="card"><div class="card-label">Episodes represented</div><div class="card-value">100</div><div class="card-detail"></div></div>
+    </div>
+  </div>
+  <div class="stat-section">
+    <h2>Real rollout validation</h2>
+    <div class="cards">
+      <div class="card"><div class="card-label">Rollout episodes</div><div class="card-value">100</div><div class="card-detail"></div></div>
+      <div class="card"><div class="card-label">Rollout steps</div><div class="card-value">2,000</div><div class="card-detail"></div></div>
+      <div class="card"><div class="card-label">Rollout crashes</div><div class="card-value">0</div><div class="card-detail"></div></div>
+      <div class="card"><div class="card-label">Crash rate</div><div class="card-value">0.00%</div><div class="card-detail"></div></div>
+      <div class="card"><div class="card-label">Truncations</div><div class="card-value">100</div><div class="card-detail"></div></div>
+    </div>
+  </div>
+  <div class="panel">
+    <p class="note"><span class="safe">No scenario crashes were recorded.</span>
+    Scenario metrics are counterfactual one-step outcomes. Actual rollout
+    metrics are shown only when supplied on the command line.</p>
   </div>
   <div class="grid">
     <div class="panel"><img src="dataset_dashboard_charts/actions.png" alt="Ego action distribution"></div>

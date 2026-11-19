@@ -1,5 +1,7 @@
 # Training
 
+*Experiment 1 · End-to-end baseline training*
+
 ## Dataset pipeline
 
 The training data combines two sources:
@@ -8,6 +10,21 @@ The training data combines two sources:
 2. Random no-message records, where the ego requests nothing and takes random actions.
 
 The merged file is `data/combined_world_model_dataset.jsonl`.
+
+## Experiment phases
+
+The current checkpoints and graphs represent the **first baseline training
+experiment**:
+
+1. Train MLPx on the initial 26,597-transition merged dataset.
+2. Freeze that MLPx checkpoint.
+3. Train the Request DQN for 1,000 episodes while the frozen MLPx planner
+   chooses ego driving actions.
+
+These results are useful for measuring the pipeline, but they are not treated
+as final performance. The next phase is to collect more diverse episodes,
+retrain MLPx, freeze the improved checkpoint, and then retrain the Request DQN
+against it.
 
 ## Train MLPx
 
@@ -50,5 +67,15 @@ Each run writes a CSV log under `results/RequestDQN/experiments/<timestamp>/requ
 ## Current evaluation
 
 The current checkpoint achieved held-out one-step metrics of next-state RMSE `0.0677` and reward RMSE `0.0828`. In open-loop evaluation, state RMSE was `0.0935` after three steps and `0.1201` after five steps on random no-message sequences.
+
+The real-rollout comparison shows the same horizon effect: three-step reward
+MAE is `0.336` without messages and `0.383` with all visible messages, while
+five-step reward MAE is `0.723` and `0.635`, respectively. MLPx matched the
+real environment's best action `66.7%` of the time at three steps without
+messages, versus `23.1%` at five steps.
+
+The DQN baseline currently shows improving return but unstable learning loss
+and frequent crashes. It should therefore be compared with future runs using
+the same validation seeds, rather than treated as a finished policy.
 
 Older experiment outputs are stored under `results/archive/`. The active run is `results/MLPx/experiments/20261119_110113_mlpx`.

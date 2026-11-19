@@ -18,14 +18,18 @@
     main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
     article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
     h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
-    p { line-height: 1.65; } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
+    p { line-height: 1.65; } .subtitle { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
     pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
     table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
     @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
   </style>
 </head>
 <body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a class="active" href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>MLPx world model</h1>
+<p class="subtitle">Experiment 1 · Baseline world-model training</p>
 <p>MLPx is the learned one-step world model. It predicts what happens after the ego takes an action.</p>
+<h2>Experiment status</h2>
+<p>The metrics on this page are from the <strong>first MLPx training experiment</strong> on the initial merged dataset of 26,597 transitions. The checkpoint is a working baseline for the planner, not the final world model.</p>
+<p>The next MLPx training phase will use more episodes and more varied traffic, then compare the new checkpoint against this baseline using the same held-out episodes and three-/five-step rollout tests.</p>
 <h2>Input</h2>
 <p>The model receives 116 values:</p>
 <table><thead><tr><th>Input</th><th>Size</th><th>Meaning</th></tr></thead><tbody><tr><td>Current state</td><td>55</td><td>11 observation rows × 5 kinematic features</td></tr><tr><td>Ego action</td><td>5</td><td>One-hot action: <code>LANE_LEFT</code>, <code>IDLE</code>, <code>LANE_RIGHT</code>, <code>FASTER</code>, <code>SLOWER</code></td></tr><tr><td>Messages</td><td>56</td><td>8 spatial slots × 7 message features</td></tr></tbody></table>
@@ -42,6 +46,15 @@ right-front, right-beside, right-rear</code></pre>
   -&gt; next-state head: 55 values
   -&gt; reward head: 1 value</code></pre>
 <p>The model intentionally has no crash head. Crashes remain available as dataset metadata and can be analyzed separately.</p>
+<h2>Evaluation against real rollouts</h2>
+<p>MLPx was compared with real HighwayEnv rollouts from the same sampled states. For each state, the evaluator tested all five ego actions for a fixed horizon.</p>
+<ul>
+<li><strong>State MAE</strong> measures the difference between predicted and real states.</li>
+<li><strong>Reward MAE</strong> measures the difference between predicted and real rollout reward; lower is better.</li>
+<li><strong>Action-ranking agreement</strong> measures how often MLPx selected the same best action as the real environment.</li>
+</ul>
+<table><thead><tr><th>Horizon</th><th>Message mode</th><th>State MAE</th><th>Reward MAE</th><th>Match with real best action</th></tr></thead><tbody><tr><td>3 steps</td><td>No messages</td><td><code>0.229</code></td><td><code>0.336</code></td><td><code>66.7%</code> (<code>8/12</code>)</td></tr><tr><td>3 steps</td><td>All visible messages</td><td><code>0.245</code></td><td><code>0.383</code></td><td><code>42.9%</code> (<code>6/14</code>)</td></tr><tr><td>5 steps</td><td>No messages</td><td><code>0.238</code></td><td><code>0.723</code></td><td><code>23.1%</code> (<code>3/13</code>)</td></tr><tr><td>5 steps</td><td>All visible messages</td><td><code>0.377</code></td><td><code>0.635</code></td><td><code>23.1%</code> (<code>3/13</code>)</td></tr></tbody></table>
+<p>The three-step rollout is substantially better at matching real reward: reward error is <code>0.336–0.383</code>, compared with <code>0.635–0.723</code> at five steps. It also matches the real environment's preferred action more often. This is why the active planner uses a three-step horizon.</p>
 <h2>Code</h2>
 <p>The implementation is in <code>src/cooperative_driving/models/MLPx/mlpx.py</code>. Its main methods are <code>forward</code>, <code>predict_step</code>, <code>predict_batch</code>, and <code>load</code>.</p></article></main></div></body>
 </html>

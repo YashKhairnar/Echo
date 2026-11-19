@@ -1,8 +1,21 @@
 # Request DQN policy
 
+*Experiment 1 · Baseline request-policy training*
+
 The Request DQN is a learned communication policy. It decides **which visible vehicle to ask**, or whether to ask nobody. It does not directly choose the ego's driving action.
 
 After the DQN selects a request, the frozen MLPx planner uses the returned message to choose the ego action with a three-step planning horizon.
+
+## Experiment status
+
+The current results are from the **first Request DQN training experiment**.
+It was trained for 1,000 episodes with the first MLPx checkpoint frozen. This
+run establishes the communication-policy baseline; it is not yet the final
+policy.
+
+The next DQN phase will use the improved MLPx checkpoint, multiple training
+seeds, and fixed validation environments so that return, request count, crash
+rate, truncation rate, and loss can be compared fairly with this first run.
 
 ## Request actions
 

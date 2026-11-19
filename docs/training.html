@@ -18,13 +18,14 @@
     main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
     article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
     h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
-    p { line-height: 1.65; } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
+    p { line-height: 1.65; } .subtitle { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
     pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
     table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
     @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
   </style>
 </head>
 <body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a class="active" href="training.html">Training</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Training</h1>
+<p class="subtitle">Experiment 1 · End-to-end baseline training</p>
 <h2>Dataset pipeline</h2>
 <p>The training data combines two sources:</p>
 <ol>
@@ -32,6 +33,14 @@
 <li>Random no-message records, where the ego requests nothing and takes random actions.</li>
 </ol>
 <p>The merged file is <code>data/combined_world_model_dataset.jsonl</code>.</p>
+<h2>Experiment phases</h2>
+<p>The current checkpoints and graphs represent the <strong>first baseline training experiment</strong>:</p>
+<ol>
+<li>Train MLPx on the initial 26,597-transition merged dataset.</li>
+<li>Freeze that MLPx checkpoint.</li>
+<li>Train the Request DQN for 1,000 episodes while the frozen MLPx planner chooses ego driving actions.</li>
+</ol>
+<p>These results are useful for measuring the pipeline, but they are not treated as final performance. The next phase is to collect more diverse episodes, retrain MLPx, freeze the improved checkpoint, and then retrain the Request DQN against it.</p>
 <h2>Train MLPx</h2>
 <pre><code>.venv/bin/python -m scripts.training.train_mlpx_wm \
   --data data/combined_world_model_dataset.jsonl \
@@ -55,5 +64,7 @@
 <p><img src="training_graphs/request_dqn_training.png" alt="Request DQN training metrics" style="max-width:100%; height:auto;"></p>
 <h2>Current evaluation</h2>
 <p>The current checkpoint achieved held-out one-step metrics of next-state RMSE <code>0.0677</code> and reward RMSE <code>0.0828</code>. In open-loop evaluation, state RMSE was <code>0.0935</code> after three steps and <code>0.1201</code> after five steps on random no-message sequences.</p>
+<p>The real-rollout comparison shows the same horizon effect: three-step reward MAE is <code>0.336</code> without messages and <code>0.383</code> with all visible messages, while five-step reward MAE is <code>0.723</code> and <code>0.635</code>, respectively. MLPx matched the real environment's best action <code>66.7%</code> of the time at three steps without messages, versus <code>23.1%</code> at five steps.</p>
+<p>The DQN baseline currently shows improving return but unstable learning loss and frequent crashes. It should therefore be compared with future runs using the same validation seeds, rather than treated as a finished policy.</p>
 <p>Older experiment outputs are stored under <code>results/archive/</code>. The active run is <code>results/MLPx/experiments/20261119_110113_mlpx</code>.</p></article></main></div></body>
 </html>

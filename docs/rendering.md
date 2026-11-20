@@ -2,22 +2,38 @@
 
 The rendering script shows the trained Request DQN and the frozen three-step MLPx planner driving the HighwayEnv scene.
 
+This page covers usage and display options. Experiment videos, episode
+statistics, and policy comparisons live on the [DQN policy page](dqn_policy.html).
+
+## Select the experiment
+
+Run from the project root and select an experiment with both MLPx and DQN
+checkpoints available:
+
+```bash
+ECHO_EXPERIMENT=2
+```
+
+The renderer loads that experiment's `MLPx/best.pt` and `RequestDQN/best.pt`
+from `checkpoints/experiment_N/`. Use `--mlpx-checkpoint PATH` or
+`--dqn-checkpoint PATH` to select explicit checkpoints.
+
 ## Run the renderer
 
 ```bash
 .venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 1 \
+  --experiment "$ECHO_EXPERIMENT" \
   --episodes 1 \
+  --seed 7 \
   --delay 0.15 \
   --width 1800 \
   --height 800
 ```
 
-The default window is `1800x800` with scaling `6.0`. You can customize it:
-
-```bash
---width 1800 --height 700 --scaling 5.5
-```
+The default window is `1800x800` with scaling `6.0`. Change `--width`,
+`--height`, or `--scaling` to adjust the view. The seed controls the initial
+scene; use another `--seed` value to inspect a different episode. Multiple
+episodes use consecutive seeds.
 
 ## What the display shows
 
@@ -42,35 +58,19 @@ The terminal also prints the visible vehicle count, requested vehicle ID, and eg
 At the end of each episode it prints the completed step count, whether the ego
 crashed or drove to the episode limit, total reward, and total requests sent.
 
-To record an MP4 for the documentation or later inspection, pass `--video`:
+## Record a video
+
+Recording requires `ffmpeg` on your PATH. Save an MP4 with the request/response
+overlay using an experiment-specific filename:
 
 ```bash
 SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 1 \
-  --episodes 1 \
-  --seed 7 \
-  --video docs/images/dqn_experiment_1_policy.mp4
-```
-
-## Experiment 2 · Rendering and recording
-
-Select Experiment 2 to load its DQN and MLPx checkpoints:
-
-```bash
-.venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 2 --episodes 1 --seed 7 --delay 0.15
-```
-
-Record the episode with its request/response overlay:
-
-```bash
-SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 2 \
+  --experiment "$ECHO_EXPERIMENT" \
   --episodes 1 \
   --seed 7 \
   --delay 0.01 \
   --video-fps 2 \
-  --video docs/images/dqn_experiment_2_policy.mp4
+  --video "docs/images/dqn_experiment_${ECHO_EXPERIMENT}_policy.mp4"
 ```
 
 The recording saves one frame per decision plus the terminal scene. At two
@@ -78,10 +78,9 @@ frames per second, playback advances two decisions per second; it is not a
 continuous recording of the simulation's intermediate physics frames.
 The default recording rate is eight frames per second unless overridden.
 
-Seed 7 completed 14/40 steps before crashing, with driving reward 13.039 and
-five requests. See the [DQN policy page](dqn_policy.html) for the embedded
-video and the full evaluation results. The seed controls the initial scene;
-use a different `--seed` value to inspect a different episode.
+Recording overwrites the chosen file if it already exists. Use a new filename
+to preserve an earlier recording, then embed the selected video and its
+episode statistics in the corresponding experiment on the DQN policy page.
 
 ## Terminal-only rendering check
 
@@ -89,7 +88,7 @@ For a terminal-only smoke test:
 
 ```bash
 .venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 1 \
+  --experiment "$ECHO_EXPERIMENT" \
   --episodes 1 \
   --no-render
 ```

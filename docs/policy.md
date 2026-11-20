@@ -1,6 +1,9 @@
 # Data-collection policy
 
-The current driving policy is the rule-based intent-aware policy in `scripts/policy/intent_aware_policy.py`.
+This rule-based policy in `scripts/policy/intent_aware_policy.py` chooses ego
+actions during informed dataset collection. In learned-policy evaluation and
+rendering, the [Request DQN](dqn_policy.html) chooses requests and the
+[MLPx planner](planner.html) chooses driving actions.
 
 ## Inputs
 

@@ -38,5 +38,7 @@
     -&gt; sum discounted rewards
     -&gt; choose the best first action</code></pre>
 <p>Because the simplified MLPx has no crash head, the current planner uses predicted reward only. Crash and truncation flags are still retained in the real dataset for evaluation.</p>
+<p>The same message bundle is reused at every imagined step. A three-step search considers all 125 action sequences, using discount 0.99; action agreement in the corrected evaluator ranks the model's selected continuations in the real simulator. It does not establish optimality across all real action sequences.</p>
+<p>The constructor's crash_reward argument is currently stored but not used in the score. Changing it alone does not alter the planner's chosen action. See <a href="mlpx.html">MLPx</a> for prediction metrics and <a href="dqn_policy.html">Request DQN</a> for complete-system crash rates. Good short-rollout prediction does not imply safe full episodes.</p>
 <p>The planner implementation is <code>src/cooperative_driving/planner/MCP.py</code>.</p></article></main></div></body>
 </html>

@@ -20,6 +20,7 @@ from scripts.training.train_request_dqn import (
     ASK_NOBODY,
     request_state,
     requested_message,
+    resolve_requested_vehicle,
     select_action,
     valid_actions,
 )
@@ -216,17 +217,17 @@ def main():
                 visible = visible_neighbors(environment, 60.0, 10.0)
                 state = request_state(environment, visible)
                 request_action = select_action(
-                    dqn, state, valid_actions(visible), epsilon=0.0, rng=rng
+                    dqn, state, valid_actions(visible, dqn.request_action_encoding), epsilon=0.0, rng=rng
                 )
-                message = requested_message(environment, visible, request_action)
+                message = requested_message(environment, visible, request_action, dqn.request_action_encoding)
                 driving_action = planner.plan(observation, message)
                 visible_ids = ordered_visible_ids(visible)
                 requests_sent += int(request_action != ASK_NOBODY)
-                requested_vehicle = None
-                if request_action != ASK_NOBODY:
-                    requested_vehicle = environment.get_vehicle(visible_ids[request_action])
+                requested_vehicle = resolve_requested_vehicle(
+                    visible, request_action, dqn.request_action_encoding
+                )
 
-                requested = "none" if request_action == ASK_NOBODY else str(visible_ids[request_action])
+                requested = "none" if requested_vehicle is None else str(requested_vehicle.vehicle_id)
                 print(
                     f"  step={timestep:02d} visible={len(visible_ids)} "
                     f"request={requested} driving={ACTION_NAMES[driving_action]}"

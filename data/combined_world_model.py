@@ -35,18 +35,26 @@ def encode_message(message):
 def encode_messages(record):
     """Encode messages into the fixed left-to-right spatial slot order.
 
-    ``visible_vehicle_slots`` is written by the collectors.  Older records do
-    not have it, so they fall back to their previous vehicle-ID order.
+    Empty spatial positions must be preserved. Legacy packed message records
+    cannot be mapped reliably to spatial positions from IDs alone.
     """
     messages = record.get("messages") or {}
+    if not messages:
+        return [0.0] * (MAX_MESSAGE_SLOTS * MESSAGE_FEATURES)
     by_id = {str(vehicle_id): message for vehicle_id, message in messages.items()}
     slot_ids = record.get("visible_vehicle_slots")
-    if slot_ids is None:
-        slot_ids = sorted(by_id, key=lambda value: int(value))
+    if slot_ids is None or len(slot_ids) != MAX_MESSAGE_SLOTS:
+        raise ValueError(
+            "Legacy packed message slots found. Recollect informed data with "
+            "the corrected collector (eight spatial slots including None); "
+            "existing vehicle IDs do not identify missing spatial positions."
+        )
+    if not set(by_id).issubset({str(item) for item in slot_ids if item is not None}):
+        raise ValueError("Requested message vehicle is absent from visible_vehicle_slots")
 
     encoded = []
     for vehicle_id in slot_ids[:MAX_MESSAGE_SLOTS]:
-        message = by_id.get(str(vehicle_id))
+        message = by_id.get(str(vehicle_id)) if vehicle_id is not None else None
         encoded.extend(encode_message(message) if message is not None else [0.0] * MESSAGE_FEATURES)
     encoded.extend([0.0] * (MAX_MESSAGE_SLOTS * MESSAGE_FEATURES - len(encoded)))
     return encoded

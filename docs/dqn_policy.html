@@ -36,19 +36,39 @@ same-lane-front, same-lane-rear,
 right-front, right-beside, right-rear,
 ask-nobody</code></pre>
 <p>Invalid spatial slots are masked during action selection. The DQN receives a 45-value state representation containing the ego and eight ordered neighbor slots.</p>
+<table><thead><tr><th>Action</th><th>Fixed request target</th></tr></thead><tbody><tr><td>0</td><td>Left-front</td></tr><tr><td>1</td><td>Left-beside</td></tr><tr><td>2</td><td>Left-rear</td></tr><tr><td>3</td><td>Same-lane-front</td></tr><tr><td>4</td><td>Same-lane-rear</td></tr><tr><td>5</td><td>Right-front</td></tr><tr><td>6</td><td>Right-beside</td></tr><tr><td>7</td><td>Right-rear</td></tr><tr><td>8</td><td>Ask nobody</td></tr></tbody></table>
+<p>Newly trained DQNs store <code>request_action_encoding: spatial_v1</code>. Empty slots are masked for exploration, greedy selection, and next-state target values. Request resolution, message placement, and the renderer use the same mapping.</p>
+<p>This action-mapping correction was made after the first Experiment 3 DQN run. The earlier fix aligned World Model message slots, but DQN actions still indexed the compressed list of visible vehicles. Experiment 1/2 and the first Experiment 3 DQN run retain their original <code>compressed_v0</code> actions when loaded, with an explicit warning. The latest Experiment 3 DQN was retrained with <code>spatial_v1</code> actions, reusing the frozen Experiment 3 MLPx checkpoint without recollecting data.</p>
 <h3>Training setup</h3>
 <pre><code>DQN reward = real driving reward - communication cost when a vehicle is asked</code></pre>
 <p>The DQN uses replay memory, an online Q-network, a target Q-network, epsilon-greedy exploration, and Huber loss. The target network is synchronized every 50 episodes. Each experiment has its own checkpoint and result folder.</p>
-<h2 class="experiment-title">Experiment 1 · Baseline request-policy training</h2>
-<p>Experiment 1 trained the Request DQN for 1,000 episodes with the Experiment 1 MLPx checkpoint frozen, a three-step planner, and a communication cost of <code>0.05</code>.</p>
+<p>Training supports <code>--resume</code> for additional episodes. New <code>latest.pt</code> files contain full training state; older weights-only checkpoints support partial continuation with a warning. See <a href="training.html">Training</a> for commands and the resume/checkpoint behavior. More episodes do not guarantee higher return or lower DQN loss; compare continued checkpoints on the same evaluation seeds.</p>
+<h2 class="experiment-title">Experiment 1 · Baseline request policy</h2>
+<h3>Setup</h3>
+<p>Completed 1,000 training episodes using the frozen Experiment 1 MLPx checkpoint. The DQN selects requests and the planner selects driving actions.</p>
+<h3>Configuration</h3>
+<p>Three-step planner · communication cost 0.05 per requested message · nine request actions · replay memory · Huber loss · target synchronization every 50 episodes.</p>
+<h3>Commands</h3>
 <pre><code>.venv/bin/python -m scripts.training.train_request_dqn \
-  --experiment 1 \
-  --episodes 1000 \
-  --planning-horizon 3 \
-  --communication-cost 0.05</code></pre>
+  --experiment 1 --episodes 1000 \
+  --planning-horizon 3 --communication-cost 0.05</code></pre>
+<h3>Results</h3>
 <table><thead><tr><th>Metric</th><th>Result</th></tr></thead><tbody><tr><td>Episodes</td><td><code>1,000</code></td></tr><tr><td>Mean return</td><td><code>10.621</code></td></tr><tr><td>Mean return, last 100 episodes</td><td><code>12.167</code></td></tr><tr><td>Best episode return</td><td><code>19.526</code> at episode <code>643</code></td></tr><tr><td>Mean training loss</td><td><code>0.655</code></td></tr><tr><td>Mean loss, last 100 episodes</td><td><code>1.307</code></td></tr><tr><td>Mean requests per episode</td><td><code>5.392</code></td></tr><tr><td>Mean requests, last 100 episodes</td><td><code>5.460</code></td></tr><tr><td>Episodes with crash flag</td><td><code>826</code> (<code>82.60%</code>)</td></tr><tr><td>Episodes with truncation flag</td><td><code>200</code> (<code>20.00%</code>)</td></tr><tr><td>Final epsilon</td><td><code>0.05</code></td></tr></tbody></table>
 <p>The baseline shows improving late returns, but the crash rate and late loss remain high. It is useful as a first communication-policy checkpoint, not as a reliable deployment policy. The Experiment 1 log contains 26 episodes with both flags, so the crash and truncation percentages are reported independently and are not mutually exclusive.</p>
-<h3 class="experiment-title">Experiment 1 validation</h3>
+<h3>Graphs</h3>
+<p><img src="training_graphs/request_dqn_training.png" alt="Experiment 1 DQN training metrics" style="max-width:100%; height:auto;"></p>
+<h4>Policy rendering</h4>
+<p>Recorded with <strong>seed 10</strong>, the Experiment 1 MLPx checkpoint, and the Experiment 1 DQN. All three experiment recordings use the same current environment configuration, a three-step planner, an 1800×800 frame, and two frames per second.</p>
+<table><thead><tr><th>Metric</th><th>Result</th></tr></thead><tbody><tr><td>Steps completed</td><td><code>15 / 40</code></td></tr><tr><td>Outcome</td><td>Crashed</td></tr><tr><td>Driving reward</td><td><code>12.769</code></td></tr><tr><td>Requests sent</td><td><code>5</code></td></tr></tbody></table>
+<p>The overlay shows the requested vehicle ID, exact response, and ego action. A yellow circle identifies the requested vehicle. This historical DQN retains its original compressed-action interpretation.</p>
+<pre><code>SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 1 \
+  --episodes 1 --seed 10 --delay 0 \
+  --planning-horizon 3 --video-fps 2 \
+  --video docs/images/dqn_experiment_1_seed10.mp4</code></pre>
+<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/dqn_experiment_1_seed10.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
+<p>This is one illustrative episode; the 200-episode evaluation below describes broader performance. The <a href="images/dqn_experiment_1_policy.mp4">earlier seed-7 recording</a> is retained separately.</p>
+<h3>Evaluation</h3>
 <p>Evaluation compared the learned request policy against no-request, random-request, and ask-all baselines over 200 episodes each, starting at seed <code>100000</code>, with communication cost <code>0.05</code>:</p>
 <pre><code>.venv/bin/python -m scripts.evaluation.evaluate_request_dqn \
   --experiment 1 \
@@ -57,28 +77,38 @@ ask-nobody</code></pre>
 <table><thead><tr><th>Request policy</th><th>Mean return</th><th>Mean driving reward</th><th>Mean requests per episode</th><th>Crashes</th><th>Crash rate</th><th>Truncations</th></tr></thead><tbody><tr><td>DQN</td><td><code>14.955</code></td><td><code>15.207</code></td><td><code>5.040</code></td><td><code>184 / 200</code></td><td><code>92.00%</code></td><td><code>16</code></td></tr><tr><td>Ask nobody</td><td><code>13.070</code></td><td><code>13.070</code></td><td><code>0.000</code></td><td><code>198 / 200</code></td><td><code>99.00%</code></td><td><code>2</code></td></tr><tr><td>Random requests</td><td><code>6.941</code></td><td><code>7.359</code></td><td><code>8.355</code></td><td><code>200 / 200</code></td><td><code>100.00%</code></td><td><code>0</code></td></tr><tr><td>Ask all visible</td><td><code>4.331</code></td><td><code>4.959</code></td><td><code>12.560</code></td><td><code>200 / 200</code></td><td><code>100.00%</code></td><td><code>0</code></td></tr></tbody></table>
 <p>The DQN improves mean return over ask-nobody by <code>1.884</code> (about <code>14.41%</code>) and reduces crashes by 14 episodes, or <code>7</code> percentage points. This evaluation provides evidence that the learned request strategy helps the Experiment 1 system relative to its no-request baseline. The remaining <code>92%</code> crash rate is still high, and uncertainty across independent training runs has not been measured.</p>
 <p>Results are saved under <code>results/experiment_1/evaluation/request_dqn/</code>.</p>
-<h3 class="experiment-title">Experiment 1 rendering</h3>
-<p>The replacement rendering uses Experiment 1 checkpoints, seed <code>7</code>, and the three-step planner:</p>
-<table><thead><tr><th>Metric</th><th>Result</th></tr></thead><tbody><tr><td>Steps completed</td><td><code>20 / 40</code></td></tr><tr><td>Outcome</td><td>Crashed</td></tr><tr><td>Crashed</td><td>Yes</td></tr><tr><td>Reward</td><td><code>18.732</code></td></tr><tr><td>Requests sent</td><td><code>5</code></td></tr></tbody></table>
-<p>The recording is generated with:</p>
-<pre><code>SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 1 \
-  --episodes 1 \
-  --seed 7 \
-  --delay 0.01 \
-  --video docs/images/dqn_experiment_1_policy.mp4</code></pre>
-<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/dqn_experiment_1_policy.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
-<h2 class="experiment-title">Experiment 2 · Larger World Model DQN training</h2>
-<p>Experiment 2 trained the Request DQN for 1,000 episodes with the larger Experiment 2 MLPx checkpoint frozen, the same three-step planner, and a communication cost of <code>0.05</code>.</p>
+<h3>Artifacts</h3>
+<p>Checkpoint: <code>checkpoints/experiment_1/RequestDQN/best.pt</code>.</p>
+<p>Training log: <code>results/experiment_1/RequestDQN/experiments/20261119_113503_request_dqn/request_dqn_training.csv</code>.</p>
+<p>Evaluation CSV and JSON: <code>results/experiment_1/evaluation/request_dqn/</code>.</p>
+<h3>Notes</h3>
+<p>These results predate the corrected spatial message encoding and masked next-request training targets. Preserve them as historical baselines. The high crash rate remains unresolved.</p>
+<h2 class="experiment-title">Experiment 2 · Larger World Model request policy</h2>
+<h3>Setup</h3>
+<p>Completed 1,000 training episodes using the frozen Experiment 2 MLPx checkpoint. The DQN selects requests and the planner selects driving actions.</p>
+<h3>Configuration</h3>
+<p>Three-step planner · communication cost 0.05 per requested message · nine request actions · replay memory · Huber loss · target synchronization every 50 episodes.</p>
+<h3>Commands</h3>
 <pre><code>.venv/bin/python -m scripts.training.train_request_dqn \
-  --experiment 2 \
-  --episodes 1000 \
-  --planning-horizon 3 \
-  --communication-cost 0.05</code></pre>
+  --experiment 2 --episodes 1000 \
+  --planning-horizon 3 --communication-cost 0.05</code></pre>
+<h3>Results</h3>
 <table><thead><tr><th>Metric</th><th>Result</th></tr></thead><tbody><tr><td>Episodes</td><td><code>1,000</code></td></tr><tr><td>Mean return</td><td><code>10.263</code></td></tr><tr><td>Mean return, last 100 episodes</td><td><code>11.423</code></td></tr><tr><td>Best episode return</td><td><code>38.658</code> at episode <code>615</code></td></tr><tr><td>Mean training loss</td><td><code>0.618</code></td></tr><tr><td>Mean loss, last 100 episodes</td><td><code>1.407</code></td></tr><tr><td>Mean requests per episode</td><td><code>6.749</code></td></tr><tr><td>Mean requests, last 100 episodes</td><td><code>7.190</code></td></tr><tr><td>Episodes with crash flag</td><td><code>984</code> (<code>98.40%</code>)</td></tr><tr><td>Episodes with truncation flag</td><td><code>16</code> (<code>1.60%</code>)</td></tr><tr><td>Final epsilon</td><td><code>0.05</code></td></tr></tbody></table>
 <p>The return in the last 100 episodes was higher than the overall average, but the very high crash rate and rising late-training loss show that this checkpoint is not yet reliable. Request frequency also remains substantial, so the policy has not yet demonstrated efficient communication.</p>
-<p>The Experiment 2 checkpoint is saved at <code>checkpoints/experiment_2/RequestDQN/best.pt</code>. Its training log is <code>results/experiment_2/RequestDQN/experiments/20261119_170031_request_dqn/request_dqn_training.csv</code>.</p>
-<h3 class="experiment-title">Experiment 2 validation results</h3>
+<h3>Graphs</h3>
+<p><img src="training_graphs/experiment_2_dqn_training.png" alt="Experiment 2 DQN training metrics" style="max-width:100%; height:auto;"></p>
+<h4>Policy rendering</h4>
+<p>Recorded with <strong>seed 10</strong>, the Experiment 2 MLPx checkpoint, and the Experiment 2 DQN. All three experiment recordings use the same current environment configuration, a three-step planner, an 1800×800 frame, and two frames per second.</p>
+<table><thead><tr><th>Metric</th><th>Result</th></tr></thead><tbody><tr><td>Steps completed</td><td><code>8 / 40</code></td></tr><tr><td>Outcome</td><td>Crashed</td></tr><tr><td>Driving reward</td><td><code>6.790</code></td></tr><tr><td>Requests sent</td><td><code>1</code></td></tr></tbody></table>
+<p>The overlay shows the requested vehicle ID, exact response, and ego action. A yellow circle identifies the requested vehicle. This historical DQN retains its original compressed-action interpretation.</p>
+<pre><code>SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 2 \
+  --episodes 1 --seed 10 --delay 0 \
+  --planning-horizon 3 --video-fps 2 \
+  --video docs/images/dqn_experiment_2_seed10.mp4</code></pre>
+<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/dqn_experiment_2_seed10.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
+<p>This is one illustrative episode; the 200-episode evaluation below describes broader performance. The <a href="images/dqn_experiment_2_policy.mp4">earlier seed-7 recording</a> is retained separately.</p>
+<h3>Evaluation</h3>
 <p>Evaluation compared four policies on 200 episodes each, starting at seed <code>100000</code>, with a three-step planning horizon and communication cost <code>0.05</code>:</p>
 <pre><code>.venv/bin/python -m scripts.evaluation.evaluate_request_dqn \
   --experiment 2 \
@@ -89,20 +119,74 @@ ask-nobody</code></pre>
 <p>The DQN has the highest mean return, exceeding ask-nobody by <code>0.352</code> (about <code>2.94%</code>), while sending fewer requests than random or ask-all. However, it crashes in three more episodes than ask-nobody, a difference of <code>1.5</code> percentage points. This run shows a small average return advantage, but no safety advantage from communication. Statistical uncertainty has not been quantified, so the return difference alone does not establish a reliable improvement.</p>
 <p>All four policies crash in at least 93% of episodes. The shared driving planner and World Model need investigation alongside the request policy; these results do not isolate which component causes the failures.</p>
 <p>The evaluation CSV and JSON summary are saved under <code>results/experiment_2/evaluation/request_dqn/</code>.</p>
-<h3 class="experiment-title">Experiment 2 rendering</h3>
-<p>This recording uses the Experiment 2 DQN and MLPx checkpoints, seed <code>7</code>, and the three-step planner. Playback is two frames per second, with one frame per decision plus the final scene, so the actions are easier to inspect.</p>
-<table><thead><tr><th>Metric</th><th>Result</th></tr></thead><tbody><tr><td>Steps completed</td><td><code>14 / 40</code></td></tr><tr><td>Outcome</td><td>Crashed</td></tr><tr><td>Driving reward</td><td><code>13.039</code></td></tr><tr><td>Requests sent</td><td><code>5</code></td></tr></tbody></table>
-<p>This is one illustrative episode; the 200-episode evaluation above describes overall performance.</p>
+<h3>Artifacts</h3>
+<p>Checkpoint: <code>checkpoints/experiment_2/RequestDQN/best.pt</code>.</p>
+<p>Training log: <code>results/experiment_2/RequestDQN/experiments/20261119_170031_request_dqn/request_dqn_training.csv</code>.</p>
+<p>Evaluation CSV and JSON: <code>results/experiment_2/evaluation/request_dqn/</code>.</p>
+<h3>Notes</h3>
+<p>These results predate the corrected spatial message encoding and masked next-request training targets. Preserve them as historical baselines. The high crash rate remains unresolved.</p>
+<h2 class="experiment-title">Experiment 3 · Corrected request-policy training</h2>
+<h3>Setup</h3>
+<p>Completed 2,000 cumulative episodes with fixed spatial request actions: 1,000 initial episodes followed by 1,000 additional episodes. The frozen Experiment 3 MLPx checkpoint is unchanged. Earlier training runs remain available.</p>
+<h3>Configuration</h3>
+<p>Three-step planner · communication cost 0.05 · frozen Experiment 3 MLPx · valid next-request masking in DQN targets · request_action_encoding: spatial_v1.</p>
+<h3>Commands</h3>
+<pre><code>.venv/bin/python -m scripts.training.train_request_dqn \
+  --experiment 3 --episodes 1000 \
+  --planning-horizon 3 --communication-cost 0.05</code></pre>
+<p>Continue the fixed-action checkpoint for another 1,000 episodes:</p>
+<pre><code>.venv/bin/python -m scripts.training.train_request_dqn \
+  --experiment 3 --resume --episodes 1000 --save-every 50</code></pre>
+<h3>Results</h3>
+<table><thead><tr><th>Metric</th><th>Previous DQN (compressed actions)</th><th>Initial fixed-action DQN (1,000 episodes)</th></tr></thead><tbody><tr><td>Episodes</td><td><code>1,000</code></td><td><code>1,000</code></td></tr><tr><td>Mean return</td><td><code>13.475</code></td><td><code>13.379</code></td></tr><tr><td>Mean return, last 100 episodes</td><td><code>14.366</code></td><td><code>14.749</code></td></tr><tr><td>Best episode return</td><td><code>38.804</code> at episode <code>529</code></td><td><code>37.375</code> at episode <code>780</code></td></tr><tr><td>Mean training loss</td><td><code>0.563</code></td><td><code>0.572</code></td></tr><tr><td>Mean loss, last 100 episodes</td><td><code>1.136</code></td><td><code>1.137</code></td></tr><tr><td>Mean requests per episode</td><td><code>7.310</code></td><td><code>7.404</code></td></tr><tr><td>Mean requests, last 100 episodes</td><td><code>7.300</code></td><td><code>7.810</code></td></tr><tr><td>Episodes with crash flag</td><td><code>945</code> (<code>94.50%</code>)</td><td><code>949</code> (<code>94.90%</code>)</td></tr><tr><td>Episodes with truncation flag</td><td><code>60</code> (<code>6.00%</code>)</td><td><code>54</code> (<code>5.40%</code>)</td></tr><tr><td>Final epsilon</td><td><code>0.05</code></td><td><code>0.05</code></td></tr></tbody></table>
+<p>The table above records the initial 1,000-episode runs. The fixed-action run has three episodes with both flags; the compressed-action run has five.</p>
+<table><thead><tr><th>Metric</th><th>Continuation: episodes 1,001–2,000</th></tr></thead><tbody><tr><td>Additional episodes</td><td><code>1,000</code></td></tr><tr><td>Cumulative episodes completed</td><td><code>2,000</code></td></tr><tr><td>Mean return</td><td><code>14.392</code></td></tr><tr><td>Mean return, last 100 episodes</td><td><code>15.678</code></td></tr><tr><td>Best episode return</td><td><code>38.944</code> at episode <code>1,791</code></td></tr><tr><td>Mean training loss</td><td><code>1.577</code></td></tr><tr><td>Mean loss, last 100 episodes</td><td><code>1.982</code></td></tr><tr><td>Mean requests per episode</td><td><code>7.782</code></td></tr><tr><td>Mean requests, last 100 episodes</td><td><code>8.080</code></td></tr><tr><td>Episodes with crash flag</td><td><code>926</code> (<code>92.60%</code>)</td></tr><tr><td>Episodes with truncation flag</td><td><code>75</code> (<code>7.50%</code>)</td></tr><tr><td>Final epsilon</td><td><code>0.05</code></td></tr><tr><td>Saved replay transitions</td><td><code>16,217</code></td></tr></tbody></table>
+<p>The continuation has one episode with both flags. Percentages use the 1,000 additional episodes, and return includes communication cost. The first continuation loaded weights only, so optimizer, replay, and random states restarted. The new latest.pt now contains full resumable state. The active checkpoint confirms both <code>masked_next_request_targets: True</code> and <code>request_action_encoding: spatial_v1</code>.</p>
+<h3>Graphs</h3>
+<p><img src="training_graphs/experiment_3_dqn_training.png" alt="Experiment 3 DQN training metrics" style="max-width:100%; height:auto;"></p>
+<p>The four panels match Experiments 1 and 2: loss, return, requests, and epsilon/crash signal. Faint curves show individual episodes; solid curves show trailing averages over up to 50 episodes.</p>
+<p>The graph combines the initial fixed-action run (episodes 1–1,000) with its continuation (1,001–2,000). A dashed line marks the resume boundary after episode 1,000. The earlier compressed-action run is excluded. Smoothing uses trailing windows of up to 50 episodes across the combined history. This first continuation restarted optimizer/replay state, as described under Results.</p>
+<h4>Policy rendering</h4>
+<p>Recorded with <strong>seed 10</strong>, the Experiment 3 MLPx checkpoint, and the selected 1,000-episode fixed-action DQN. All three experiment recordings use the same current environment configuration, a three-step planner, an 1800×800 frame, and two frames per second.</p>
+<table><thead><tr><th>Metric</th><th>Result</th></tr></thead><tbody><tr><td>Steps completed</td><td><code>10 / 40</code></td></tr><tr><td>Outcome</td><td>Crashed</td></tr><tr><td>Driving reward</td><td><code>8.594</code></td></tr><tr><td>Requests sent</td><td><code>6</code></td></tr></tbody></table>
+<p>The overlay shows the requested vehicle ID, exact response, and ego action. A yellow circle identifies the requested vehicle. This recording uses the selected 1,000-episode model, rather than the 2,000-episode continuation.</p>
 <pre><code>SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 2 \
-  --episodes 1 \
-  --seed 7 \
-  --delay 0.01 \
-  --video-fps 2 \
-  --video docs/images/dqn_experiment_2_policy.mp4</code></pre>
-<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/dqn_experiment_2_policy.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
+  --experiment 3 \
+  --dqn-checkpoint results/experiment_3/RequestDQN/experiments/20261119_225244_request_dqn/best.pt \
+  --episodes 1 --seed 10 --delay 0 \
+  --planning-horizon 3 --video-fps 2 \
+  --video docs/images/dqn_experiment_3_seed10.mp4</code></pre>
+<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/dqn_experiment_3_seed10.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
+<p>This is one illustrative episode; the 200-episode evaluation below describes broader performance. The <a href="images/dqn_experiment_3_policy.mp4">earlier seed-7 recording</a> is retained separately.</p>
+<h3>Evaluation</h3>
+<p>The 2,000-episode checkpoint evaluation is complete. The saved summary confirms <code>request_action_encoding: spatial_v1</code>: 200 episodes per policy, starting at seed <code>100000</code>, with a three-step planner and communication cost <code>0.05</code>. DQN evaluation uses greedy requests.</p>
+<p>Reproduce the 2,000-episode evaluation with its explicit run checkpoint:</p>
+<pre><code>.venv/bin/python -m scripts.evaluation.evaluate_request_dqn \
+  --experiment 3 --episodes 200 --planning-horizon 3 \
+  --dqn-checkpoint results/experiment_3/RequestDQN/experiments/20261119_230820_request_dqn/best.pt</code></pre>
+<p>The table below shows the latest 2,000-episode checkpoint. Its evaluation replaced the pre-continuation files in the default output folder. The earlier reported aggregate results are retained in the comparison below.</p>
+<table><thead><tr><th>Request policy</th><th>Mean return</th><th>Mean driving reward</th><th>Mean requests per episode</th><th>Crashes</th><th>Crash rate</th><th>Truncations</th></tr></thead><tbody><tr><td>DQN</td><td><code>15.142</code></td><td><code>15.515</code></td><td><code>7.460</code></td><td><code>181 / 200</code></td><td><code>90.50%</code></td><td><code>21</code></td></tr><tr><td>Ask nobody</td><td><code>14.092</code></td><td><code>14.092</code></td><td><code>0.000</code></td><td><code>177 / 200</code></td><td><code>88.50%</code></td><td><code>23</code></td></tr><tr><td>Random requests</td><td><code>9.216</code></td><td><code>9.759</code></td><td><code>10.855</code></td><td><code>199 / 200</code></td><td><code>99.50%</code></td><td><code>1</code></td></tr><tr><td>Ask all visible</td><td><code>6.047</code></td><td><code>6.867</code></td><td><code>16.385</code></td><td><code>200 / 200</code></td><td><code>100.00%</code></td><td><code>0</code></td></tr></tbody></table>
+<p>Return includes communication cost; driving reward excludes it. The DQN improves mean return over asking nobody by <code>1.050</code> (about <code>7.45%</code>) but crashes in four additional episodes, a <code>2</code> percentage-point increase. It requests less often than random or ask-all. Crash and truncation flags can overlap.</p>
+<table><thead><tr><th>Metric</th><th>Fixed-action DQN: 1,000 episodes</th><th>Fixed-action DQN: 2,000 episodes</th></tr></thead><tbody><tr><td>Mean return</td><td><code>15.585</code></td><td><code>15.142</code></td></tr><tr><td>Mean driving reward</td><td><code>15.936</code></td><td><code>15.515</code></td></tr><tr><td>Mean requests per episode</td><td><code>7.015</code></td><td><code>7.460</code></td></tr><tr><td>Crashes</td><td><code>176 / 200</code></td><td><code>181 / 200</code></td></tr><tr><td>Crash rate</td><td><code>88.00%</code></td><td><code>90.50%</code></td></tr><tr><td>Truncation flags</td><td><code>25</code></td><td><code>21</code></td></tr></tbody></table>
+<p>On the same 200 evaluation seeds, the continuation has lower return, five more crashes, and more requests. The 1,000-episode fixed-action checkpoint remains the better observed checkpoint. Statistical uncertainty has not been quantified; this single continuation does not show that more training helped.</p>
+<h3>Artifacts</h3>
+<p>Active inference checkpoint: <code>checkpoints/experiment_3/RequestDQN/best.pt</code> is the selected 1,000-episode fixed-action model from run <code>20261119_225244_request_dqn</code>.</p>
+<p>Latest continuation log: <code>results/experiment_3/RequestDQN/experiments/20261119_230820_request_dqn/request_dqn_training.csv</code>.</p>
+<p>Initial fixed-action run: <code>results/experiment_3/RequestDQN/experiments/20261119_225244_request_dqn/</code>.</p>
+<p>Previous training log and checkpoint: <code>results/experiment_3/RequestDQN/experiments/20261119_223432_request_dqn/</code>.</p>
+<p>Run checkpoint: <code>best.pt</code> in the same run directory. The trainer saves the final online network under this filename; it does not select the best validation episode.</p>
+<p>Resumable state: <code>checkpoints/experiment_3/RequestDQN/latest.pt</code> and the continuation run's <code>latest.pt</code>.</p>
+<p>Latest 2,000-episode evaluation CSV and JSON: <code>results/experiment_3/evaluation/request_dqn/</code>.</p>
+<h3>Notes</h3>
+<p>Last-100 return rose from 14.749 before continuation to 15.678 afterward, but last-100 loss also rose from 1.137 to 1.982. Training crashes remain frequent. Despite higher late-training return, the continuation's greedy evaluation is worse on return, requests, and crash rate. Prefer the original fixed-action run's checkpoint for the next comparison; it is preserved at <code>results/experiment_3/RequestDQN/experiments/20261119_225244_request_dqn/best.pt</code>. The 1,000-episode model has been restored as the active inference checkpoint. The 2,000-episode model remains preserved in run <code>20261119_230820_request_dqn/best.pt</code>. The resumable <code>latest.pt</code> still contains the 2,000-episode training state: plain <code>--resume</code> continues that state. To branch training from the selected policy, pass its explicit checkpoint path with <code>--resume</code>; that weights-only file restarts optimizer/replay state.</p>
+<h2>Same-seed video comparison</h2>
+<p>All recordings above start from seed <code>10</code> using the same current four-lane, 40-second environment configuration and render settings. Each experiment uses its own trained World Model and DQN. Experiment 3 uses its selected 1,000-episode fixed-action DQN.</p>
+<table><thead><tr><th>Experiment</th><th>Seed</th><th>Steps completed</th><th>Outcome</th><th>Driving reward</th><th>Requests</th></tr></thead><tbody><tr><td>1</td><td><code>10</code></td><td><code>15 / 40</code></td><td>Crashed</td><td><code>12.769</code></td><td><code>5</code></td></tr><tr><td>2</td><td><code>10</code></td><td><code>8 / 40</code></td><td>Crashed</td><td><code>6.790</code></td><td><code>1</code></td></tr><tr><td>3 (selected 1,000-episode DQN)</td><td><code>10</code></td><td><code>10 / 40</code></td><td>Crashed</td><td><code>8.594</code></td><td><code>6</code></td></tr></tbody></table>
+<p>Experiment 1 lasts longest on this particular seed. All three crash, showing why a single video cannot establish overall policy quality. Playback uses one frame per decision plus the final scene, rather than intermediate physics frames.</p>
 <h2>Comparison across experiments</h2>
-<p>Both evaluations used 200 episodes starting at seed <code>100000</code>, a three-step planner, and communication cost <code>0.05</code>. Each experiment used its own MLPx and DQN checkpoints, so this compares the complete systems rather than isolating the DQN or the World Model.</p>
-<table><thead><tr><th>Metric</th><th>Experiment 1 DQN</th><th>Experiment 2 DQN</th></tr></thead><tbody><tr><td>Mean return</td><td><code>14.955</code></td><td><code>12.326</code></td></tr><tr><td>Mean requests per episode</td><td><code>5.040</code></td><td><code>4.615</code></td></tr><tr><td>Crash rate</td><td><code>92.00%</code></td><td><code>94.50%</code></td></tr><tr><td>Return gain over own no-request baseline</td><td><code>1.884</code></td><td><code>0.352</code></td></tr><tr><td>Crash-rate reduction versus own no-request baseline</td><td><code>7.0</code> percentage points</td><td><code>-1.5</code> percentage points</td></tr></tbody></table>
-<p>Experiment 1 currently performs better in these complete-system evaluations. Experiment 2 sends slightly fewer requests but has lower return and a higher crash rate. The larger World Model dataset has therefore not translated into better DQN-planner performance in this comparison. Further controlled runs are needed to identify the cause.</p></article></main></div></body>
+<p>All three evaluations used 200 episodes starting at seed <code>100000</code>, a three-step planner, and communication cost <code>0.05</code>. Each experiment used its own MLPx and DQN checkpoints, so this compares the complete systems rather than isolating the DQN or the World Model.</p>
+<p>Both fixed-action Experiment 3 checkpoints are shown to preserve the pre-continuation comparison.</p>
+<table><thead><tr><th>Metric</th><th>Experiment 1 DQN</th><th>Experiment 2 DQN</th><th>Experiment 3: 1,000 episodes</th><th>Experiment 3: 2,000 episodes</th></tr></thead><tbody><tr><td>Mean return</td><td><code>14.955</code></td><td><code>12.326</code></td><td><code>15.585</code></td><td><code>15.142</code></td></tr><tr><td>Mean requests per episode</td><td><code>5.040</code></td><td><code>4.615</code></td><td><code>7.015</code></td><td><code>7.460</code></td></tr><tr><td>Crash rate</td><td><code>92.00%</code></td><td><code>94.50%</code></td><td><code>88.00%</code></td><td><code>90.50%</code></td></tr><tr><td>Return gain over own no-request baseline</td><td><code>1.884</code></td><td><code>0.352</code></td><td><code>1.493</code></td><td><code>1.050</code></td></tr><tr><td>Crash-rate reduction versus own no-request baseline</td><td><code>7.0</code> percentage points</td><td><code>-1.5</code> percentage points</td><td><code>0.5</code> percentage points</td><td><code>-2.0</code> percentage points</td></tr></tbody></table>
+<p>Experiment 3's 1,000-episode fixed-action checkpoint has the highest mean return and the lowest observed DQN crash rate. Its crash rate is 4 percentage points below Experiment 1 and 6.5 points below Experiment 2. Experiment 1 has the larger observed safety advantage over its own no-request baseline. Multiple training seeds and uncertainty estimates are needed before attributing the differences to specific changes.</p>
+<p>Relative to Experiment 1, the selected Experiment 3 system has about 4.2% higher return and eight fewer crashes across these 200 seeds, at the cost of more communication. This is modest observed complete-system progress; the learned communication strategy itself has not shown a stronger safety benefit. Seed 10 favors Experiment 1, illustrating variation across individual scenes.</p></article></main></div></body>
 </html>

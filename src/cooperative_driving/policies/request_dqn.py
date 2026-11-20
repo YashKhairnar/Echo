@@ -2,6 +2,7 @@
 
 import torch
 import torch.nn as nn
+import warnings
 
 
 class RequestDQN(nn.Module):
@@ -12,6 +13,7 @@ class RequestDQN(nn.Module):
 
     def __init__(self, hidden_size=128):
         super().__init__()
+        self.request_action_encoding = "spatial_v1"
         self.network = nn.Sequential(
             nn.Linear(self.STATE_SIZE, hidden_size),
             nn.ReLU(),
@@ -28,5 +30,14 @@ class RequestDQN(nn.Module):
         checkpoint = torch.load(path, map_location="cpu", weights_only=False)
         model = cls()
         model.load_state_dict(checkpoint["model_state_dict"])
+        model.request_action_encoding = checkpoint.get("request_action_encoding", "compressed_v0")
+        if model.request_action_encoding not in ("spatial_v1", "compressed_v0"):
+            raise ValueError(f"Unknown request action encoding: {model.request_action_encoding}")
+        if model.request_action_encoding == "compressed_v0":
+            warnings.warn(
+                "Legacy DQN checkpoint: preserving compressed request-action semantics. "
+                "Retrain DQN to use fixed spatial actions; the MLPx checkpoint can be reused.",
+                UserWarning, stacklevel=2,
+            )
         model.eval()
         return model

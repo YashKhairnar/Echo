@@ -97,7 +97,7 @@ self.vehicle_types[vehicle_id] = vehicle_type</code></pre>
 
   <section>
     <h2>Visible neighbors</h2>
-    <p><code>scripts/show_visible_neighbors.py</code> considers the ego lane and its immediate left and right lanes. It keeps the closest vehicle in each slot within 60 m.</p>
+    <p><code>scripts/data_collection/show_visible_neighbors.py</code> considers the ego lane and its immediate left and right lanes. It keeps the closest vehicle in each slot within 60 m.</p>
     <table>
       <tr><th>Lane</th><th>Front</th><th>Beside</th><th>Rear</th></tr>
       <tr><td>Left</td><td>1</td><td>1</td><td>1</td></tr>
@@ -128,7 +128,7 @@ self.vehicle_types[vehicle_id] = vehicle_type</code></pre>
 
   <section>
     <h2>Rule-based informed ego action</h2>
-    <p><code>scripts/intent_aware_policy.py</code> combines geometry with requested messages. It checks distance, closing speed, time to collision, beside vehicles, lane-entry intentions, braking front vehicles, and accelerating aggressive rear vehicles.</p>
+    <p><code>scripts/policy/intent_aware_policy.py</code> combines geometry with requested messages. It checks distance, closing speed, time to collision, beside vehicles, lane-entry intentions, braking front vehicles, and accelerating aggressive rear vehicles.</p>
     <p>It supports all five discrete actions:</p>
     <pre><code>LANE_LEFT, IDLE, LANE_RIGHT, FASTER, SLOWER</code></pre>
     <ol>
@@ -142,7 +142,7 @@ self.vehicle_types[vehicle_id] = vehicle_type</code></pre>
 
   <section>
     <h2>Request-subset scenarios</h2>
-    <p><code>scripts/enumerate_message_requests.py</code> evaluates every non-empty subset of visible vehicles. For <code>n</code> visible vehicles, there are <code>2^n - 1</code> scenarios.</p>
+    <p><code>scripts/data_collection/enumerate_message_requests.py</code> evaluates every non-empty subset of visible vehicles. For <code>n</code> visible vehicles, there are <code>2^n - 1</code> scenarios. Use <code>--include-none</code> to add the no-request case.</p>
     <div class="grid">
       <div class="card"><strong>1 visible</strong>1 scenario</div>
       <div class="card"><strong>2 visible</strong>3 scenarios</div>
@@ -170,9 +170,10 @@ self.vehicle_types[vehicle_id] = vehicle_type</code></pre>
     <div class="callout"><strong>Transition format</strong><br><code>state + requested messages + ego action → next state + reward + terminated/truncated</code></div>
     <p>The real rollout advances separately using the action chosen with all currently visible messages. The dataset records counterfactual one-step outcomes for every request subset.</p>
     <pre><code>.venv/bin/python -m scripts.data_collection.collect_intent_aware_dataset \
-    --episodes 100 \
+    --episodes 1000 \
     --include-none \
-    --experiment 1</code></pre>
+    --experiment 3</code></pre>
+    <p>Corrected records use <code>message_slot_encoding: spatial_v1</code>. The eight <code>visible_vehicle_slots</code> preserve empty positions with <code>null</code>, so messages use the same spatial indices in training and planning. The adapter rejects ambiguous legacy packed informed records. No-message records encode as all zeros.</p>
   </section>
 
   <section>
@@ -181,29 +182,26 @@ self.vehicle_types[vehicle_id] = vehicle_type</code></pre>
       <li><strong>Counterfactual scenario crash rate:</strong> crashes among request/action combinations evaluated on copied environments.</li>
       <li><strong>Actual rollout crash rate:</strong> crashes from the real rollout using all currently visible messages. This is the metric for judging policy safety.</li>
     </ul>
-    <p>The initial 100-episode collection produced 11,505 scenario records, zero terminated/crashed records, and 632 truncated records. The collected message counts were 7,836 aggressive and 7,643 defensive.</p>
+    <p>Each request subset is a separate counterfactual transition, so record counts and truncations can exceed the number of real episode endings. See the <a href="dataset_dashboard.html">dataset dashboard</a> for per-experiment totals and rollout statistics.</p>
   </section>
 
   <section>
     <h2>Uninformed random-action baseline</h2>
-    <p><code>scripts/collect_random_no_message_dataset.py</code> collects a separate baseline in which the ego requests no vehicles and chooses a random action. It records the same transition fields, including <code>messages=None</code>, and preserves crash transitions instead of stopping data collection globally.</p>
+    <p><code>scripts/data_collection/collect_random_no_message_dataset.py</code> collects a separate baseline in which the ego requests no vehicles and chooses a random action. It records the same transition fields, including <code>messages=None</code>, and preserves crash transitions instead of stopping data collection globally.</p>
     <pre><code>.venv/bin/python -m scripts.data_collection.collect_random_no_message_dataset \
     --episodes 1000 \
-    --experiment 1</code></pre>
+    --experiment 3</code></pre>
     <p>This dataset gives the World Model uninformed examples of both safe and unsafe actions, including the outcomes that lead to crashes.</p>
   </section>
 
   <section>
     <h2>Combining datasets</h2>
     <p>The two JSONL datasets can be merged while preserving provenance. Each merged record contains <code>dataset_source</code>, <code>source_episode</code>, <code>global_episode</code>, and a unique <code>record_id</code>.</p>
-    <pre><code>.venv/bin/python -m scripts.data_collection.merge_world_model_datasets</code></pre>
-    <p>The current merged file contains 26,597 records:</p>
-    <ul>
-      <li>11,505 intent-aware records</li>
-      <li>15,092 random no-message records</li>
-      <li>441 terminated/crashed random records</li>
-      <li>0 terminated/crashed intent-aware records</li>
-    </ul>
+    <pre><code>.venv/bin/python -m scripts.data_collection.merge_world_model_datasets \
+    --experiment 3 \
+    --random data/experiment_2/random_no_message_dataset.jsonl</code></pre>
+    <p>Experiment 3 reused the Experiment 2 no-message baseline, which remains compatible with the corrected encoding. To use a newly collected Experiment 3 random baseline instead, omit <code>--random</code>. Choose one route; rerunning collectors overwrites their default files.</p>
+    <p>Per-experiment counts, action/message distributions, and source provenance live on the <a href="dataset_dashboard.html">dataset dashboard</a>. Follow the <a href="training.html">training run guide</a> for subsequent steps.</p>
   </section>
 </main>
 </div>

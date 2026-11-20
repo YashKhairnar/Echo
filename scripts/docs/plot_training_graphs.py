@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import json
 from pathlib import Path
 
 import matplotlib
@@ -9,6 +10,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 from scripts.utils.experiment_utils import add_experiment_argument
 
@@ -25,6 +27,61 @@ def read_rows(path):
         return list(csv.DictReader(file))
 
 
+def load_dqn_history(log_path, explicit_logs=None):
+    """Follow unambiguous resume parents; reject unrelated runs and duplicates."""
+    def encoding(path):
+        config_path = path.with_name("config.json")
+        if config_path.exists():
+            return json.loads(config_path.read_text()).get("request_action_encoding", "compressed_v0")
+        checkpoint_path = path.with_name("best.pt")
+        if not checkpoint_path.exists():
+            raise ValueError(f"Cannot determine request-action encoding for {path}")
+        return torch.load(checkpoint_path, map_location="cpu", weights_only=False).get(
+            "request_action_encoding", "compressed_v0"
+        )
+
+    def follow(path, visited):
+        if path in visited:
+            raise ValueError("Cycle in DQN resume history")
+        visited = visited | {path}
+        rows = read_rows(path)
+        config_path = path.with_name("config.json")
+        config = json.loads(config_path.read_text()) if config_path.exists() else {}
+        start = int(config.get("start_episode", 0))
+        if not start:
+            return rows, [path], []
+        source = Path(config["resume_from"])
+        direct = source.with_name("request_dqn_training.csv")
+        candidates = []
+        for parent in path.parent.parent.glob("*/request_dqn_training.csv"):
+            if parent.parent.name >= path.parent.name:
+                continue
+            parent_rows = read_rows(parent)
+            if any(int(row["episode"]) == start for row in parent_rows) and encoding(parent) == encoding(path):
+                candidates.append(parent)
+        if direct in candidates:
+            candidates = [direct]
+        if len(candidates) != 1:
+            raise ValueError(f"Ambiguous or missing parent for {path}; pass --dqn-logs explicitly")
+        earlier, paths, boundaries = follow(candidates[0], visited)
+        return ([row for row in earlier if int(row["episode"]) <= start] + rows,
+                paths + [path], [boundary for boundary in boundaries if boundary < start] + [start])
+
+    if explicit_logs:
+        paths = [Path(path) for path in explicit_logs]
+        if len({encoding(path) for path in paths}) != 1:
+            raise ValueError("Cannot combine DQN runs with different action encodings")
+        segments = [read_rows(path) for path in paths]
+        rows = [row for segment in segments for row in segment]
+        boundaries = [int(segment[0]["episode"]) - 1 for segment in segments[1:] if segment]
+    else:
+        rows, paths, boundaries = follow(log_path, set())
+    episodes = [int(row["episode"]) for row in rows]
+    if not episodes or episodes != list(range(1, episodes[-1] + 1)):
+        raise ValueError("Combined DQN history must contain consecutive episodes starting at 1, without duplicates")
+    return rows, paths, boundaries
+
+
 def rolling(values, window=50):
     values = np.asarray(values, dtype=float)
     return np.asarray([
@@ -38,6 +95,7 @@ def rolling(values, window=50):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_experiment_argument(parser)
+    parser.add_argument("--dqn-logs", nargs="+", help="Explicit chronological training CSVs if resume ancestry is ambiguous")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     results = root / "results" / f"experiment_{args.experiment}"
@@ -60,7 +118,7 @@ def main():
     plt.close(fig)
 
     dqn_log = latest_log(results, "RequestDQN", "request_dqn_training.csv")
-    rows = read_rows(dqn_log)
+    rows, dqn_logs, boundaries = load_dqn_history(dqn_log, args.dqn_logs)
     episodes = [int(row["episode"]) for row in rows]
     fig, axes = plt.subplots(2, 2, figsize=(12, 7))
     for axis, key, title, ylabel, color in [
@@ -80,13 +138,19 @@ def main():
     axis.set(title="Exploration and crash signal", ylabel="Value")
     axis.legend()
     for axis in axes.flat:
+        for boundary in boundaries:
+            axis.axvline(boundary + .5, color="#64748b", linestyle="--", alpha=.8)
         axis.set_xlabel("Episode")
         axis.grid(alpha=.3)
-    fig.suptitle(f"Request DQN training · Experiment {args.experiment}")
+    note = " · dashed line: resume" if boundaries else ""
+    fig.suptitle(f"Request DQN training · Experiment {args.experiment}{note}")
     fig.tight_layout()
     fig.savefig(output / f"experiment_{args.experiment}_dqn_training.png", dpi=160)
     plt.close(fig)
-    print(f"Exported Experiment {args.experiment} plots from {mlpx_log} and {dqn_log}")
+    print(f"Exported Experiment {args.experiment} plots from {mlpx_log}")
+    print(f"DQN: episodes {episodes[0]}–{episodes[-1]} from {len(dqn_logs)} related logs")
+    for path in dqn_logs:
+        print(f"  {path}")
 
 
 if __name__ == "__main__":

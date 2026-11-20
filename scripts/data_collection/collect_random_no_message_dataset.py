@@ -18,7 +18,7 @@ import random
 from collections import Counter
 
 from scripts.data_collection.enumerate_message_requests import jsonable
-from scripts.data_collection.show_visible_neighbors import ordered_visible_ids, visible_neighbors
+from scripts.data_collection.show_visible_neighbors import ordered_visible_ids, spatial_vehicle_slots, visible_neighbors
 from scripts.policy.exploration import FASTER, IDLE, LANE_LEFT, LANE_RIGHT, SLOWER
 from scripts.utils.experiment_utils import add_experiment_argument, experiment_data_path
 from src.cooperative_driving.environments.customEnv import CustomEnv
@@ -81,7 +81,8 @@ def main():
                     "goal_lane_id": environment.goal_lane_id,
                     "state": observation,
                     "visible_vehicle_ids": visible_ids,
-                    "visible_vehicle_slots": visible_ids,
+                    "message_slot_encoding": "spatial_v1",
+                    "visible_vehicle_slots": spatial_vehicle_slots(visible),
                     "requested_vehicle_ids": [],
                     "messages": None,
                     "ego_action": action,

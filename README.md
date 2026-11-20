@@ -32,20 +32,24 @@ archive as historical experiment material.
 
 | Item | Current state |
 | --- | --- |
-| Combined dataset | 26,597 informed and random no-message transitions |
+| Combined dataset | Experiment 3: 263,375 transitions, including 65,822 no-message records |
 | MLPx input | 116 values: 55 state, 5 ego-action, and 56 message values |
 | MLPx output | 55-value next state plus reward |
 | Planner horizon | Three steps |
 | Request DQN actions | Eight spatial request slots plus ask-nobody |
-| Active checkpoints | `checkpoints/experiment_1/{MLPx,RequestDQN}/` |
+| Active checkpoints | `checkpoints/experiment_3/{MLPx,RequestDQN}/` |
+| Selected DQN | Fixed spatial actions, 1,000 episodes; 2,000-episode continuation retained |
 
-Held-out MLPx evaluation currently reports one-step next-state RMSE `0.0677`
-and reward RMSE `0.0828`. Open-loop state RMSE is `0.0935` at three steps and
-`0.1201` at five steps, which is why the active planner uses three steps.
+Experiment 3 MLPx achieved three-step action agreement of 81.61% without
+messages and 81.94% with all visible messages over 299 sampled states per
+group using the corrected evaluator. See the model docs for errors and limits.
 
-The current Request DQN training run logs return, loss, epsilon, request count,
-crashes, and truncations. Its latest run still shows unstable loss and frequent
-crashes, so it is an active experiment rather than a final policy.
+On the same 200 evaluation seeds, the selected Experiment 3 DQN achieved
+return 15.585 and 88% crashes, versus Experiment 1's 14.955 and 92%.
+It sends more requests (7.015 versus 5.040 per episode). Its no-request baseline
+already crashes at 88.5%, so a reliable safety benefit from communication is
+not established. The 2,000-episode continuation performed worse (15.142 return,
+90.5% crashes); the 1,000-episode model was restored for inference.
 
 ## Project timeline
 
@@ -56,24 +60,18 @@ crashes, so it is an active experiment rather than a final policy.
 ## Run it
 
 ```bash
-# 1. Collect intent-aware transitions
-.venv/bin/python -m scripts.data_collection.collect_intent_aware_dataset \
-  --episodes 100 --include-none --visibility 60 --experiment 1
-# 2. Collect random no-message transitions
-.venv/bin/python -m scripts.data_collection.collect_random_no_message_dataset \
-  --episodes 1000 --visibility 60 --experiment 1
-# 3. Merge informed and uninformed transition datasets
-.venv/bin/python -m scripts.data_collection.merge_world_model_datasets --experiment 1
-# 4. Train MLPx
-.venv/bin/python -m scripts.training.train_mlpx_wm --experiment 1 --epochs 50
-# 5. Train the request DQN with a frozen three-step MLPx planner
-.venv/bin/python -m scripts.training.train_request_dqn \
-  --experiment 1 --episodes 1000 --planning-horizon 3 --communication-cost 0.05
-# 6. Render the learned request policy (default window: 1800x800)
-.venv/bin/python -m scripts.evaluation.render_request_dqn --experiment 1 --episodes 1 --seed 42
-# 7. Rebuild the HTML documentation site
+# Render the selected Experiment 3 policy (requires local checkpoints)
+.venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 3 --episodes 1 --seed 10
+
+# Rebuild the HTML documentation site
 .venv/bin/python -m scripts.docs.build_docs_site
 ```
+
+Follow [Training](docs/training.html) for collection, training, resume, and
+evaluation commands. Datasets and checkpoints are local generated artifacts
+and are excluded from Git. The active best.pt is the selected 1,000-episode
+model; latest.pt retains the 2,000-episode training state for resuming.
 
 ## Docs
 
@@ -83,7 +81,7 @@ crashes, so it is an active experiment rather than a final policy.
 - [docs/policy.html](docs/policy.html): rule-based data-collection policy
 - [docs/dqn_policy.html](docs/dqn_policy.html): learned Request DQN policy
 - [docs/rendering.html](docs/rendering.html): renderer controls, colors, and highlights
-- [docs/training.html](docs/training.html): MLPx and DQN training commands and graphs
+- [docs/training.html](docs/training.html): collection, training, resume, and evaluation run guide
 - [docs/intent_aware_data_collection.html](docs/intent_aware_data_collection.html): current vehicle, intent, rule, and dataset workflow
 - [docs/dataset_dashboard.html](docs/dataset_dashboard.html): dataset statistics dashboard
 - [docs/progress_log.html](docs/progress_log.html): dated log of what was done

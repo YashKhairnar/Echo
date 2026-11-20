@@ -19,6 +19,7 @@ import json
 import os
 
 from scripts.data_collection.enumerate_message_requests import jsonable, scenario_rows
+from scripts.data_collection.show_visible_neighbors import spatial_vehicle_slots, visible_neighbors
 from scripts.policy.intent_aware_policy import choose_action
 from scripts.utils.experiment_utils import add_experiment_argument, experiment_data_path
 from src.cooperative_driving.environments.customEnv import CustomEnv
@@ -67,6 +68,9 @@ def main():
                     include_none=args.include_none,
                 )
 
+                slots = spatial_vehicle_slots(visible_neighbors(
+                    environment, args.visibility, args.side_window
+                ))
                 for scenario in scenarios:
                     record = {
                         "dataset_source": "intent_aware",
@@ -75,7 +79,8 @@ def main():
                         "goal_lane_id": environment.goal_lane_id,
                         "state": observation,
                         "visible_vehicle_ids": visible_ids,
-                        "visible_vehicle_slots": visible_ids,
+                        "message_slot_encoding": "spatial_v1",
+                        "visible_vehicle_slots": slots,
                         "requested_vehicle_ids": scenario["requested_vehicle_ids"],
                         "messages": (
                             scenario["requested_messages"]

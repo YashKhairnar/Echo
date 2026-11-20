@@ -6,10 +6,10 @@
 | --- | --- |
 | Environment | Four lanes, one ego, aggressive and defensive traffic, stable vehicle IDs |
 | Visibility | Up to 60 m, ego lane plus immediate left/right lanes, eight spatial slots |
-| Dataset | Experiment 2: 223,375 merged transitions; Experiment 1: 26,597 |
-| World model | MLPx: 116 inputs → next state and reward; both experiments trained and evaluated |
+| Dataset | Experiment 3: 263,375 corrected transitions; Experiment 2: 223,375; Experiment 1: 26,597 |
+| World model | MLPx: 116 inputs → next state and reward; Experiments 1–3 trained and evaluated |
 | Planner | Reward-only MLPx planner with a three-step horizon |
-| Request policy | Both DQN experiments trained for 1,000 episodes and evaluated against baselines on 200 episodes |
+| Request policy | Experiment 3 evaluated at 1,000 and 2,000 episodes; the 1,000-episode fixed-action checkpoint performs better in these evaluations |
 | Documentation | HTML site with dedicated system, data, training, rendering, and history pages |
 
 ## Active pipeline
@@ -24,16 +24,204 @@ CustomEnv
   → transition and training metrics are logged
 ```
 
-Latest experiment artifacts (Experiment 1 remains available for comparison):
+Latest inspected trained artifacts (Experiment 3 dataset is listed separately):
 
-- MLPx checkpoint: `checkpoints/experiment_2/MLPx/best.pt`
-- Request DQN checkpoint: `checkpoints/experiment_2/RequestDQN/best.pt`
-- Combined dataset: `data/experiment_2/combined_world_model_dataset.jsonl`
-- Training logs: `results/experiment_2/RequestDQN/experiments/`
-- Evaluation results: `results/experiment_2/evaluation/`
+- MLPx checkpoint: `checkpoints/experiment_3/MLPx/best.pt`
+- Request DQN checkpoint: `checkpoints/experiment_3/RequestDQN/best.pt`
+- Latest combined dataset: `data/experiment_3/combined_world_model_dataset.jsonl`
+- Training logs: `results/experiment_3/RequestDQN/experiments/`
+- MLPx evaluation results: `results/experiment_3/evaluation/mlpx_rollout/`
+- Latest 2,000-episode DQN evaluation: `results/experiment_3/evaluation/request_dqn/`
 - Documentation home: `docs/index.html`
 
 ## Latest milestone
+
+## Documentation audit · Selected policy and experiment conclusions
+
+- Updated README and documentation home to the Experiment 3 dataset and
+  selected 1,000-episode fixed-action policy. Clarified that latest.pt still
+  contains the 2,000-episode resume state.
+- Updated interactive and README timelines through the encoding corrections,
+  continuation regression, checkpoint selection, and seed-10 recordings.
+- Removed stale baseline totals and old script paths from the collection
+  guide, linking experiment statistics to the dataset dashboard.
+- Clarified comparison conclusions: modest observed overall progress versus
+  Experiment 1, greater request usage, and no established repeatable safety
+  benefit from learned communication. Historical log entries below describe
+  the state at the time of each milestone, not the current selection.
+
+## Same-seed policy videos · Experiments 1–3
+
+- Recorded all three experiments with seed 10, the same current 40-second
+  environment setup, three-step planning, 1800×800 frames, and 2 fps playback.
+- Experiment 1 crashed at step 15, driving reward 12.769, five requests;
+  Experiment 2 at step 8, reward 6.790, one request; Experiment 3 at step 10,
+  reward 8.594, six requests.
+- Experiment 3 uses the selected 1,000-episode fixed-action checkpoint.
+  Historical Experiment 1/2 DQN action semantics remain preserved.
+- Updated each experiment's video and episode table on the policy page and
+  added a common seed-10 comparison. Seed-7 files remain available separately.
+  These single-episode outcomes do not replace aggregate evaluations.
+
+## Experiment 3 · Selected policy video recorded
+
+- Recorded seed 7 using the selected 1,000-episode fixed-action DQN and frozen
+  Experiment 3 MLPx with a three-step horizon.
+- Completed 40/40 steps without crashing, driving reward 37.058, and ten
+  requests. This is one illustrative episode, not an aggregate safety result.
+- Added the video, per-episode statistics, and reproduction command to the
+  DQN policy page. Verified first and final frames show the scene and intent
+  overlay. Video: docs/images/dqn_experiment_3_policy.mp4, 1800×800, 41 frames.
+
+## Experiment 3 · Selected the 1,000-episode fixed-action policy
+
+- Restored run 20261119_225244_request_dqn/best.pt as the active checkpoint
+  at checkpoints/experiment_3/RequestDQN/best.pt after verifying its episode
+  count and spatial_v1 encoding.
+- The 2,000-episode checkpoint remains in its run folder. latest.pt still
+  resumes the 2,000-episode training state; inference defaults to the selected
+  1,000-episode model.
+- Saved evaluation files currently describe the 2,000-episode model; the
+  policy page retains both reported evaluation summaries.
+
+## Experiment 3 · Continuation evaluation shows regression
+
+- Evaluated the 2,000-episode checkpoint on the same 200 seeds. Mean return
+  was 15.142, driving reward 15.515, requests 7.460, and crash rate 90.5%
+  (181 crashes). There were 21 truncation flags.
+- The 1,000-episode fixed-action baseline had return 15.585, requests 7.015,
+  and 88% crashes. Additional training produced five more crashes and lower
+  return in this comparison despite higher late-training return.
+- Updated DQN evaluation and comparison tables. The earlier checkpoint remains
+  in run 20261119_225244_request_dqn; the active checkpoint is still the
+  2,000-episode model. No rollback was performed.
+
+## Experiment 3 · Full 2,000-episode training graph
+
+- Combined the initial fixed-action run and its continuation in the DQN
+  training graph, with a dashed marker after episode 1,000.
+- Updated graph export to resolve resume ancestry, exclude unrelated action
+  encodings, and reject missing or overlapping episode ranges. Ambiguous
+  histories can be supplied explicitly with --dqn-logs.
+
+## Experiment 3 · DQN continuation completed at episode 2,000
+
+- Run `20261119_230820_request_dqn` completed episodes 1,001–2,000. Mean
+  return was 14.392, mean loss 1.577, and requests averaged 7.782 per episode.
+- Last-100 mean return reached 15.678, while loss rose to 1.982. Crash flags
+  occurred in 926 continuation episodes (92.6%); 75 had truncation flags,
+  including one episode with both.
+- Active latest.pt records 2,000 completed episodes, epsilon 0.05, and 16,217
+  replay transitions. This save supports full-state resume; the initial
+  continuation used the older weights-only checkpoint.
+- Updated the Experiment 3 policy training results and continuation graph.
+  Saved evaluation still belongs to the 1,000-episode policy; evaluate the
+  new checkpoint before assessing whether the additional training helped.
+
+## Request DQN · Resumable training
+
+- Added --resume with cumulative episode numbering and separate timestamped
+  continuation logs. --episodes counts additional episodes.
+- New latest.pt saves include online/target weights, optimizer, replay, epsilon,
+  return history, settings, and random states. Saves occur at completed-episode
+  boundaries; the frozen MLPx file is checked against its saved hash.
+- Existing fixed-action weights-only checkpoints continue with a warning:
+  optimizer/replay/random states restart and epsilon is inferred. Legacy
+  compressed-action policies require retraining.
+- Verified split/resumed training matches uninterrupted training on a small
+  deterministic environment. No additional Experiment 3 training was launched
+  as part of this implementation.
+
+## Experiment 3 · Fixed-action DQN evaluation complete
+
+- Summary metadata confirms spatial_v1 request actions. Across 200 episodes,
+  greedy DQN return was 15.585, driving reward 15.936, and requests averaged
+  7.015 per episode. There were 176 crashes (88%) and 25 truncation flags;
+  one episode had both flags.
+- Asking nobody returned 14.092 with 177 crashes (88.5%). DQN improves mean
+  return by 10.59%, but the one-episode crash difference is inconclusive.
+- Experiment 3 now has the highest observed DQN return and lowest DQN crash
+  rate across experiments. It uses more requests; multiple training seeds
+  are needed to assess repeatability.
+- Latest evaluation files replaced the previous run in the default folder.
+  Updated the policy evaluation and experiment comparison tables.
+
+## Experiment 3 · Fixed-action DQN retrained
+
+- Completed the new 1,000-episode run at
+  `results/experiment_3/RequestDQN/experiments/20261119_225244_request_dqn/`.
+  The active checkpoint confirms request_action_encoding: spatial_v1 and
+  masked next-request targets; Experiment 3 MLPx remains frozen.
+- Mean training return was 13.379; last-100 mean return 14.749. Mean loss was
+  0.572 overall and 1.137 over the last 100 episodes. Requests averaged 7.404.
+- Crash flags occurred in 949 episodes and truncation flags in 54, with three
+  overlapping episodes. These are exploratory training outcomes.
+- Updated the policy page and matching graphs, preserving the previous run's
+  graph, training statistics, and evaluation. New fixed-action evaluation is
+  pending; the earlier 89% evaluation crash rate belongs to the old policy.
+
+## Request DQN · Fixed spatial action mapping
+
+- Corrected request actions to use stable spatial indices 0–7 and ask-nobody
+  at 8. Empty slots are excluded during exploration, greedy selection, and
+  bootstrap target calculation.
+- Updated message resolution, random-request evaluation, and renderer vehicle
+  highlighting to use the same indices.
+- New DQN checkpoints record request_action_encoding: spatial_v1. Earlier
+  checkpoints retain compressed_v0 behavior with a warning so their learned
+  outputs are not silently reinterpreted.
+- This correction follows Experiment 3 and requires DQN retraining. Reuse the
+  corrected Experiment 3 MLPx checkpoint; no new WM data is required.
+
+## Experiment 3 · Request DQN evaluation complete
+
+- Evaluated 200 episodes per policy starting at seed 100000. DQN achieved
+  mean return 14.869, driving reward 15.199, 6.605 requests per episode,
+  178 crashes (89%), and 22 truncations.
+- Asking nobody achieved return 14.092 with 177 crashes (88.5%). Random
+  requests achieved 9.216 with 99.5% crashes; ask-all achieved 6.047 with
+  100% crashes.
+- Experiment 3 has the lowest observed DQN crash rate across the three runs,
+  but no safety benefit over its own no-request baseline. Updated the policy
+  results and comparison table; Experiment 3 recording remains pending.
+
+## Experiment 3 · Request DQN training complete
+
+- Completed 1,000 episodes with the frozen Experiment 3 MLPx checkpoint,
+  three-step planning, request cost 0.05, and masked next-request targets.
+- Mean training return was 13.475, increasing to 14.366 over the last 100
+  episodes. Mean loss was 0.563 overall and 1.136 over the last 100.
+- Averaged 7.310 requests per episode. Crash flags occurred in 945 episodes
+  and truncation flags in 60; five episodes had both flags.
+- Added matching training graphs and full statistics to the DQN policy page.
+  Fixed-seed request-policy evaluation and video recording remain pending.
+
+## Experiment 3 · MLPx training and rollout evaluation complete
+
+- Completed 50 MLPx training epochs with spatial_v1 message encoding; best
+  checkpoint was epoch 25, with test loss 0.004056.
+- Evaluated 100 episodes with up to five states per episode, sampled every
+  ten steps. Every horizon/message group contains 299 states, including
+  early-terminal candidate outcomes.
+- Three-step no-message/all-message state MAE was 0.0323/0.0341, cumulative
+  reward MAE 0.0752/0.0819, and action agreement 81.61%/81.94%.
+- Five-step errors are higher. Message modes perform similarly at three
+  steps; full-episode policy evaluation is needed to assess crash reduction.
+- Results use the corrected sequence evaluator and are not directly
+  comparable to Experiment 1/2's filtered repeated-action tests.
+
+## Experiment 3 · Corrected dataset collected and merged
+
+- Collected 237,553 intent-aware records from 1,000 episodes, including
+  40,000 no-message scenarios. Message slots now preserve absent neighbors.
+- Reused the Experiment 2 random baseline's 25,822 records from 1,000 episodes;
+  merged output contains 263,375 records with mean reward 0.873, 526 crash
+  flags, and 6,684 truncation flags.
+- Verified eight-slot structure and requested-vehicle membership for every
+  message-bearing record in the informed and combined files.
+- Added Experiment 3 dataset statistics to the dashboard and training docs.
+  The dataset correction requires retraining; previous metrics remain
+  historical results from the earlier encoding.
 
 ## 2026-11-19 — Experiment 2 training, evaluation, and intent overlays
 

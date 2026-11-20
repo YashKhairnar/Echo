@@ -89,6 +89,12 @@ def visible_neighbors(environment, visibility_distance, side_window):
     return candidates
 
 
+def spatial_vehicle_slots(visible):
+    """Eight spatial slots, preserving empty positions with None."""
+    return [visible[slot]["vehicle"].vehicle_id if slot in visible else None
+            for slot in SLOT_ORDER]
+
+
 def ordered_visible_ids(visible):
     """Return visible vehicle IDs in the fixed spatial slot order."""
     return [

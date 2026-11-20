@@ -309,13 +309,40 @@
         </dl></div></details></li>
 
     <li><div class="date">Nov 19</div><div class="dot part"></div>
-      <details class="now" open><summary><span class="title">Both DQNs evaluated: safety remains unresolved</span><span class="badge">NOW</span>
+      <details><summary><span class="title">Experiments 1 and 2 evaluated</span>
         <span class="line2">200 episodes per policy, fixed seed range · <span class="result part">Experiment 1 outperforms Experiment 2</span></span></summary>
         <div class="body"><dl>
           <dt>Experiment 1</dt><dd>DQN return 14.955 and crash rate 92%, versus no-request return 13.070 and 99% crashes.</dd>
           <dt>Experiment 2</dt><dd>After 1,000 DQN training episodes, evaluation return was 12.326 with 94.5% crashes, versus 11.973 and 93% for no requests. More WM data has not improved complete-system results in this comparison.</dd>
           <dt>Inspection</dt><dd>Matching training graphs and an Experiment 2 video are available. The renderer now labels the requested vehicle and shows its exact intent response and the ego action on the frame.</dd>
-          <dt>Details</dt><dd><a href="dqn_policy.html">DQN results and videos</a> · <a href="training.html">Training graphs</a> · <a href="mlpx.html">World Model evaluation</a></dd>
+          <dt>Details</dt><dd><a href="dqn_policy.html">DQN results, graphs, and videos</a> · <a href="training.html">Training commands</a> · <a href="mlpx.html">World Model results and graphs</a></dd>
+        </dl></div></details></li>
+
+    <li><div class="date">Nov 19</div><div class="dot good"></div>
+      <details><summary><span class="title">Experiment 3: correct message slots and request actions</span>
+        <span class="line2">263,375 transitions · frozen MLPx + retrained DQN · <span class="result good">consistent spatial encoding</span></span></summary>
+        <div class="body"><dl>
+          <dt>Fixes</dt><dd>Message records preserve all eight spatial positions. DQN actions 0–7 refer to fixed spatial slots; action 8 asks nobody. Empty requests are masked during selection and target calculation.</dd>
+          <dt>World Model</dt><dd>50 epochs, best test loss 0.004056 at epoch 25. On 299 sampled states, three-step agreement is 81.61% without messages and 81.94% with all messages. The corrected evaluator includes early-terminal candidates.</dd>
+          <dt>Limits</dt><dd>Older MLPx results used a different evaluation protocol and are not directly comparable.</dd>
+        </dl></div></details></li>
+
+    <li><div class="date">Nov 19</div><div class="dot part"></div>
+      <details><summary><span class="title">Resume DQN to 2,000 episodes: evaluation worsens</span>
+        <span class="line2">Full-state resume and combined training graph · <span class="result part">return 15.585 → 15.142; crashes 88% → 90.5%</span></span></summary>
+        <div class="body"><dl>
+          <dt>Training</dt><dd>The first continuation reused weights but restarted optimizer/replay state. New latest.pt saves support full-state resume. A combined graph shows all 2,000 episodes with a marker at the continuation boundary.</dd>
+          <dt>Decision</dt><dd>The 1,000-episode fixed-action model is restored as active best.pt. The 2,000-episode model and resumable state are retained.</dd>
+        </dl></div></details></li>
+
+    <li><div class="date">Nov 19</div><div class="dot part"></div>
+      <details class="now" open><summary><span class="title">Selected Experiment 3 policy: modest overall progress</span><span class="badge">NOW</span>
+        <span class="line2">Same 200 evaluation seeds · <span class="result part">return +4.2%, eight fewer crashes versus Experiment 1</span></span></summary>
+        <div class="body"><dl>
+          <dt>Comparison</dt><dd>Experiment 1: return 14.955, crashes 92%, requests 5.040. Selected Experiment 3: return 15.585, crashes 88%, requests 7.015.</dd>
+          <dt>Communication</dt><dd>Experiment 3's no-request baseline crashes at 88.5%. Its learned requests avoid only one additional crash in 200 episodes; a reliable safety benefit is not established.</dd>
+          <dt>Videos</dt><dd>All experiments have seed-10 recordings with identical render settings and intent overlays. They crash at steps 15, 8, and 10 respectively; one scenario does not replace aggregate evaluation.</dd>
+          <dt>Details</dt><dd><a href="dqn_policy.html">Policy results and videos</a> · <a href="mlpx.html">MLPx results</a> · <a href="training.html">Run guide</a></dd>
         </dl></div></details></li>
 
     <li><div class="date">Next</div><div class="dot neutral"></div>
@@ -323,7 +350,7 @@
         <span class="line2">Compare imagined rewards and states with actual outcomes throughout episodes</span></summary>
         <div class="body"><dl>
           <dt>Planning</dt><dd>Inspect the actions and messages leading up to crashes to distinguish prediction errors from reward and planning issues.</dd>
-          <dt>Evaluation</dt><dd>Include early-terminal outcomes and states sampled throughout episodes; quantify uncertainty before claiming a reliable improvement.</dd>
+          <dt>Evaluation</dt><dd>The corrected WM evaluator already retains early-terminal cases. Next, inspect actual crash trajectories and repeat training with multiple seeds to quantify uncertainty.</dd>
         </dl></div></details></li>
   </ol>
 

@@ -1,17 +1,6 @@
 # MLPx world model
 
-*Experiment 1 · Baseline world-model training*
-
 MLPx is the learned one-step world model. It predicts what happens after the ego takes an action.
-
-## Experiment status
-
-The first MLPx training experiment used the initial merged dataset of 26,597
-transitions. Its checkpoint remains the baseline for planner comparisons.
-
-Experiment 2 is now the larger training run: it uses 223,375 merged
-transitions from 2,000 source episodes and is evaluated with the same
-three-/five-step rollout procedure.
 
 ## Input
 
@@ -46,42 +35,131 @@ Each message contains presence, behavior type, target lane, target speed, accele
 
 The model intentionally has no crash head. Crashes remain available as dataset metadata and can be analyzed separately.
 
-## Evaluation against real rollouts
+## How to read the results
 
-MLPx was compared with real HighwayEnv rollouts from the same sampled states.
-For each state, the evaluator tested all five ego actions for a fixed horizon.
+State MAE uses normalized observations. Reward MAE compares predicted and real
+cumulative rewards. Action agreement measures whether the predicted best first
+action matches the highest real return among the tested candidates.
+Experiments 1 and 2 used repeated actions and excluded early-ending cases.
+The corrected evaluator used for future runs searches model-selected action
+sequences and retains terminal cases. These protocols are not directly comparable.
 
-- **State MAE** measures the difference between predicted and real states.
-- **Reward MAE** measures the difference between predicted and real rollout
-  reward; lower is better.
-- **Action-ranking agreement** measures how often MLPx selected the same best
-  action as the real environment.
+## Experiment 1 · Baseline world model
 
-| Horizon | Message mode | State MAE | Reward MAE | Match with real best action |
-| ---: | --- | ---: | ---: | ---: |
-| 3 steps | No messages | `0.229` | `0.336` | `66.7%` (`8/12`) |
-| 3 steps | All visible messages | `0.245` | `0.383` | `42.9%` (`6/14`) |
-| 5 steps | No messages | `0.238` | `0.723` | `23.1%` (`3/13`) |
-| 5 steps | All visible messages | `0.377` | `0.635` | `23.1%` (`3/13`) |
+### Setup
+
+Initial World Model baseline, trained on 26,597 combined transitions from 1,100 source episodes.
+
+### Configuration
+
+| Setting | Value |
+| --- | --- |
+| Message encoding | Historical packed slots |
+| Epochs | `50` |
+| Batch size | `128` |
+| Optimizer | Adam |
+| Learning rate | `0.001` |
+| Objective | Next-state MSE + reward MSE |
+| Held-out split | Episode groups |
+
+### Commands
+
+```bash
+.venv/bin/python -m scripts.training.train_mlpx_wm \
+  --experiment 1 --epochs 50 --batch-size 128 --lr 1e-3
+```
+
+The corrected dataset adapter rejects legacy packed informed records. This command records the original training settings; reproduce historical runs with their original code revision.
+
+### Results
+
+| Metric | Best checkpoint (epoch 47) | Final epoch (50) |
+| --- | ---: | ---: |
+| Training total loss | `0.007478` | `0.010421` |
+| Test total loss | `0.011493` | `0.011781` |
+| Test state MSE | `0.004594` | `0.004852` |
+| Test reward MSE | `0.006899` | `0.006929` |
+
+### Graphs
+
+![Experiment 1 MLPx training losses](training_graphs/mlpx_training_losses.png)
+
+### Evaluation
+
+| Horizon | Message mode | Samples | State MAE | Reward MAE | Match with real best action |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 3 steps | No messages | 12 | `0.229` | `0.336` | `66.7%` |
+| 3 steps | All visible messages | 14 | `0.245` | `0.383` | `42.9%` |
+| 5 steps | No messages | 13 | `0.238` | `0.723` | `23.1%` |
+| 5 steps | All visible messages | 13 | `0.377` | `0.635` | `23.1%` |
 
 The three-step rollout is substantially better at matching real reward:
 reward error is `0.336–0.383`, compared with `0.635–0.723` at five steps.
 It also matches the real environment's preferred action more often. This is
 why the active planner uses a three-step horizon.
 
-## Experiment 2 · Larger dataset training and evaluation
+### Artifacts
 
-**Experiment 2** trained MLPx for 50 epochs on the merged dataset from
-`data/experiment_2/combined_world_model_dataset.jsonl`:
+Checkpoint: `checkpoints/experiment_1/MLPx/best.pt`.
 
-- 223,375 transitions from 2,000 source episodes.
-- The dataset combines 197,553 intent-aware records with 25,822 random
-  no-message records.
-- The best checkpoint is saved at
-  `checkpoints/experiment_2/MLPx/best.pt`.
-- Evaluation used 10 episodes and up to three sampled states per episode. Some
-  five-step cases ended early, so the number of valid five-step samples is
-  smaller.
+Training CSV, run checkpoints, and plots:
+`results/experiment_1/MLPx/experiments/20261119_110113_mlpx/`.
+
+Evaluation CSV and JSON: `results/experiment_1/evaluation/mlpx_rollout/`.
+
+### Notes
+
+Historical results use the earlier encoding and filtered repeated-action evaluation. Full-episode crash rates are reported on the [DQN policy page](dqn_policy.html).
+
+Additional historical measurements previously listed on the Training page:
+held-out one-step next-state RMSE `0.0677` and reward RMSE `0.0828`;
+open-loop state RMSE `0.0935` at three steps and `0.1201` at five steps on
+random no-message sequences. These use different metrics and evaluation
+procedures from the rollout MAE table above.
+
+## Experiment 2 · Larger dataset world model
+
+### Setup
+
+Trained on 223,375 transitions from 2,000 source episodes: 197,553 informed and 25,822 random no-message records.
+
+### Configuration
+
+| Setting | Value |
+| --- | --- |
+| Message encoding | Historical packed slots |
+| Epochs | `50` |
+| Batch size | `128` |
+| Optimizer | Adam |
+| Learning rate | `0.001` |
+| Objective | Next-state MSE + reward MSE |
+| Held-out split | Episode groups |
+
+### Commands
+
+```bash
+.venv/bin/python -m scripts.training.train_mlpx_wm \
+  --experiment 2 --epochs 50 --batch-size 128 --lr 1e-3
+```
+
+The corrected dataset adapter rejects legacy packed informed records. These settings describe the historical run.
+
+### Results
+
+| Metric | Best checkpoint (epoch 42) | Final epoch (50) |
+| --- | ---: | ---: |
+| Training total loss | `0.002521` | `0.002339` |
+| Test total loss | `0.004263` | `0.004380` |
+| Test state MSE | `0.003011` | `0.003157` |
+| Test reward MSE | `0.001252` | `0.001223` |
+
+### Graphs
+
+![Experiment 2 MLPx training losses](training_graphs/experiment_2_mlpx_training.png)
+
+### Evaluation
+
+Ten evaluation episodes, up to three states per episode. Early-ending candidates were excluded.
 
 | Horizon | Message mode | Samples | State MAE | Reward MAE | Match with real best action |
 | ---: | --- | ---: | ---: | ---: | ---: |
@@ -90,7 +168,16 @@ why the active planner uses a three-step horizon.
 | 5 steps | No messages | 11 | `0.0385` | `0.1603` | `54.55%` |
 | 5 steps | All visible messages | 11 | `0.0749` | `0.2336` | `63.64%` |
 
-### What Experiment 2 tells us
+### Artifacts
+
+Checkpoint: `checkpoints/experiment_2/MLPx/best.pt`.
+
+Training CSV, run checkpoints, and plots:
+`results/experiment_2/MLPx/experiments/20261119_165206_mlpx/`.
+
+Evaluation CSV and JSON: `results/experiment_2/evaluation/mlpx_rollout/`.
+
+### Notes
 
 The model learns short-term public vehicle dynamics well: the three-step
 no-message rollout has low state and reward error and agrees with the real
@@ -106,21 +193,102 @@ current checkpoint models the no-message behavior more accurately. The
 five-step comparison is preliminary because it contains only 11 valid samples
 per message mode.
 
-The Experiment 2 evaluation artifacts are saved under
-`results/experiment_2/evaluation/mlpx_rollout/`.
+A subsequently identified training/inference message-slot mismatch affects interpretation of message-conditioned results.
 
-Run the evaluation for a selected experiment with:
+## Experiment 3 · Corrected spatial encoding world model
+
+### Setup
+
+Trained on 263,375 transitions from 2,000 source episodes, including 65,822 no-message records. The informed source preserves all eight spatial slots, including empty positions.
+
+### Configuration
+
+| Setting | Value |
+| --- | --- |
+| Message encoding | `spatial_v1` |
+| Epochs | `50` |
+| Batch size | `128` |
+| Optimizer | Adam |
+| Learning rate | `0.001` |
+| Objective | Next-state MSE + reward MSE |
+| Held-out split | Episode groups |
+
+### Commands
+
+```bash
+.venv/bin/python -m scripts.training.train_mlpx_wm \
+  --experiment 3 --epochs 50 --batch-size 128 --lr 1e-3
+```
+
+### Results
+
+| Metric | Best checkpoint (epoch 25) | Final epoch (50) |
+| --- | ---: | ---: |
+| Training total loss | `0.002912` | `0.002154` |
+| Test total loss | `0.004056` | `0.004231` |
+| Test state MSE | `0.002981` | `0.003026` |
+| Test reward MSE | `0.001075` | `0.001205` |
+
+The saved best checkpoint is from epoch 25. Training loss continues to
+decrease afterward, while final test loss is slightly higher than the best
+value, supporting selection by held-out loss rather than the final epoch.
+These one-step losses do not yet establish multi-step accuracy or crash
+reduction in the complete driving system.
+
+### Graphs
+
+![Experiment 3 MLPx training losses](training_graphs/experiment_3_mlpx_training.png)
+
+The same four curves are shown for every experiment: training total, test total, test state, and test reward loss.
+
+### Evaluation
+
+Completed on 100 episodes, sampling every tenth rollout step with up to five
+states per episode. Episodes ending early reduce the number of sampled states;
+299 states were evaluated in every horizon/message group. No incomplete
+candidate states were excluded.
+
+| Horizon | Message mode | Samples | State MAE | Reward MAE | Match with real best action |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 3 steps | No messages | 299 | `0.0323` | `0.0752` | `81.61%` |
+| 3 steps | All visible messages | 299 | `0.0341` | `0.0819` | `81.94%` |
+| 5 steps | No messages | 299 | `0.0454` | `0.2099` | `80.60%` |
+| 5 steps | All visible messages | 299 | `0.0481` | `0.2522` | `78.60%` |
+
+State errors use normalized observations. Reward errors compare discounted
+cumulative returns with discount `0.99`.
 
 ```bash
 .venv/bin/python -m scripts.evaluation.evaluate_mlpx_rollout \
-  --experiment 1 \
-  --episodes 10 \
-  --states-per-episode 3
+  --experiment 3 --episodes 100 --states-per-episode 5 \
+  --sample-every 10 --action-mode planner
 ```
 
-The CSV and JSON summary are saved under
-`results/experiment_1/evaluation/mlpx_rollout/`.
+The corrected evaluator ranks model-selected continuations in the real simulator, retains early-terminal outcomes, and samples every tenth rollout step here. It does not perform exhaustive simulator search over every action sequence.
+
+### Artifacts
+
+Checkpoint: `checkpoints/experiment_3/MLPx/best.pt`.
+
+Training CSV, run checkpoints, and plots:
+`results/experiment_3/MLPx/experiments/20261119_222630_mlpx/`.
+
+Evaluation CSV and JSON: `results/experiment_3/evaluation/mlpx_rollout/`.
+
+### Notes
+
+The checkpoint records `message_slot_encoding: spatial_v1`. Three-step
+predictions have lower state and reward errors than five-step predictions,
+supporting the current three-step planner. The all-message and no-message
+three-step agreement rates differ by one state (245/299 versus 244/299), so
+these results do not establish a meaningful benefit from requesting messages.
+
+The earlier large gap between message modes is absent in this evaluation,
+but both the encoding and evaluation protocol changed. This is not a
+controlled measurement of the encoding fix alone. These results test
+prediction and candidate ranking; full-episode DQN evaluation is still needed
+to measure crash rates.
 
 ## Code
 
-The implementation is in `src/cooperative_driving/models/MLPx/mlpx.py`. Its main methods are `forward`, `predict_step`, `predict_batch`, and `load`.
+The implementation is `src/cooperative_driving/models/MLPx/mlpx.py`; its main methods are `forward`, `predict_step`, `predict_batch`, and `load`.

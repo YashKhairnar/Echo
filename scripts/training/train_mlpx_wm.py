@@ -102,7 +102,8 @@ def main():
 
     run_dir = create_run_dir(results_root, "mlpx")
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    save_run_metadata(run_dir, {"model": "MLPx (per-vehicle)", **vars(args)})
+    save_run_metadata(run_dir, {"model": "MLPx (per-vehicle)",
+                                "message_slot_encoding": "spatial_v1", **vars(args)})
 
     model = MLPxWorldModel()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -132,7 +133,7 @@ def main():
 
             checkpoint = {"epoch": epoch, "model_state_dict": model.state_dict(),
                           "test_loss": metrics["test_loss"], "run_dir": str(run_dir),
-                          "data": args.data}
+                          "data": args.data, "message_slot_encoding": "spatial_v1"}
             torch.save(checkpoint, run_dir / "latest.pt")
             if metrics["test_loss"] < best_test_loss:
                 best_test_loss = metrics["test_loss"]

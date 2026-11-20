@@ -57,12 +57,13 @@ def choose_request(policy, dqn, environment, visible, rng):
     if policy == "all":
         return len(visible_ids), all_messages(environment, visible)
     if policy == "random":
-        action = rng.randrange(len(visible_ids))
+        action = rng.choice([a for a in valid_actions(visible) if a != ASK_NOBODY])
         return action, requested_message(environment, visible, action)
 
     state = request_state(environment, visible)
-    action = select_action(dqn, state, valid_actions(visible), epsilon=0.0, rng=rng)
-    return action, requested_message(environment, visible, action)
+    encoding = dqn.request_action_encoding
+    action = select_action(dqn, state, valid_actions(visible, encoding), epsilon=0.0, rng=rng)
+    return action, requested_message(environment, visible, action, encoding)
 
 
 def evaluate_policy(policy, dqn, world_model, args):
@@ -185,6 +186,7 @@ def main():
             {
                 "experiment": args.experiment,
                 "dqn_checkpoint": dqn_checkpoint,
+                "request_action_encoding": dqn.request_action_encoding,
                 "mlpx_checkpoint": mlpx_checkpoint,
                 "episodes": args.episodes,
                 "seed_start": args.seed,

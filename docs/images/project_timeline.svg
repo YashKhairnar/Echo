@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="880" height="1880" viewBox="0 0 880 1880" role="img" aria-labelledby="t d">
   <title id="t">Echo project timeline</title>
-  <desc id="d">From the first highway setup (Nov 5) through the four-lane intent-aware dataset, simple MLPx world model, evaluation, documentation, and project cleanup (Nov 19).</desc>
+  <desc id="d">From the first highway setup through Experiment 3: corrected spatial encoding, 263,375 transitions, DQN continuation to 2,000 episodes, selection of the 1,000-episode policy, and same-seed video comparisons.</desc>
   <style>
     text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
     .bg { fill: #ffffff; }
@@ -189,20 +189,20 @@
   <text class="date" x="128" y="1635" text-anchor="end">Nov 19</text>
   <rect class="card" x="176" y="1602" width="684" height="56" rx="8"/>
   <circle class="part ring" cx="152" cy="1630" r="8"/>
-  <text class="title" x="192" y="1625">Make the policy inspectable</text>
-  <text class="text" x="192" y="1646">Color-coded vehicles, crash frames, and requested-car highlight · <tspan class="tgood">behavior is easy to verify</tspan></text>
+  <text class="title" x="192" y="1625">Compare all experiments on seed 10</text>
+  <text class="text" x="192" y="1646">Intent overlays and matching settings · crashes at steps 15, 8, and 10</text>
 
   <text class="date" x="128" y="1701" text-anchor="end">Nov 19</text>
   <rect class="card" x="176" y="1668" width="684" height="56" rx="8"/>
   <circle class="good ring" cx="152" cy="1696" r="8"/>
-  <text class="title" x="192" y="1691">Make the project reproducible</text>
-  <text class="text" x="192" y="1712">Training graphs, dedicated docs, organized scripts · <tspan class="tgood">legacy outputs archived</tspan></text>
+  <text class="title" x="192" y="1691">Experiment 3: corrected slots and resumable DQN</text>
+  <text class="text" x="192" y="1712">263,375 records · fixed request actions · 2,000-episode continuation performed worse</text>
 
   <text class="date" x="128" y="1767" text-anchor="end">Nov 19</text>
   <rect class="now" x="176" y="1734" width="684" height="56" rx="8"/>
   <circle class="good ring" cx="152" cy="1762" r="10"/>
-  <text class="title" x="192" y="1757">Current lesson</text>
-  <text class="text" x="192" y="1778">The pipeline works end to end; next we need fixed-seed policy evaluation against baselines</text>
+  <text class="title" x="192" y="1757">Selected: Experiment 3 DQN at 1,000 episodes</text>
+  <text class="text" x="192" y="1778">200 seeds: return 15.585, crashes 88% · no-request baseline: 88.5% crashes</text>
   <rect class="blue" x="790" y="1746" width="58" height="22" rx="11"/>
   <text class="badge" x="819" y="1761" text-anchor="middle">NOW</text>
 
@@ -210,6 +210,6 @@
   <text class="date" x="128" y="1833" text-anchor="end">Next</text>
   <rect class="next" x="176" y="1800" width="684" height="56" rx="8"/>
   <circle class="neutral ring" cx="152" cy="1828" r="8"/>
-  <text class="title" x="192" y="1823">Evaluate action planning with the trained WM</text>
-  <text class="text" x="192" y="1844">Compare imagined actions against real rollouts and improve long-horizon stability</text>
+  <text class="title" x="192" y="1823">Inspect crash trajectories and repeat training seeds</text>
+  <text class="text" x="192" y="1844">Overall progress is modest; reliable safety benefits from communication remain unproven</text>
 </svg>

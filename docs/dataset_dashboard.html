@@ -76,13 +76,40 @@
   </div>
   <div class="experiment-header">
     <div>
-      <p class="subtitle">Experiment 1 · Intent-aware dataset statistics</p>
-      <p class="note">Source: data/intent_aware_dataset.jsonl</p>
+      <p class="subtitle">Experiment 1 · Combined World Model dataset statistics</p>
+      <p class="note">Three source views: informed policy, random no-message, and their merged training set.</p>
     </div>
-    <div class="experiment-tag">BASELINE</div>
+    <div class="experiment-tag">EXPERIMENT 1</div>
+  </div>
+  <div class="panel">
+    <h2>Dataset source comparison</h2>
+    <p class="note">The first two datasets provide complementary behavior coverage. The combined file is the input used to train MLPx.</p>
+    <table><tr><th>Dataset</th><th>Role</th><th>Records</th><th>Episodes</th><th>Mean reward</th><th>Crashes</th><th>Truncations</th></tr>
+      <tr><td><strong>Intent-aware policy</strong></td><td>Informed requests</td><td>11,505</td><td>100</td><td>0.883</td><td>0</td><td>632</td></tr>
+      <tr><td><strong>Random no-message</strong></td><td>Uninformed actions</td><td>15,092</td><td>1,000</td><td>0.777</td><td>441</td><td>567</td></tr>
+      <tr><td><strong>Combined World Model</strong></td><td>MLPx training input</td><td>26,597</td><td>1,100</td><td>0.823</td><td>441</td><td>1,199</td></tr>
+    </table>
+  </div>
+  <div class="grid" style="margin-top: 18px;">
+    <div class="panel">
+      <h2>Action coverage by source</h2>
+      <table><tr><th>Dataset</th><th>IDLE</th><th>FASTER</th><th>SLOWER</th><th>LEFT</th><th>RIGHT</th></tr>
+        <tr><td>Intent-aware</td><td>5,439</td><td>2,716</td><td>3,046</td><td>197</td><td>107</td></tr>
+        <tr><td>Random</td><td>3,040</td><td>3,015</td><td>3,012</td><td>3,025</td><td>3,000</td></tr>
+        <tr><td>Combined</td><td>8,479</td><td>5,731</td><td>6,058</td><td>3,222</td><td>3,107</td></tr>
+      </table>
+    </div>
+    <div class="panel">
+      <h2>Message coverage by source</h2>
+      <table><tr><th>Dataset</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th></tr>
+        <tr><td>Intent-aware</td><td>2,000</td><td>4,686</td><td>3,713</td><td>1,057</td><td>49</td></tr>
+        <tr><td>Random</td><td>15,092</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+        <tr><td>Combined</td><td>17,092</td><td>4,686</td><td>3,713</td><td>1,057</td><td>49</td></tr>
+      </table>
+    </div>
   </div>
   <div class="stat-section">
-    <h2>Dataset summary</h2>
+    <h2>Intent-aware policy dataset</h2>
     <div class="cards">
       <div class="card"><div class="card-label">Records</div><div class="card-value">11,505</div><div class="card-detail"></div></div>
       <div class="card"><div class="card-label">Mean reward</div><div class="card-value">0.883</div><div class="card-detail"></div></div>
@@ -92,7 +119,27 @@
     </div>
   </div>
   <div class="stat-section">
-    <h2>Real rollout validation</h2>
+    <h2>Random no-message dataset</h2>
+    <div class="cards">
+      <div class="card"><div class="card-label">Records</div><div class="card-value">15,092</div><div class="card-detail"></div></div>
+      <div class="card"><div class="card-label">Mean reward</div><div class="card-value">0.777</div><div class="card-detail"></div></div>
+      <div class="card"><div class="card-label">Crashes</div><div class="card-value">441</div><div class="card-detail">2.92%</div></div>
+      <div class="card"><div class="card-label">Truncations</div><div class="card-value">567</div><div class="card-detail">3.76%</div></div>
+      <div class="card"><div class="card-label">Episodes represented</div><div class="card-value">1,000</div><div class="card-detail"></div></div>
+    </div>
+  </div>
+  <div class="stat-section">
+    <h2>Combined World Model dataset</h2>
+    <div class="cards">
+      <div class="card"><div class="card-label">Records</div><div class="card-value">26,597</div><div class="card-detail"></div></div>
+      <div class="card"><div class="card-label">Mean reward</div><div class="card-value">0.823</div><div class="card-detail"></div></div>
+      <div class="card"><div class="card-label">Crashes</div><div class="card-value">441</div><div class="card-detail">1.66%</div></div>
+      <div class="card"><div class="card-label">Truncations</div><div class="card-value">1,199</div><div class="card-detail">4.51%</div></div>
+      <div class="card"><div class="card-label">Episodes represented</div><div class="card-value">1,100</div><div class="card-detail"></div></div>
+    </div>
+  </div>
+  <div class="stat-section">
+    <h2>Real rollout validation · intent-aware policy</h2>
     <div class="cards">
       <div class="card"><div class="card-label">Rollout episodes</div><div class="card-value">100</div><div class="card-detail"></div></div>
       <div class="card"><div class="card-label">Rollout steps</div><div class="card-value">2,000</div><div class="card-detail"></div></div>
@@ -101,10 +148,76 @@
       <div class="card"><div class="card-label">Truncations</div><div class="card-value">100</div><div class="card-detail"></div></div>
     </div>
   </div>
+  <div class="experiment-header">
+    <div>
+      <p class="subtitle">Experiment 2 · Larger World Model data collection</p>
+      <p class="note">1,000 episodes per source. Intent-aware records contain requested-message scenarios; the random baseline supplies the no-message condition.</p>
+    </div>
+    <div class="experiment-tag">EXPERIMENT 2</div>
+  </div>
   <div class="panel">
-    <p class="note"><span class="safe">No scenario crashes were recorded.</span>
-    Scenario metrics are counterfactual one-step outcomes. Actual rollout
-    metrics are shown only when supplied on the command line.</p>
+    <h2>Dataset source comparison</h2>
+    <p class="note">Experiment 2 combines the informed and no-message sources into the World Model training file.</p>
+    <table><tr><th>Dataset</th><th>Role</th><th>Records</th><th>Episodes</th><th>Mean reward</th><th>Crashes</th><th>Truncations</th></tr>
+      <tr><td><strong>Intent-aware policy</strong></td><td>Informed requests</td><td>197,553</td><td>1,000</td><td>0.884</td><td>0</td><td>5,208</td></tr>
+      <tr><td><strong>Random no-message</strong></td><td>Uninformed actions</td><td>25,822</td><td>1,000</td><td>0.769</td><td>526</td><td>476</td></tr>
+      <tr><td><strong>Combined World Model</strong></td><td>MLPx training input</td><td>223,375</td><td>2,000</td><td>0.871</td><td>526</td><td>5,684</td></tr>
+    </table>
+  </div>
+  <div class="grid" style="margin-top: 18px;">
+    <div class="panel">
+      <h2>Experiment 2 action coverage</h2>
+      <table><tr><th>Dataset</th><th>IDLE</th><th>FASTER</th><th>SLOWER</th><th>LEFT</th><th>RIGHT</th></tr>
+        <tr><td>Intent-aware</td><td>85,616</td><td>51,564</td><td>56,875</td><td>1,816</td><td>1,682</td></tr>
+        <tr><td>Random</td><td>5,210</td><td>5,060</td><td>5,213</td><td>5,164</td><td>5,175</td></tr>
+        <tr><td>Combined</td><td>90,826</td><td>56,624</td><td>62,088</td><td>6,980</td><td>6,857</td></tr>
+      </table>
+    </div>
+    <div class="panel">
+      <h2>Experiment 2 message coverage</h2>
+      <table><tr><th>Dataset</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr>
+        <tr><td>Intent-aware</td><td>0</td><td>97,120</td><td>77,835</td><td>21,565</td><td>1,011</td><td>22</td></tr>
+        <tr><td>Random</td><td>25,822</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+        <tr><td>Combined</td><td>25,822</td><td>97,120</td><td>77,835</td><td>21,565</td><td>1,011</td><td>22</td></tr>
+      </table>
+      <p class="note">The random baseline is intentionally all zero-message records.</p>
+    </div>
+  </div>
+  <div class="stat-section">
+    <h2>Experiment 2 · Intent-aware policy dataset</h2>
+    <div class="cards">
+      <div class="card"><div class="card-label">Records</div><div class="card-value">197,553</div><div class="card-detail">1,000 episodes</div></div>
+      <div class="card"><div class="card-label">Mean reward</div><div class="card-value">0.884</div><div class="card-detail"></div></div>
+      <div class="card"><div class="card-label">Scenario crashes</div><div class="card-value">0</div><div class="card-detail">0.00%</div></div>
+      <div class="card"><div class="card-label">Scenario truncations</div><div class="card-value">5,208</div><div class="card-detail">2.64%</div></div>
+      <div class="card"><div class="card-label">Message behavior</div><div class="card-value">321,639</div><div class="card-detail">163,151 aggressive · 158,488 defensive</div></div>
+    </div>
+  </div>
+  <div class="stat-section">
+    <h2>Experiment 2 · Random no-message dataset</h2>
+    <div class="cards">
+      <div class="card"><div class="card-label">Records</div><div class="card-value">25,822</div><div class="card-detail">1,000 episodes</div></div>
+      <div class="card"><div class="card-label">Mean reward</div><div class="card-value">0.769</div><div class="card-detail"></div></div>
+      <div class="card"><div class="card-label">Crashes</div><div class="card-value">526</div><div class="card-detail">2.04%</div></div>
+      <div class="card"><div class="card-label">Truncations</div><div class="card-value">476</div><div class="card-detail">1.84%</div></div>
+      <div class="card"><div class="card-label">Messages requested</div><div class="card-value">0</div><div class="card-detail">Every record is uninformed</div></div>
+    </div>
+  </div>
+  <div class="stat-section">
+    <h2>Experiment 2 · Combined World Model dataset</h2>
+    <div class="cards">
+      <div class="card"><div class="card-label">Records</div><div class="card-value">223,375</div><div class="card-detail">2,000 source episodes</div></div>
+      <div class="card"><div class="card-label">Mean reward</div><div class="card-value">0.871</div><div class="card-detail"></div></div>
+      <div class="card"><div class="card-label">Crashes</div><div class="card-value">526</div><div class="card-detail">0.24%</div></div>
+      <div class="card"><div class="card-label">Truncations</div><div class="card-value">5,684</div><div class="card-detail">2.54%</div></div>
+      <div class="card"><div class="card-label">Sources</div><div class="card-value">2</div><div class="card-detail">Intent-aware + no-message</div></div>
+    </div>
+  </div>
+  <div class="panel">
+    <p class="note"><span class="safe">Experiment 1 recorded no scenario crashes.</span>
+    Experiment 2 adds 526 crashes from its random no-message baseline. Scenario
+    metrics are counterfactual one-step outcomes; actual rollout metrics are
+    shown only when supplied on the command line.</p>
   </div>
   <div class="grid">
     <div class="panel"><img src="dataset_dashboard_charts/actions.png" alt="Ego action distribution"></div>

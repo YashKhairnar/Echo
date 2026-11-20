@@ -18,6 +18,7 @@
     main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
     article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
     h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    .experiment-title { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }
     p { line-height: 1.65; } .subtitle { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
     pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
     table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
@@ -25,26 +26,83 @@
   </style>
 </head>
 <body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a class="active" href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Request DQN policy</h1>
-<p class="subtitle">Experiment 1 · Baseline request-policy training</p>
 <p>The Request DQN is a learned communication policy. It decides <strong>which visible vehicle to ask</strong>, or whether to ask nobody. It does not directly choose the ego's driving action.</p>
 <p>After the DQN selects a request, the frozen MLPx planner uses the returned message to choose the ego action with a three-step planning horizon.</p>
-<h2>Experiment status</h2>
-<p>The current results are from the <strong>first Request DQN training experiment</strong>. It was trained for 1,000 episodes with the first MLPx checkpoint frozen. This run establishes the communication-policy baseline; it is not yet the final policy.</p>
-<p>The next DQN phase will use the improved MLPx checkpoint, multiple training seeds, and fixed validation environments so that return, request count, crash rate, truncation rate, and loss can be compared fairly with this first run.</p>
-<h2>Request actions</h2>
+<h2>Shared policy design</h2>
+<h3>Request actions</h3>
 <p>The DQN has nine possible actions:</p>
 <pre><code>left-front, left-beside, left-rear,
 same-lane-front, same-lane-rear,
 right-front, right-beside, right-rear,
 ask-nobody</code></pre>
 <p>Invalid spatial slots are masked during action selection. The DQN receives a 45-value state representation containing the ego and eight ordered neighbor slots.</p>
-<h2>Training reward</h2>
+<h3>Training setup</h3>
 <pre><code>DQN reward = real driving reward - communication cost when a vehicle is asked</code></pre>
-<p>The DQN uses replay memory, an online Q-network, a target Q-network, epsilon-greedy exploration, and Huber loss. The target network is currently synchronized every 50 episodes.</p>
-<p>Train it with:</p>
+<p>The DQN uses replay memory, an online Q-network, a target Q-network, epsilon-greedy exploration, and Huber loss. The target network is synchronized every 50 episodes. Each experiment has its own checkpoint and result folder.</p>
+<h2 class="experiment-title">Experiment 1 · Baseline request-policy training</h2>
+<p>Experiment 1 trained the Request DQN for 1,000 episodes with the Experiment 1 MLPx checkpoint frozen, a three-step planner, and a communication cost of <code>0.05</code>.</p>
 <pre><code>.venv/bin/python -m scripts.training.train_request_dqn \
+  --experiment 1 \
   --episodes 1000 \
   --planning-horizon 3 \
   --communication-cost 0.05</code></pre>
-<p>Training logs are saved under <code>results/RequestDQN/experiments/</code> with return, loss, epsilon, request count, crash, and truncation columns. The current DQN improves return during training, but its crash rate and rising loss show that it still needs stabilization before deployment.</p></article></main></div></body>
+<table><thead><tr><th>Metric</th><th>Result</th></tr></thead><tbody><tr><td>Episodes</td><td><code>1,000</code></td></tr><tr><td>Mean return</td><td><code>10.621</code></td></tr><tr><td>Mean return, last 100 episodes</td><td><code>12.167</code></td></tr><tr><td>Best episode return</td><td><code>19.526</code> at episode <code>643</code></td></tr><tr><td>Mean training loss</td><td><code>0.655</code></td></tr><tr><td>Mean loss, last 100 episodes</td><td><code>1.307</code></td></tr><tr><td>Mean requests per episode</td><td><code>5.392</code></td></tr><tr><td>Mean requests, last 100 episodes</td><td><code>5.460</code></td></tr><tr><td>Episodes with crash flag</td><td><code>826</code> (<code>82.60%</code>)</td></tr><tr><td>Episodes with truncation flag</td><td><code>200</code> (<code>20.00%</code>)</td></tr><tr><td>Final epsilon</td><td><code>0.05</code></td></tr></tbody></table>
+<p>The baseline shows improving late returns, but the crash rate and late loss remain high. It is useful as a first communication-policy checkpoint, not as a reliable deployment policy. The Experiment 1 log contains 26 episodes with both flags, so the crash and truncation percentages are reported independently and are not mutually exclusive.</p>
+<h3 class="experiment-title">Experiment 1 validation</h3>
+<p>Evaluation compared the learned request policy against no-request, random-request, and ask-all baselines over 200 episodes each, starting at seed <code>100000</code>, with communication cost <code>0.05</code>:</p>
+<pre><code>.venv/bin/python -m scripts.evaluation.evaluate_request_dqn \
+  --experiment 1 \
+  --episodes 200 \
+  --planning-horizon 3</code></pre>
+<table><thead><tr><th>Request policy</th><th>Mean return</th><th>Mean driving reward</th><th>Mean requests per episode</th><th>Crashes</th><th>Crash rate</th><th>Truncations</th></tr></thead><tbody><tr><td>DQN</td><td><code>14.955</code></td><td><code>15.207</code></td><td><code>5.040</code></td><td><code>184 / 200</code></td><td><code>92.00%</code></td><td><code>16</code></td></tr><tr><td>Ask nobody</td><td><code>13.070</code></td><td><code>13.070</code></td><td><code>0.000</code></td><td><code>198 / 200</code></td><td><code>99.00%</code></td><td><code>2</code></td></tr><tr><td>Random requests</td><td><code>6.941</code></td><td><code>7.359</code></td><td><code>8.355</code></td><td><code>200 / 200</code></td><td><code>100.00%</code></td><td><code>0</code></td></tr><tr><td>Ask all visible</td><td><code>4.331</code></td><td><code>4.959</code></td><td><code>12.560</code></td><td><code>200 / 200</code></td><td><code>100.00%</code></td><td><code>0</code></td></tr></tbody></table>
+<p>The DQN improves mean return over ask-nobody by <code>1.884</code> (about <code>14.41%</code>) and reduces crashes by 14 episodes, or <code>7</code> percentage points. This evaluation provides evidence that the learned request strategy helps the Experiment 1 system relative to its no-request baseline. The remaining <code>92%</code> crash rate is still high, and uncertainty across independent training runs has not been measured.</p>
+<p>Results are saved under <code>results/experiment_1/evaluation/request_dqn/</code>.</p>
+<h3 class="experiment-title">Experiment 1 rendering</h3>
+<p>The replacement rendering uses Experiment 1 checkpoints, seed <code>7</code>, and the three-step planner:</p>
+<table><thead><tr><th>Metric</th><th>Result</th></tr></thead><tbody><tr><td>Steps completed</td><td><code>20 / 40</code></td></tr><tr><td>Outcome</td><td>Crashed</td></tr><tr><td>Crashed</td><td>Yes</td></tr><tr><td>Reward</td><td><code>18.732</code></td></tr><tr><td>Requests sent</td><td><code>5</code></td></tr></tbody></table>
+<p>The recording is generated with:</p>
+<pre><code>SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 1 \
+  --episodes 1 \
+  --seed 7 \
+  --delay 0.01 \
+  --video docs/images/dqn_experiment_1_policy.mp4</code></pre>
+<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/dqn_experiment_1_policy.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
+<h2 class="experiment-title">Experiment 2 · Larger World Model DQN training</h2>
+<p>Experiment 2 trained the Request DQN for 1,000 episodes with the larger Experiment 2 MLPx checkpoint frozen, the same three-step planner, and a communication cost of <code>0.05</code>.</p>
+<pre><code>.venv/bin/python -m scripts.training.train_request_dqn \
+  --experiment 2 \
+  --episodes 1000 \
+  --planning-horizon 3 \
+  --communication-cost 0.05</code></pre>
+<table><thead><tr><th>Metric</th><th>Result</th></tr></thead><tbody><tr><td>Episodes</td><td><code>1,000</code></td></tr><tr><td>Mean return</td><td><code>10.263</code></td></tr><tr><td>Mean return, last 100 episodes</td><td><code>11.423</code></td></tr><tr><td>Best episode return</td><td><code>38.658</code> at episode <code>615</code></td></tr><tr><td>Mean training loss</td><td><code>0.618</code></td></tr><tr><td>Mean loss, last 100 episodes</td><td><code>1.407</code></td></tr><tr><td>Mean requests per episode</td><td><code>6.749</code></td></tr><tr><td>Mean requests, last 100 episodes</td><td><code>7.190</code></td></tr><tr><td>Episodes with crash flag</td><td><code>984</code> (<code>98.40%</code>)</td></tr><tr><td>Episodes with truncation flag</td><td><code>16</code> (<code>1.60%</code>)</td></tr><tr><td>Final epsilon</td><td><code>0.05</code></td></tr></tbody></table>
+<p>The return in the last 100 episodes was higher than the overall average, but the very high crash rate and rising late-training loss show that this checkpoint is not yet reliable. Request frequency also remains substantial, so the policy has not yet demonstrated efficient communication.</p>
+<p>The Experiment 2 checkpoint is saved at <code>checkpoints/experiment_2/RequestDQN/best.pt</code>. Its training log is <code>results/experiment_2/RequestDQN/experiments/20261119_170031_request_dqn/request_dqn_training.csv</code>.</p>
+<h3 class="experiment-title">Experiment 2 validation results</h3>
+<p>Evaluation compared four policies on 200 episodes each, starting at seed <code>100000</code>, with a three-step planning horizon and communication cost <code>0.05</code>:</p>
+<pre><code>.venv/bin/python -m scripts.evaluation.evaluate_request_dqn \
+  --experiment 2 \
+  --episodes 200 \
+  --planning-horizon 3</code></pre>
+<table><thead><tr><th>Request policy</th><th>Mean return</th><th>Mean driving reward</th><th>Mean requests per episode</th><th>Crashes</th><th>Crash rate</th><th>Truncations</th></tr></thead><tbody><tr><td>DQN</td><td><code>12.326</code></td><td><code>12.556</code></td><td><code>4.615</code></td><td><code>189 / 200</code></td><td><code>94.50%</code></td><td><code>11</code></td></tr><tr><td>Ask nobody</td><td><code>11.973</code></td><td><code>11.973</code></td><td><code>0.000</code></td><td><code>186 / 200</code></td><td><code>93.00%</code></td><td><code>14</code></td></tr><tr><td>Random requests</td><td><code>7.692</code></td><td><code>8.144</code></td><td><code>9.050</code></td><td><code>199 / 200</code></td><td><code>99.50%</code></td><td><code>1</code></td></tr><tr><td>Ask all visible</td><td><code>6.855</code></td><td><code>7.705</code></td><td><code>16.985</code></td><td><code>200 / 200</code></td><td><code>100.00%</code></td><td><code>0</code></td></tr></tbody></table>
+<p>Return includes the communication penalty; driving reward excludes it. Request counts are messages sent per episode, so ask-all can send multiple messages in one step.</p>
+<p>The DQN has the highest mean return, exceeding ask-nobody by <code>0.352</code> (about <code>2.94%</code>), while sending fewer requests than random or ask-all. However, it crashes in three more episodes than ask-nobody, a difference of <code>1.5</code> percentage points. This run shows a small average return advantage, but no safety advantage from communication. Statistical uncertainty has not been quantified, so the return difference alone does not establish a reliable improvement.</p>
+<p>All four policies crash in at least 93% of episodes. The shared driving planner and World Model need investigation alongside the request policy; these results do not isolate which component causes the failures.</p>
+<p>The evaluation CSV and JSON summary are saved under <code>results/experiment_2/evaluation/request_dqn/</code>.</p>
+<h3 class="experiment-title">Experiment 2 rendering</h3>
+<p>This recording uses the Experiment 2 DQN and MLPx checkpoints, seed <code>7</code>, and the three-step planner. Playback is two frames per second, with one frame per decision plus the final scene, so the actions are easier to inspect.</p>
+<table><thead><tr><th>Metric</th><th>Result</th></tr></thead><tbody><tr><td>Steps completed</td><td><code>14 / 40</code></td></tr><tr><td>Outcome</td><td>Crashed</td></tr><tr><td>Driving reward</td><td><code>13.039</code></td></tr><tr><td>Requests sent</td><td><code>5</code></td></tr></tbody></table>
+<p>This is one illustrative episode; the 200-episode evaluation above describes overall performance.</p>
+<pre><code>SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 2 \
+  --episodes 1 \
+  --seed 7 \
+  --delay 0.01 \
+  --video-fps 2 \
+  --video docs/images/dqn_experiment_2_policy.mp4</code></pre>
+<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/dqn_experiment_2_policy.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
+<h2>Comparison across experiments</h2>
+<p>Both evaluations used 200 episodes starting at seed <code>100000</code>, a three-step planner, and communication cost <code>0.05</code>. Each experiment used its own MLPx and DQN checkpoints, so this compares the complete systems rather than isolating the DQN or the World Model.</p>
+<table><thead><tr><th>Metric</th><th>Experiment 1 DQN</th><th>Experiment 2 DQN</th></tr></thead><tbody><tr><td>Mean return</td><td><code>14.955</code></td><td><code>12.326</code></td></tr><tr><td>Mean requests per episode</td><td><code>5.040</code></td><td><code>4.615</code></td></tr><tr><td>Crash rate</td><td><code>92.00%</code></td><td><code>94.50%</code></td></tr><tr><td>Return gain over own no-request baseline</td><td><code>1.884</code></td><td><code>0.352</code></td></tr><tr><td>Crash-rate reduction versus own no-request baseline</td><td><code>7.0</code> percentage points</td><td><code>-1.5</code> percentage points</td></tr></tbody></table>
+<p>Experiment 1 currently performs better in these complete-system evaluations. Experiment 2 sends slightly fewer requests but has lower return and a higher crash rate. The larger World Model dataset has therefore not translated into better DQN-planner performance in this comparison. Further controlled runs are needed to identify the cause.</p></article></main></div></body>
 </html>

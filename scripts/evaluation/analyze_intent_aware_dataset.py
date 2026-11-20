@@ -3,21 +3,27 @@
 Run from the project root with:
 
         .venv/bin/python -m scripts.evaluation.analyze_intent_aware_dataset \
-        --input data/intent_aware_dataset.jsonl
+        --experiment 1
 """
 
 import argparse
 import json
 from collections import Counter, defaultdict
 
+from scripts.utils.experiment_utils import add_experiment_argument, experiment_data_path
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    add_experiment_argument(parser)
     parser.add_argument(
         "--input",
-        default="data/intent_aware_dataset.jsonl",
+        default=None,
     )
     args = parser.parse_args()
+    args.input = args.input or str(
+        experiment_data_path(args.experiment, "intent_aware_dataset.jsonl")
+    )
 
     records = 0
     rewards = []

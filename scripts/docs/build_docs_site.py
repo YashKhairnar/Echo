@@ -91,7 +91,13 @@ def markdown_to_html(markdown):
             flush_paragraph()
             close_list()
             level = len(heading.group(1))
-            output.append(f"<h{level}>{inline(heading.group(2))}</h{level}>")
+            heading_text = heading.group(2)
+            if re.match(r"^Experiment\s+\d+\b", heading_text):
+                output.append(
+                    f'<h{level} class="experiment-title">{inline(heading_text)}</h{level}>'
+                )
+            else:
+                output.append(f"<h{level}>{inline(heading_text)}</h{level}>")
             index += 1
             continue
 
@@ -124,7 +130,14 @@ def markdown_to_html(markdown):
             flush_paragraph()
             close_list()
             alt, source = image_match.groups()
-            output.append(f'<p><img src="{html.escape(source, quote=True)}" alt="{html.escape(alt, quote=True)}" style="max-width:100%; height:auto;"></p>')
+            if source.lower().endswith(".mp4"):
+                output.append(
+                    f'<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;">'
+                    f'<source src="{html.escape(source, quote=True)}" type="video/mp4">'
+                    f'Your browser does not support embedded video.</video></p>'
+                )
+            else:
+                output.append(f'<p><img src="{html.escape(source, quote=True)}" alt="{html.escape(alt, quote=True)}" style="max-width:100%; height:auto;"></p>')
         elif list_type and output and output[-1].endswith("</li>"):
             # Markdown bullets are often wrapped across several source lines.
             # Keep continuation lines inside the preceding list item instead
@@ -196,6 +209,7 @@ def page(title, body, current):
     main {{ width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }}
     article {{ background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }}
     h1 {{ color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; }} h2 {{ color: #29458f; margin-top: 36px; }} h3 {{ color: #344054; }}
+    .experiment-title {{ display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }}
     p {{ line-height: 1.65; }} .subtitle {{ display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }} ul, ol {{ margin: 12px 0 20px; padding-left: 28px; }} li {{ line-height: 1.45; margin: 0 0 6px; }} a {{ color: #3457d5; }} code {{ background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }}
     pre {{ background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; }} pre code {{ background: transparent; color: #f8fafc; padding: 0; }}
     table {{ width: 100%; border-collapse: collapse; margin: 18px 0; }} th, td {{ text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; }} th {{ color: #667085; }}

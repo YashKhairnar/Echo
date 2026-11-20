@@ -11,7 +11,7 @@ environments. Use ``--include-none`` to add the uninformed scenario too.
 Run from the project root with:
 
         .venv/bin/python -m scripts.data_collection.collect_intent_aware_dataset \
-        --episodes 10 --output data/intent_aware_dataset.jsonl
+        --episodes 10 --experiment 1
 """
 
 import argparse
@@ -20,11 +20,13 @@ import os
 
 from scripts.data_collection.enumerate_message_requests import jsonable, scenario_rows
 from scripts.policy.intent_aware_policy import choose_action
+from scripts.utils.experiment_utils import add_experiment_argument, experiment_data_path
 from src.cooperative_driving.environments.customEnv import CustomEnv
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    add_experiment_argument(parser)
     parser.add_argument("--episodes", type=int, default=10)
     parser.add_argument("--steps", type=int, default=None)
     parser.add_argument("--seed", type=int, default=0)
@@ -33,9 +35,12 @@ def main():
     parser.add_argument("--include-none", action="store_true")
     parser.add_argument(
         "--output",
-        default="data/intent_aware_dataset.jsonl",
+        default=None,
     )
     args = parser.parse_args()
+    args.output = args.output or str(
+        experiment_data_path(args.experiment, "intent_aware_dataset.jsonl")
+    )
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
     environment = CustomEnv()

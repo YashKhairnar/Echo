@@ -8,7 +8,7 @@ Run from the project root with:
 
         .venv/bin/python -m scripts.data_collection.collect_random_no_message_dataset \
         --episodes 1000 \
-        --output data/random_no_message_dataset.jsonl
+        --experiment 1
 """
 
 import argparse
@@ -20,6 +20,7 @@ from collections import Counter
 from scripts.data_collection.enumerate_message_requests import jsonable
 from scripts.data_collection.show_visible_neighbors import ordered_visible_ids, visible_neighbors
 from scripts.policy.exploration import FASTER, IDLE, LANE_LEFT, LANE_RIGHT, SLOWER
+from scripts.utils.experiment_utils import add_experiment_argument, experiment_data_path
 from src.cooperative_driving.environments.customEnv import CustomEnv
 
 
@@ -34,15 +35,19 @@ ACTION_NAMES = {
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    add_experiment_argument(parser)
     parser.add_argument("--episodes", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--visibility", type=float, default=60.0)
     parser.add_argument("--side-window", type=float, default=10.0)
     parser.add_argument(
         "--output",
-        default="data/random_no_message_dataset.jsonl",
+        default=None,
     )
     args = parser.parse_args()
+    args.output = args.output or str(
+        experiment_data_path(args.experiment, "random_no_message_dataset.jsonl")
+    )
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
     environment = CustomEnv()

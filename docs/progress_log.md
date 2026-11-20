@@ -6,10 +6,10 @@
 | --- | --- |
 | Environment | Four lanes, one ego, aggressive and defensive traffic, stable vehicle IDs |
 | Visibility | Up to 60 m, ego lane plus immediate left/right lanes, eight spatial slots |
-| Dataset | 26,597 merged informed and random no-message transitions |
-| World model | Simple MLPx: 116 inputs → next state and reward |
+| Dataset | Experiment 2: 223,375 merged transitions; Experiment 1: 26,597 |
+| World model | MLPx: 116 inputs → next state and reward; both experiments trained and evaluated |
 | Planner | Reward-only MLPx planner with a three-step horizon |
-| Request policy | Request DQN: eight vehicle slots plus ask-nobody |
+| Request policy | Both DQN experiments trained for 1,000 episodes and evaluated against baselines on 200 episodes |
 | Documentation | HTML site with dedicated system, data, training, rendering, and history pages |
 
 ## Active pipeline
@@ -24,15 +24,47 @@ CustomEnv
   → transition and training metrics are logged
 ```
 
-Current active artifacts:
+Latest experiment artifacts (Experiment 1 remains available for comparison):
 
-- MLPx checkpoint: `checkpoints/MLPx/best.pt`
-- Request DQN checkpoint: `checkpoints/RequestDQN/best.pt`
-- Combined dataset: `data/combined_world_model_dataset.jsonl`
-- Training logs: `results/RequestDQN/experiments/`
+- MLPx checkpoint: `checkpoints/experiment_2/MLPx/best.pt`
+- Request DQN checkpoint: `checkpoints/experiment_2/RequestDQN/best.pt`
+- Combined dataset: `data/experiment_2/combined_world_model_dataset.jsonl`
+- Training logs: `results/experiment_2/RequestDQN/experiments/`
+- Evaluation results: `results/experiment_2/evaluation/`
 - Documentation home: `docs/index.html`
 
 ## Latest milestone
+
+## 2026-11-19 — Experiment 2 training, evaluation, and intent overlays
+
+- Collected 197,553 intent-aware and 25,822 random no-message transitions
+  across 1,000 episodes per source; merged them into 223,375 records.
+- Intent-aware rollouts completed 40,000 steps without crashes, using
+  40-second episodes at one decision per second. The random source contains
+  526 crash transitions. Collection duration describes this saved run;
+  future runs use the environment configuration at execution time.
+- Trained MLPx for 50 epochs; best test loss was 0.004263 at epoch 42.
+  Three-step no-message evaluation achieved state MAE 0.0213, cumulative
+  reward MAE 0.0422, and 96.55% best-action agreement on 29 valid states.
+  All-message agreement was 68.97%; five-step tests had only 11 valid states.
+- Trained the Experiment 2 request DQN for 1,000 episodes, using its frozen
+  MLPx checkpoint and a three-step planner. Mean training return was 10.263;
+  984 episodes had the crash flag.
+- Evaluated both experiments on 200 episodes per request policy, starting
+  at seed 100000. Experiment 1 DQN achieved return 14.955 and 92% crashes,
+  versus 13.070 and 99% for asking nobody. Experiment 2 DQN achieved return
+  12.326 and 94.5% crashes, versus 11.973 and 93% for asking nobody.
+- Experiment 1 currently has better complete-system performance. Short-rollout
+  prediction metrics do not establish safety over full episodes, especially
+  because incomplete candidate rollouts are excluded by the WM evaluator.
+- Added matching MLPx and DQN training graphs for Experiment 2, yellow
+  experiment headings, and dedicated experiment sections in the docs.
+- Recorded Experiment 2 seed 7: crashed at 14/40 steps, driving reward 13.039,
+  and five requests. Its video includes the requested vehicle ID, yellow
+  circle, exact intent response, and ego action. The overlay also appears in
+  future interactive renders and recordings; no-request frames show None.
+- Next investigation: compare imagined and real outcomes near collisions,
+  including early-terminal cases, to explain the high full-episode crash rate.
 
 ## 2026-11-19 — Request DQN, rendering, and documentation polish
 
@@ -40,7 +72,7 @@ Current active artifacts:
   asks nobody. The frozen three-step MLPx planner then chooses the ego's
   driving action.
 - Added per-episode DQN logging for return, mean loss, epsilon, request count,
-  crashes, and truncations under `results/RequestDQN/experiments/`.
+  crashes, and truncations under `results/experiment_1/RequestDQN/experiments/`.
 - Added open-loop WM evaluation at three and five steps. Three-step prediction
   is more accurate and substantially cheaper than five-step planning, so the
   current planner uses a three-step horizon.
@@ -74,7 +106,7 @@ Current active artifacts:
 - Removed generated Python caches, obsolete CSV/message artifacts, old code
   snapshots, legacy DQN checkpoints, and unused request-policy/communication
   source packages.
-- Kept the active MLPx checkpoint at `checkpoints/MLPx/` and preserved older
+- Kept the active MLPx checkpoint at `checkpoints/experiment_1/MLPx/` and preserved older
   experiment results under `results/archive/`.
 
 ## 2026-11-19 — Intent-aware vehicle scenarios and dataset collection
@@ -114,7 +146,7 @@ Current active artifacts:
   samples random ego actions to collect uninformed safe and crash transitions
   for World Model training.
 - Merged the intent-aware and random no-message datasets into
-  `data/combined_world_model_dataset.jsonl` with source labels, source episode
+  `data/experiment_1/combined_world_model_dataset.jsonl` with source labels, source episode
   IDs, global episode IDs, and unique record IDs: 26,597 records total.
 
 ## Earlier chronological history
@@ -414,12 +446,12 @@ Current active artifacts:
   same-lane front/rear, and right front/beside/rear. Collectors save this
   ordering as `visible_vehicle_slots`.
 - The merged dataset contains 26,597 transitions. The trained checkpoint is
-  `checkpoints/MLPx/best.pt`.
+  `checkpoints/experiment_1/MLPx/best.pt`.
 - Held-out one-step metrics were next-state RMSE `0.0677` and reward RMSE
   `0.0828`. Open-loop evaluation gave state RMSE `0.0935` at three steps and
   `0.1201` at five steps on the random no-message sequences.
 - Older experiment outputs were consolidated under `results/archive/`.
-  The active run is `results/MLPx/experiments/20261119_110113_mlpx`.
+  The active run is `results/experiment_1/MLPx/experiments/20261119_110113_mlpx`.
 
 ## 2026-11-17 — Value-of-information rule, v2
 

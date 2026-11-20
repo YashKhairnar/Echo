@@ -13,7 +13,6 @@ import argparse
 import csv
 import random
 from collections import deque
-from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -25,6 +24,12 @@ from src.cooperative_driving.environments.customEnv import CustomEnv
 from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
 from src.cooperative_driving.planner.MCP import MCPPlanner
 from src.cooperative_driving.policies.request_dqn import RequestDQN
+from scripts.utils.experiment_utils import (
+    add_experiment_argument,
+    create_run_dir,
+    experiment_checkpoint_dir,
+    experiment_results_dir,
+)
 
 
 ASK_NOBODY = 8
@@ -101,6 +106,7 @@ def optimize(online, target, optimizer, replay, batch_size, gamma):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    add_experiment_argument(parser)
     parser.add_argument("--episodes", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--planning-horizon", type=int, default=3)
@@ -108,22 +114,25 @@ def main():
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--replay-size", type=int, default=50000)
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--output", default="checkpoints/RequestDQN/best.pt")
+    parser.add_argument("--output", default=None)
     parser.add_argument("--log-path", default=None,
-                        help="CSV path; defaults to results/RequestDQN/experiments/<timestamp>/training.csv")
+                        help="CSV path; defaults to the selected experiment's RequestDQN run folder")
     args = parser.parse_args()
 
     random.seed(args.seed); np.random.seed(args.seed); torch.manual_seed(args.seed)
-    world_model = MLPxWorldModel.load("checkpoints/MLPx/best.pt")
+    mlpx_checkpoint = experiment_checkpoint_dir(args.experiment, "MLPx") / "best.pt"
+    request_checkpoint_dir = experiment_checkpoint_dir(args.experiment, "RequestDQN")
+    world_model = MLPxWorldModel.load(mlpx_checkpoint)
     planner = None
     online = RequestDQN()
     target = RequestDQN(); target.load_state_dict(online.state_dict())
     optimizer = torch.optim.Adam(online.parameters(), lr=args.lr)
     replay = deque(maxlen=args.replay_size)
     rng = random.Random(args.seed)
-    output = Path(args.output); output.parent.mkdir(parents=True, exist_ok=True)
-    run_dir = Path("results/RequestDQN/experiments") / (datetime.now().strftime("%Y%m%d_%H%M%S") + "_request_dqn")
-    run_dir.mkdir(parents=True, exist_ok=True)
+    output = Path(args.output) if args.output else request_checkpoint_dir / "best.pt"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    run_root = experiment_results_dir(args.experiment, "RequestDQN") / "experiments"
+    run_dir = create_run_dir(run_root, "request_dqn")
     log_path = Path(args.log_path) if args.log_path else run_dir / "request_dqn_training.csv"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_file = log_path.open("w", newline="")

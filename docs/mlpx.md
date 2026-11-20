@@ -6,13 +6,12 @@ MLPx is the learned one-step world model. It predicts what happens after the ego
 
 ## Experiment status
 
-The metrics on this page are from the **first MLPx training experiment** on the
-initial merged dataset of 26,597 transitions. The checkpoint is a working
-baseline for the planner, not the final world model.
+The first MLPx training experiment used the initial merged dataset of 26,597
+transitions. Its checkpoint remains the baseline for planner comparisons.
 
-The next MLPx training phase will use more episodes and more varied traffic,
-then compare the new checkpoint against this baseline using the same held-out
-episodes and three-/five-step rollout tests.
+Experiment 2 is now the larger training run: it uses 223,375 merged
+transitions from 2,000 source episodes and is evaluated with the same
+three-/five-step rollout procedure.
 
 ## Input
 
@@ -69,6 +68,58 @@ The three-step rollout is substantially better at matching real reward:
 reward error is `0.336–0.383`, compared with `0.635–0.723` at five steps.
 It also matches the real environment's preferred action more often. This is
 why the active planner uses a three-step horizon.
+
+## Experiment 2 · Larger dataset training and evaluation
+
+**Experiment 2** trained MLPx for 50 epochs on the merged dataset from
+`data/experiment_2/combined_world_model_dataset.jsonl`:
+
+- 223,375 transitions from 2,000 source episodes.
+- The dataset combines 197,553 intent-aware records with 25,822 random
+  no-message records.
+- The best checkpoint is saved at
+  `checkpoints/experiment_2/MLPx/best.pt`.
+- Evaluation used 10 episodes and up to three sampled states per episode. Some
+  five-step cases ended early, so the number of valid five-step samples is
+  smaller.
+
+| Horizon | Message mode | Samples | State MAE | Reward MAE | Match with real best action |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 3 steps | No messages | 29 | `0.0213` | `0.0422` | `96.55%` |
+| 3 steps | All visible messages | 29 | `0.0574` | `0.1777` | `68.97%` |
+| 5 steps | No messages | 11 | `0.0385` | `0.1603` | `54.55%` |
+| 5 steps | All visible messages | 11 | `0.0749` | `0.2336` | `63.64%` |
+
+### What Experiment 2 tells us
+
+The model learns short-term public vehicle dynamics well: the three-step
+no-message rollout has low state and reward error and agrees with the real
+environment's preferred action on 28 of 29 valid samples. Prediction quality
+degrades over five steps as errors accumulate. Message-conditioned rollouts
+are also harder to predict than no-message rollouts, especially at three steps,
+which suggests that the message representation or its training coverage still
+needs improvement.
+
+These results support using a three-step planning horizon for now. They do not
+yet show that requesting messages improves planning; they show that the
+current checkpoint models the no-message behavior more accurately. The
+five-step comparison is preliminary because it contains only 11 valid samples
+per message mode.
+
+The Experiment 2 evaluation artifacts are saved under
+`results/experiment_2/evaluation/mlpx_rollout/`.
+
+Run the evaluation for a selected experiment with:
+
+```bash
+.venv/bin/python -m scripts.evaluation.evaluate_mlpx_rollout \
+  --experiment 1 \
+  --episodes 10 \
+  --states-per-episode 3
+```
+
+The CSV and JSON summary are saved under
+`results/experiment_1/evaluation/mlpx_rollout/`.
 
 ## Code
 

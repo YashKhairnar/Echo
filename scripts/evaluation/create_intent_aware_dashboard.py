@@ -16,6 +16,12 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from scripts.utils.experiment_utils import (
+    add_experiment_argument,
+    experiment_data_path,
+    experiment_results_dir,
+)
+
 
 ACTION_ORDER = [
     "LANE_LEFT",
@@ -67,16 +73,31 @@ def metric_card(label, value, detail=""):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--input", default="data/intent_aware_dataset.jsonl")
+    add_experiment_argument(parser)
+    parser.add_argument("--input", default=None)
+    parser.add_argument("--random-input", default=None)
+    parser.add_argument("--combined-input", default=None)
     parser.add_argument(
         "--output-dir",
-        default="results/intent_aware_dashboard",
+        default=None,
     )
     parser.add_argument("--actual-episodes", type=int, default=None)
     parser.add_argument("--actual-steps", type=int, default=None)
     parser.add_argument("--actual-crashes", type=int, default=None)
     parser.add_argument("--actual-truncations", type=int, default=None)
     args = parser.parse_args()
+    args.input = args.input or str(
+        experiment_data_path(args.experiment, "intent_aware_dataset.jsonl")
+    )
+    args.random_input = args.random_input or str(
+        experiment_data_path(args.experiment, "random_no_message_dataset.jsonl")
+    )
+    args.combined_input = args.combined_input or str(
+        experiment_data_path(args.experiment, "combined_world_model_dataset.jsonl")
+    )
+    args.output_dir = args.output_dir or str(
+        experiment_results_dir(args.experiment, "dataset_dashboard")
+    )
 
     records = read_dataset(args.input)
     if not records:
@@ -152,6 +173,31 @@ def main():
     )
 
     mean_reward = sum(rewards) / len(rewards)
+    source_sets = {"Intent-aware policy": records}
+    if os.path.exists(args.random_input):
+        source_sets["Random no-message"] = read_dataset(args.random_input)
+    if os.path.exists(args.combined_input):
+        source_sets["Combined World Model"] = read_dataset(args.combined_input)
+
+    source_rows = []
+    for name, source_records in source_sets.items():
+        source_rewards = [float(record["reward"]) for record in source_records]
+        source_episodes = {
+            (
+                record.get("dataset_source", name),
+                record.get("source_episode", record.get("episode")),
+            )
+            for record in source_records
+        }
+        source_crashes = sum(bool(record.get("terminated")) for record in source_records)
+        source_truncated = sum(bool(record.get("truncated")) for record in source_records)
+        source_rows.append(
+            f"<tr><td><strong>{html.escape(name)}</strong></td>"
+            f"<td>{len(source_records):,}</td><td>{len(source_episodes):,}</td>"
+            f"<td>{sum(source_rewards) / len(source_rewards):.3f}</td>"
+            f"<td>{source_crashes:,}</td><td>{source_truncated:,}</td></tr>"
+        )
+    source_comparison = "".join(source_rows)
     actual_cards = ""
     if args.actual_episodes is not None:
         actual_crash_rate = (
@@ -223,6 +269,11 @@ def main():
     {metric_card("Scenario truncations", f"{truncated:,}", f"{truncated / len(records):.2%}")}
     {metric_card("Episodes represented", f"{len(episode_counts):,}")}
     {actual_cards}
+  </div>
+  <div class="panel">
+    <h2>Dataset source comparison</h2>
+    <p class="note">The informed and random datasets are complementary sources for the combined World Model training set.</p>
+    <table><tr><th>Dataset</th><th>Records</th><th>Episodes</th><th>Mean reward</th><th>Crashes</th><th>Truncations</th></tr>{source_comparison}</table>
   </div>
   <div class="panel">
     <p class="note"><span class="safe">No scenario crashes were recorded.</span>

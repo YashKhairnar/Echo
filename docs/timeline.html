@@ -301,19 +301,29 @@
         </dl></div></details></li>
 
     <li><div class="date">Nov 19</div><div class="dot good"></div>
-      <details class="now" open><summary><span class="title">Current lesson</span><span class="badge">NOW</span>
-        <span class="line2">The pipeline works end to end · <span class="result good">next: fixed-seed evaluation against baselines</span></span></summary>
+      <details><summary><span class="title">Experiment 2: collect more data and retrain MLPx</span>
+        <span class="line2">223,375 transitions from 2,000 source episodes · <span class="result good">96.55% three-step no-message action agreement</span></span></summary>
         <div class="body"><dl>
-          <dt>Reproducibility</dt><dd>Training graphs, dedicated docs, organized scripts, and archived legacy outputs make the current pipeline easy to inspect and rerun.</dd>
-          <dt>Next</dt><dd>Evaluate the DQN-planner system against ask-nobody and rule-based baselines on fixed seeds.</dd>
+          <dt>Training</dt><dd>197,553 informed and 25,822 random no-message records. MLPx trained for 50 epochs, with best test loss 0.004263 at epoch 42.</dd>
+          <dt>Evaluation</dt><dd>Three-step no-message state MAE 0.0213 and reward MAE 0.0422 on 29 valid states. All-message agreement was 68.97%. Five-step tests had 11 valid states per mode; incomplete candidate rollouts were excluded.</dd>
+        </dl></div></details></li>
+
+    <li><div class="date">Nov 19</div><div class="dot part"></div>
+      <details class="now" open><summary><span class="title">Both DQNs evaluated: safety remains unresolved</span><span class="badge">NOW</span>
+        <span class="line2">200 episodes per policy, fixed seed range · <span class="result part">Experiment 1 outperforms Experiment 2</span></span></summary>
+        <div class="body"><dl>
+          <dt>Experiment 1</dt><dd>DQN return 14.955 and crash rate 92%, versus no-request return 13.070 and 99% crashes.</dd>
+          <dt>Experiment 2</dt><dd>After 1,000 DQN training episodes, evaluation return was 12.326 with 94.5% crashes, versus 11.973 and 93% for no requests. More WM data has not improved complete-system results in this comparison.</dd>
+          <dt>Inspection</dt><dd>Matching training graphs and an Experiment 2 video are available. The renderer now labels the requested vehicle and shows its exact intent response and the ego action on the frame.</dd>
+          <dt>Details</dt><dd><a href="dqn_policy.html">DQN results and videos</a> · <a href="training.html">Training graphs</a> · <a href="mlpx.html">World Model evaluation</a></dd>
         </dl></div></details></li>
 
     <li><div class="date">Next</div><div class="dot neutral"></div>
-      <details class="next"><summary><span class="title">Evaluate action planning with the trained WM</span>
-        <span class="line2">Compare imagined actions against real rollouts · improve long-horizon stability</span></summary>
+      <details class="next"><summary><span class="title">Investigate decisions near collisions</span>
+        <span class="line2">Compare imagined rewards and states with actual outcomes throughout episodes</span></summary>
         <div class="body"><dl>
-          <dt>Planning</dt><dd>Use predicted rewards to compare candidate ego action sequences.</dd>
-          <dt>Evaluation</dt><dd>Measure whether the action selected by the WM avoids unsafe real-environment outcomes.</dd>
+          <dt>Planning</dt><dd>Inspect the actions and messages leading up to crashes to distinguish prediction errors from reward and planning issues.</dd>
+          <dt>Evaluation</dt><dd>Include early-terminal outcomes and states sampled throughout episodes; quantify uncertainty before claiming a reliable improvement.</dd>
         </dl></div></details></li>
   </ol>
 

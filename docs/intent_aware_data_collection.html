@@ -172,7 +172,7 @@ self.vehicle_types[vehicle_id] = vehicle_type</code></pre>
     <pre><code>.venv/bin/python -m scripts.data_collection.collect_intent_aware_dataset \
     --episodes 100 \
     --include-none \
-    --output data/intent_aware_dataset.jsonl</code></pre>
+    --experiment 1</code></pre>
   </section>
 
   <section>
@@ -189,7 +189,7 @@ self.vehicle_types[vehicle_id] = vehicle_type</code></pre>
     <p><code>scripts/collect_random_no_message_dataset.py</code> collects a separate baseline in which the ego requests no vehicles and chooses a random action. It records the same transition fields, including <code>messages=None</code>, and preserves crash transitions instead of stopping data collection globally.</p>
     <pre><code>.venv/bin/python -m scripts.data_collection.collect_random_no_message_dataset \
     --episodes 1000 \
-    --output data/random_no_message_dataset.jsonl</code></pre>
+    --experiment 1</code></pre>
     <p>This dataset gives the World Model uninformed examples of both safe and unsafe actions, including the outcomes that lead to crashes.</p>
   </section>
 

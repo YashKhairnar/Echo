@@ -2,13 +2,15 @@
 
 Run from the project root with:
 
-    .venv/bin/python -m scripts.data_collection.merge_world_model_datasets
+    .venv/bin/python -m scripts.data_collection.merge_world_model_datasets --experiment 1
 """
 
 import argparse
 import json
 import os
 from collections import Counter
+
+from scripts.utils.experiment_utils import add_experiment_argument, experiment_data_path
 
 
 def read_records(path, fallback_source):
@@ -23,20 +25,30 @@ def read_records(path, fallback_source):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    add_experiment_argument(parser)
     parser.add_argument(
         "--intent",
-        default="data/intent_aware_dataset.jsonl",
+        default=None,
     )
     parser.add_argument(
         "--random",
         dest="random_dataset",
-        default="data/random_no_message_dataset.jsonl",
+        default=None,
     )
     parser.add_argument(
         "--output",
-        default="data/combined_world_model_dataset.jsonl",
+        default=None,
     )
     args = parser.parse_args()
+    args.intent = args.intent or str(
+        experiment_data_path(args.experiment, "intent_aware_dataset.jsonl")
+    )
+    args.random_dataset = args.random_dataset or str(
+        experiment_data_path(args.experiment, "random_no_message_dataset.jsonl")
+    )
+    args.output = args.output or str(
+        experiment_data_path(args.experiment, "combined_world_model_dataset.jsonl")
+    )
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
     source_counts = Counter()

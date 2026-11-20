@@ -37,7 +37,7 @@ archive as historical experiment material.
 | MLPx output | 55-value next state plus reward |
 | Planner horizon | Three steps |
 | Request DQN actions | Eight spatial request slots plus ask-nobody |
-| Active checkpoints | `checkpoints/MLPx/best.pt` and `checkpoints/RequestDQN/best.pt` |
+| Active checkpoints | `checkpoints/experiment_1/{MLPx,RequestDQN}/` |
 
 Held-out MLPx evaluation currently reports one-step next-state RMSE `0.0677`
 and reward RMSE `0.0828`. Open-loop state RMSE is `0.0935` at three steps and
@@ -58,21 +58,19 @@ crashes, so it is an active experiment rather than a final policy.
 ```bash
 # 1. Collect intent-aware transitions
 .venv/bin/python -m scripts.data_collection.collect_intent_aware_dataset \
-  --episodes 100 --include-none --visibility 60 \
-  --output data/intent_aware_dataset.jsonl
+  --episodes 100 --include-none --visibility 60 --experiment 1
 # 2. Collect random no-message transitions
 .venv/bin/python -m scripts.data_collection.collect_random_no_message_dataset \
-  --episodes 1000 --visibility 60 \
-  --output data/random_no_message_dataset.jsonl
+  --episodes 1000 --visibility 60 --experiment 1
 # 3. Merge informed and uninformed transition datasets
-.venv/bin/python -m scripts.data_collection.merge_world_model_datasets
+.venv/bin/python -m scripts.data_collection.merge_world_model_datasets --experiment 1
 # 4. Train MLPx
-.venv/bin/python -m scripts.training.train_mlpx_wm --epochs 50
+.venv/bin/python -m scripts.training.train_mlpx_wm --experiment 1 --epochs 50
 # 5. Train the request DQN with a frozen three-step MLPx planner
 .venv/bin/python -m scripts.training.train_request_dqn \
-  --episodes 1000 --planning-horizon 3 --communication-cost 0.05
+  --experiment 1 --episodes 1000 --planning-horizon 3 --communication-cost 0.05
 # 6. Render the learned request policy (default window: 1800x800)
-.venv/bin/python -m scripts.evaluation.render_request_dqn --episodes 1 --seed 42
+.venv/bin/python -m scripts.evaluation.render_request_dqn --experiment 1 --episodes 1 --seed 42
 # 7. Rebuild the HTML documentation site
 .venv/bin/python -m scripts.docs.build_docs_site
 ```

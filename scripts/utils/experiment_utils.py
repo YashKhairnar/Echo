@@ -1,7 +1,48 @@
+import argparse
 import json
 import subprocess
 from datetime import datetime
 from pathlib import Path
+
+
+def positive_experiment(value):
+    """Parse a positive experiment number for command-line arguments."""
+    number = int(value)
+    if number < 1:
+        raise argparse.ArgumentTypeError("experiment must be >= 1")
+    return number
+
+
+def add_experiment_argument(parser, default=1):
+    """Add the shared experiment-number option to a project script."""
+    parser.add_argument(
+        "--experiment",
+        type=positive_experiment,
+        default=default,
+        help="Experiment number used for data, checkpoints, and results (default: %(default)s)",
+    )
+
+
+def experiment_name(experiment):
+    """Return the canonical folder name for an experiment number."""
+    experiment = positive_experiment(experiment)
+    return f"experiment_{experiment}"
+
+
+def experiment_data_dir(experiment):
+    return Path("data") / experiment_name(experiment)
+
+
+def experiment_checkpoint_dir(experiment, component):
+    return Path("checkpoints") / experiment_name(experiment) / component
+
+
+def experiment_results_dir(experiment, component):
+    return Path("results") / experiment_name(experiment) / component
+
+
+def experiment_data_path(experiment, filename):
+    return experiment_data_dir(experiment) / filename
 
 
 def create_run_dir(root, prefix):

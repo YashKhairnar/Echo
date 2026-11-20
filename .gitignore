@@ -4,8 +4,8 @@ __pycache__/
 *.pyc
 
 # Generated datasets and experiment outputs
-data/*.csv
-data/*.jsonl
+data/**/*.csv
+data/**/*.jsonl
 results/
 checkpoints/
 

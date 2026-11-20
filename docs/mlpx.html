@@ -18,6 +18,7 @@
     main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
     article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
     h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    .experiment-title { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }
     p { line-height: 1.65; } .subtitle { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
     pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
     table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
@@ -28,8 +29,8 @@
 <p class="subtitle">Experiment 1 · Baseline world-model training</p>
 <p>MLPx is the learned one-step world model. It predicts what happens after the ego takes an action.</p>
 <h2>Experiment status</h2>
-<p>The metrics on this page are from the <strong>first MLPx training experiment</strong> on the initial merged dataset of 26,597 transitions. The checkpoint is a working baseline for the planner, not the final world model.</p>
-<p>The next MLPx training phase will use more episodes and more varied traffic, then compare the new checkpoint against this baseline using the same held-out episodes and three-/five-step rollout tests.</p>
+<p>The first MLPx training experiment used the initial merged dataset of 26,597 transitions. Its checkpoint remains the baseline for planner comparisons.</p>
+<p>Experiment 2 is now the larger training run: it uses 223,375 merged transitions from 2,000 source episodes and is evaluated with the same three-/five-step rollout procedure.</p>
 <h2>Input</h2>
 <p>The model receives 116 values:</p>
 <table><thead><tr><th>Input</th><th>Size</th><th>Meaning</th></tr></thead><tbody><tr><td>Current state</td><td>55</td><td>11 observation rows × 5 kinematic features</td></tr><tr><td>Ego action</td><td>5</td><td>One-hot action: <code>LANE_LEFT</code>, <code>IDLE</code>, <code>LANE_RIGHT</code>, <code>FASTER</code>, <code>SLOWER</code></td></tr><tr><td>Messages</td><td>56</td><td>8 spatial slots × 7 message features</td></tr></tbody></table>
@@ -55,6 +56,25 @@ right-front, right-beside, right-rear</code></pre>
 </ul>
 <table><thead><tr><th>Horizon</th><th>Message mode</th><th>State MAE</th><th>Reward MAE</th><th>Match with real best action</th></tr></thead><tbody><tr><td>3 steps</td><td>No messages</td><td><code>0.229</code></td><td><code>0.336</code></td><td><code>66.7%</code> (<code>8/12</code>)</td></tr><tr><td>3 steps</td><td>All visible messages</td><td><code>0.245</code></td><td><code>0.383</code></td><td><code>42.9%</code> (<code>6/14</code>)</td></tr><tr><td>5 steps</td><td>No messages</td><td><code>0.238</code></td><td><code>0.723</code></td><td><code>23.1%</code> (<code>3/13</code>)</td></tr><tr><td>5 steps</td><td>All visible messages</td><td><code>0.377</code></td><td><code>0.635</code></td><td><code>23.1%</code> (<code>3/13</code>)</td></tr></tbody></table>
 <p>The three-step rollout is substantially better at matching real reward: reward error is <code>0.336–0.383</code>, compared with <code>0.635–0.723</code> at five steps. It also matches the real environment's preferred action more often. This is why the active planner uses a three-step horizon.</p>
+<h2 class="experiment-title">Experiment 2 · Larger dataset training and evaluation</h2>
+<p><strong>Experiment 2</strong> trained MLPx for 50 epochs on the merged dataset from <code>data/experiment_2/combined_world_model_dataset.jsonl</code>:</p>
+<ul>
+<li>223,375 transitions from 2,000 source episodes.</li>
+<li>The dataset combines 197,553 intent-aware records with 25,822 random no-message records.</li>
+<li>The best checkpoint is saved at <code>checkpoints/experiment_2/MLPx/best.pt</code>.</li>
+<li>Evaluation used 10 episodes and up to three sampled states per episode. Some five-step cases ended early, so the number of valid five-step samples is smaller.</li>
+</ul>
+<table><thead><tr><th>Horizon</th><th>Message mode</th><th>Samples</th><th>State MAE</th><th>Reward MAE</th><th>Match with real best action</th></tr></thead><tbody><tr><td>3 steps</td><td>No messages</td><td>29</td><td><code>0.0213</code></td><td><code>0.0422</code></td><td><code>96.55%</code></td></tr><tr><td>3 steps</td><td>All visible messages</td><td>29</td><td><code>0.0574</code></td><td><code>0.1777</code></td><td><code>68.97%</code></td></tr><tr><td>5 steps</td><td>No messages</td><td>11</td><td><code>0.0385</code></td><td><code>0.1603</code></td><td><code>54.55%</code></td></tr><tr><td>5 steps</td><td>All visible messages</td><td>11</td><td><code>0.0749</code></td><td><code>0.2336</code></td><td><code>63.64%</code></td></tr></tbody></table>
+<h3>What Experiment 2 tells us</h3>
+<p>The model learns short-term public vehicle dynamics well: the three-step no-message rollout has low state and reward error and agrees with the real environment's preferred action on 28 of 29 valid samples. Prediction quality degrades over five steps as errors accumulate. Message-conditioned rollouts are also harder to predict than no-message rollouts, especially at three steps, which suggests that the message representation or its training coverage still needs improvement.</p>
+<p>These results support using a three-step planning horizon for now. They do not yet show that requesting messages improves planning; they show that the current checkpoint models the no-message behavior more accurately. The five-step comparison is preliminary because it contains only 11 valid samples per message mode.</p>
+<p>The Experiment 2 evaluation artifacts are saved under <code>results/experiment_2/evaluation/mlpx_rollout/</code>.</p>
+<p>Run the evaluation for a selected experiment with:</p>
+<pre><code>.venv/bin/python -m scripts.evaluation.evaluate_mlpx_rollout \
+  --experiment 1 \
+  --episodes 10 \
+  --states-per-episode 3</code></pre>
+<p>The CSV and JSON summary are saved under <code>results/experiment_1/evaluation/mlpx_rollout/</code>.</p>
 <h2>Code</h2>
 <p>The implementation is in <code>src/cooperative_driving/models/MLPx/mlpx.py</code>. Its main methods are <code>forward</code>, <code>predict_step</code>, <code>predict_batch</code>, and <code>load</code>.</p></article></main></div></body>
 </html>

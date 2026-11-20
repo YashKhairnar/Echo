@@ -18,6 +18,7 @@
     main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
     article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
     h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    .experiment-title { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }
     p { line-height: 1.65; } .subtitle { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
     pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
     table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
@@ -28,11 +29,12 @@
 <p>The rendering script shows the trained Request DQN and the frozen three-step MLPx planner driving the HighwayEnv scene.</p>
 <h2>Run the renderer</h2>
 <pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 1 \
   --episodes 1 \
   --delay 0.15 \
-  --width 1400 \
-  --height 600</code></pre>
-<p>The default window is now larger than the original HighwayEnv view. You can customize it:</p>
+  --width 1800 \
+  --height 800</code></pre>
+<p>The default window is <code>1800x800</code> with scaling <code>6.0</code>. You can customize it:</p>
 <pre><code>--width 1800 --height 700 --scaling 5.5</code></pre>
 <h2>What the display shows</h2>
 <ul>
@@ -42,10 +44,35 @@
 <li>Yellow: IDM vehicle</li>
 <li>Red: any vehicle involved in a crash</li>
 <li>Yellow circle: the vehicle whose message was requested during that step</li>
+<li>Yellow ID label: identifies the requested vehicle on the road</li>
 </ul>
-<p>The terminal also prints the visible vehicle count, requested vehicle ID, and ego action selected by the planner.</p>
+<p>The top overlay shows the episode, step, ego action, and requested vehicle ID. It displays the exact response supplied to the planner: behavior type, target lane (zero-based), target speed in m/s, acceleration in m/s², steering in radians, and the crash flag. These are previewed intentions at request time. When the ego asks nobody, it shows <code>Request: nobody</code> and <code>Response: None</code>. The terminal frame displays the episode outcome and the last request/response.</p>
+<p>The overlay is included in both the interactive window and saved videos.</p>
+<p>The terminal also prints the visible vehicle count, requested vehicle ID, and ego action selected by the planner. At the end of each episode it prints the completed step count, whether the ego crashed or drove to the episode limit, total reward, and total requests sent.</p>
+<p>To record an MP4 for the documentation or later inspection, pass <code>--video</code>:</p>
+<pre><code>SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 1 \
+  --episodes 1 \
+  --seed 7 \
+  --video docs/images/dqn_experiment_1_policy.mp4</code></pre>
+<h2 class="experiment-title">Experiment 2 · Rendering and recording</h2>
+<p>Select Experiment 2 to load its DQN and MLPx checkpoints:</p>
+<pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 2 --episodes 1 --seed 7 --delay 0.15</code></pre>
+<p>Record the episode with its request/response overlay:</p>
+<pre><code>SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 2 \
+  --episodes 1 \
+  --seed 7 \
+  --delay 0.01 \
+  --video-fps 2 \
+  --video docs/images/dqn_experiment_2_policy.mp4</code></pre>
+<p>The recording saves one frame per decision plus the terminal scene. At two frames per second, playback advances two decisions per second; it is not a continuous recording of the simulation's intermediate physics frames. The default recording rate is eight frames per second unless overridden.</p>
+<p>Seed 7 completed 14/40 steps before crashing, with driving reward 13.039 and five requests. See the <a href="dqn_policy.html">DQN policy page</a> for the embedded video and the full evaluation results. The seed controls the initial scene; use a different <code>--seed</code> value to inspect a different episode.</p>
+<h2>Terminal-only rendering check</h2>
 <p>For a terminal-only smoke test:</p>
 <pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 1 \
   --episodes 1 \
   --no-render</code></pre></article></main></div></body>
 </html>

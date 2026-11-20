@@ -2,8 +2,9 @@
 
     .venv/bin/python -m scripts.training.train_mlpx_wm --epochs 50
 
-Saves the best model (lowest test loss) to checkpoints/MLPx/best.pt and the
-run's log and plots to results/MLPx/experiments/<time>_mlpx/.
+Saves the best model (lowest test loss) to
+checkpoints/experiment_N/MLPx/best.pt and the run's log and plots to
+results/experiment_N/MLPx/experiments/<time>_mlpx/.
 """
 
 import argparse
@@ -18,11 +19,16 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader, Subset
 
 from data.combined_world_model import CombinedWorldModelDataset
-from scripts.utils.experiment_utils import create_run_dir, save_run_metadata
+from scripts.utils.experiment_utils import (
+    add_experiment_argument,
+    create_run_dir,
+    experiment_checkpoint_dir,
+    experiment_data_path,
+    experiment_results_dir,
+    save_run_metadata,
+)
 from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
 
-RESULTS_ROOT = Path("results/MLPx/experiments")
-CHECKPOINT_DIR = Path("checkpoints/MLPx")
 LOG_FIELDS = ["epoch", "train_loss", "test_loss", "state_loss", "reward_loss"]
 
 
@@ -70,11 +76,19 @@ def save_plot(log_path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--data", default="data/combined_world_model_dataset.jsonl")
+    add_experiment_argument(parser)
+    parser.add_argument("--data", default=None)
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--lr", type=float, default=1e-3)
     args = parser.parse_args()
+
+    if args.data is None:
+        args.data = str(
+            experiment_data_path(args.experiment, "combined_world_model_dataset.jsonl")
+        )
+    results_root = experiment_results_dir(args.experiment, "MLPx") / "experiments"
+    checkpoint_dir = experiment_checkpoint_dir(args.experiment, "MLPx")
 
     dataset = CombinedWorldModelDataset(args.data)
     groups = sorted(set(dataset.groups), key=str)
@@ -86,8 +100,8 @@ def main():
     train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(test_data, batch_size=args.batch_size)
 
-    run_dir = create_run_dir(RESULTS_ROOT, "mlpx")
-    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+    run_dir = create_run_dir(results_root, "mlpx")
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
     save_run_metadata(run_dir, {"model": "MLPx (per-vehicle)", **vars(args)})
 
     model = MLPxWorldModel()
@@ -123,7 +137,7 @@ def main():
             if metrics["test_loss"] < best_test_loss:
                 best_test_loss = metrics["test_loss"]
                 torch.save(checkpoint, run_dir / "best.pt")
-                torch.save(checkpoint, CHECKPOINT_DIR / "best.pt")
+                torch.save(checkpoint, checkpoint_dir / "best.pt")
 
     save_plot(log_path)
     print(f"Saved run to {run_dir}")

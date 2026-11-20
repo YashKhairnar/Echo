@@ -18,6 +18,7 @@
     main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
     article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
     h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    .experiment-title { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }
     p { line-height: 1.65; } .subtitle { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
     pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
     table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
@@ -26,7 +27,7 @@
 </head>
 <body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a class="active" href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Project Progress Log</h1>
 <h2>Current snapshot</h2>
-<table><thead><tr><th>Area</th><th>Current state</th></tr></thead><tbody><tr><td>Environment</td><td>Four lanes, one ego, aggressive and defensive traffic, stable vehicle IDs</td></tr><tr><td>Visibility</td><td>Up to 60 m, ego lane plus immediate left/right lanes, eight spatial slots</td></tr><tr><td>Dataset</td><td>26,597 merged informed and random no-message transitions</td></tr><tr><td>World model</td><td>Simple MLPx: 116 inputs → next state and reward</td></tr><tr><td>Planner</td><td>Reward-only MLPx planner with a three-step horizon</td></tr><tr><td>Request policy</td><td>Request DQN: eight vehicle slots plus ask-nobody</td></tr><tr><td>Documentation</td><td>HTML site with dedicated system, data, training, rendering, and history pages</td></tr></tbody></table>
+<table><thead><tr><th>Area</th><th>Current state</th></tr></thead><tbody><tr><td>Environment</td><td>Four lanes, one ego, aggressive and defensive traffic, stable vehicle IDs</td></tr><tr><td>Visibility</td><td>Up to 60 m, ego lane plus immediate left/right lanes, eight spatial slots</td></tr><tr><td>Dataset</td><td>Experiment 2: 223,375 merged transitions; Experiment 1: 26,597</td></tr><tr><td>World model</td><td>MLPx: 116 inputs → next state and reward; both experiments trained and evaluated</td></tr><tr><td>Planner</td><td>Reward-only MLPx planner with a three-step horizon</td></tr><tr><td>Request policy</td><td>Both DQN experiments trained for 1,000 episodes and evaluated against baselines on 200 episodes</td></tr><tr><td>Documentation</td><td>HTML site with dedicated system, data, training, rendering, and history pages</td></tr></tbody></table>
 <h2>Active pipeline</h2>
 <pre><code>CustomEnv
   → visible spatial neighbor slots
@@ -35,19 +36,32 @@
   → MLPx imagines three-step ego action outcomes
   → HighwayEnv executes the selected ego action
   → transition and training metrics are logged</code></pre>
-<p>Current active artifacts:</p>
+<p>Latest experiment artifacts (Experiment 1 remains available for comparison):</p>
 <ul>
-<li>MLPx checkpoint: <code>checkpoints/MLPx/best.pt</code></li>
-<li>Request DQN checkpoint: <code>checkpoints/RequestDQN/best.pt</code></li>
-<li>Combined dataset: <code>data/combined_world_model_dataset.jsonl</code></li>
-<li>Training logs: <code>results/RequestDQN/experiments/</code></li>
+<li>MLPx checkpoint: <code>checkpoints/experiment_2/MLPx/best.pt</code></li>
+<li>Request DQN checkpoint: <code>checkpoints/experiment_2/RequestDQN/best.pt</code></li>
+<li>Combined dataset: <code>data/experiment_2/combined_world_model_dataset.jsonl</code></li>
+<li>Training logs: <code>results/experiment_2/RequestDQN/experiments/</code></li>
+<li>Evaluation results: <code>results/experiment_2/evaluation/</code></li>
 <li>Documentation home: <code>docs/index.html</code></li>
 </ul>
 <h2>Latest milestone</h2>
+<h2>2026-11-19 — Experiment 2 training, evaluation, and intent overlays</h2>
+<ul>
+<li>Collected 197,553 intent-aware and 25,822 random no-message transitions across 1,000 episodes per source; merged them into 223,375 records.</li>
+<li>Intent-aware rollouts completed 40,000 steps without crashes, using 40-second episodes at one decision per second. The random source contains 526 crash transitions. Collection duration describes this saved run; future runs use the environment configuration at execution time.</li>
+<li>Trained MLPx for 50 epochs; best test loss was 0.004263 at epoch 42. Three-step no-message evaluation achieved state MAE 0.0213, cumulative reward MAE 0.0422, and 96.55% best-action agreement on 29 valid states. All-message agreement was 68.97%; five-step tests had only 11 valid states.</li>
+<li>Trained the Experiment 2 request DQN for 1,000 episodes, using its frozen MLPx checkpoint and a three-step planner. Mean training return was 10.263; 984 episodes had the crash flag.</li>
+<li>Evaluated both experiments on 200 episodes per request policy, starting at seed 100000. Experiment 1 DQN achieved return 14.955 and 92% crashes, versus 13.070 and 99% for asking nobody. Experiment 2 DQN achieved return 12.326 and 94.5% crashes, versus 11.973 and 93% for asking nobody.</li>
+<li>Experiment 1 currently has better complete-system performance. Short-rollout prediction metrics do not establish safety over full episodes, especially because incomplete candidate rollouts are excluded by the WM evaluator.</li>
+<li>Added matching MLPx and DQN training graphs for Experiment 2, yellow experiment headings, and dedicated experiment sections in the docs.</li>
+<li>Recorded Experiment 2 seed 7: crashed at 14/40 steps, driving reward 13.039, and five requests. Its video includes the requested vehicle ID, yellow circle, exact intent response, and ego action. The overlay also appears in future interactive renders and recordings; no-request frames show None.</li>
+<li>Next investigation: compare imagined and real outcomes near collisions, including early-terminal cases, to explain the high full-episode crash rate.</li>
+</ul>
 <h2>2026-11-19 — Request DQN, rendering, and documentation polish</h2>
 <ul>
 <li>Added a Request DQN that chooses among eight ordered spatial request slots or asks nobody. The frozen three-step MLPx planner then chooses the ego's driving action.</li>
-<li>Added per-episode DQN logging for return, mean loss, epsilon, request count, crashes, and truncations under <code>results/RequestDQN/experiments/</code>.</li>
+<li>Added per-episode DQN logging for return, mean loss, epsilon, request count, crashes, and truncations under <code>results/experiment_1/RequestDQN/experiments/</code>.</li>
 <li>Added open-loop WM evaluation at three and five steps. Three-step prediction is more accurate and substantially cheaper than five-step planning, so the current planner uses a three-step horizon.</li>
 <li>Added a larger policy renderer with configurable <code>--width</code>, <code>--height</code>, and <code>--scaling</code> options. The renderer shows the ego in green, aggressive cars in orange, defensive cars in blue, IDM cars in yellow, and crashed vehicles in red. Requested vehicles are circled in yellow.</li>
 <li>Added MLPx and Request DQN training graphs to the HTML Training page.</li>
@@ -64,7 +78,7 @@
 <ul>
 <li>Kept only the active four-lane environment, custom vehicles, MLPx model, reward-only planner, intent-aware data collectors, dataset adapter, and documentation tooling.</li>
 <li>Removed generated Python caches, obsolete CSV/message artifacts, old code snapshots, legacy DQN checkpoints, and unused request-policy/communication source packages.</li>
-<li>Kept the active MLPx checkpoint at <code>checkpoints/MLPx/</code> and preserved older experiment results under <code>results/archive/</code>.</li>
+<li>Kept the active MLPx checkpoint at <code>checkpoints/experiment_1/MLPx/</code> and preserved older experiment results under <code>results/archive/</code>.</li>
 </ul>
 <h2>2026-11-19 — Intent-aware vehicle scenarios and dataset collection</h2>
 <ul>
@@ -82,7 +96,7 @@
 <li>Staggered background lead vehicles by lane so the safe escape direction can vary and the dataset includes natural left-lane and right-lane examples.</li>
 <li>Randomized the lane-to-lead-offset assignment on every reset after the first dataset remained biased toward <code>LANE_LEFT</code>.</li>
 <li>Added <code>collect_random_no_message_dataset.py</code>, which requests no vehicles and samples random ego actions to collect uninformed safe and crash transitions for World Model training.</li>
-<li>Merged the intent-aware and random no-message datasets into <code>data/combined_world_model_dataset.jsonl</code> with source labels, source episode IDs, global episode IDs, and unique record IDs: 26,597 records total.</li>
+<li>Merged the intent-aware and random no-message datasets into <code>data/experiment_1/combined_world_model_dataset.jsonl</code> with source labels, source episode IDs, global episode IDs, and unique record IDs: 26,597 records total.</li>
 </ul>
 <h2>Earlier chronological history</h2>
 <h2>2026-11-05</h2>
@@ -246,9 +260,9 @@
 <li>Replaced the previous world-model implementation with a simple MLP in <code>src/cooperative_driving/models/MLPx/mlpx.py</code>.</li>
 <li>The model receives 116 values: 55 state values, a five-value one-hot ego action, and eight seven-value message slots. It predicts only the 55-value next state and the next reward; crash heads are not used.</li>
 <li>Message slots now follow a fixed spatial order: left front/beside/rear, same-lane front/rear, and right front/beside/rear. Collectors save this ordering as <code>visible_vehicle_slots</code>.</li>
-<li>The merged dataset contains 26,597 transitions. The trained checkpoint is <code>checkpoints/MLPx/best.pt</code>.</li>
+<li>The merged dataset contains 26,597 transitions. The trained checkpoint is <code>checkpoints/experiment_1/MLPx/best.pt</code>.</li>
 <li>Held-out one-step metrics were next-state RMSE <code>0.0677</code> and reward RMSE <code>0.0828</code>. Open-loop evaluation gave state RMSE <code>0.0935</code> at three steps and <code>0.1201</code> at five steps on the random no-message sequences.</li>
-<li>Older experiment outputs were consolidated under <code>results/archive/</code>. The active run is <code>results/MLPx/experiments/20261119_110113_mlpx</code>.</li>
+<li>Older experiment outputs were consolidated under <code>results/archive/</code>. The active run is <code>results/experiment_1/MLPx/experiments/20261119_110113_mlpx</code>.</li>
 </ul>
 <h2>2026-11-17 — Value-of-information rule, v2</h2>
 <ul>

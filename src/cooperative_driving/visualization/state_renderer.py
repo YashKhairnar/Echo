@@ -37,6 +37,14 @@ EGO_COLOR = (50, 200, 0)       # same green as the real render
 OTHER_COLOR = (160, 160, 160)  # type is unknown from the state
 
 
+class DrawnVehicle(Vehicle):
+    """A plain vehicle for drawing only.
+
+    HighwayEnv draws tyres on objects whose type is exactly ``Vehicle``, but
+    not on the real traffic vehicles. A subclass keeps the two images alike.
+    """
+
+
 def y_range(lanes_count):
     """The y range scales with the number of lanes next to the ego."""
     return AbstractLane.DEFAULT_WIDTH * lanes_count
@@ -84,7 +92,7 @@ class StateRenderer:
         for index, item in enumerate(decode_state(state, self.lanes_count)):
             speed = math.hypot(item["vx"], item["vy"])
             heading = math.atan2(item["vy"], item["vx"]) if speed > 0.1 else 0.0
-            vehicle = Vehicle(road, [item["x"], item["y"]], heading, speed)
+            vehicle = DrawnVehicle(road, [item["x"], item["y"]], heading, speed)
             vehicle.color = EGO_COLOR if index == 0 else OTHER_COLOR
             vehicles.append(vehicle)
         road.vehicles = vehicles

@@ -6,9 +6,12 @@ Uses data/experiment_N/frame_dataset.npz from collect_frame_dataset. Every
 fifth episode is held out for testing. Vehicles cover only a few percent of
 the pixels, so vehicle pixels get a higher weight in the loss.
 
+``--architecture vehicle`` (default) trains the per-vehicle StateDecoder;
+``--architecture mlp_deconv`` trains the MLP baseline.
+
 Saves the model with the best test vehicle-pixel IoU to
-checkpoints/experiment_N/StateDecoder/best.pt and the run log to
-results/experiment_N/StateDecoder/experiments/<time>_state_decoder/.
+checkpoints/experiment_N/StateDecoder/best.pt (baseline: mlp_deconv_best.pt)
+and the run log to results/experiment_N/StateDecoder/experiments/.
 """
 
 import argparse
@@ -27,7 +30,7 @@ from scripts.utils.experiment_utils import (
     experiment_results_dir,
     save_run_metadata,
 )
-from src.cooperative_driving.models.decoder import StateDecoder
+from src.cooperative_driving.models.decoder import ARCHITECTURES
 from src.cooperative_driving.visualization.frames import ROAD_GREY
 
 LOG_FIELDS = ["epoch", "train_loss", "test_loss", "test_vehicle_iou", "test_mae"]
@@ -76,7 +79,8 @@ def main():
     add_experiment_argument(parser)
     parser.add_argument("--data", default=None)
     parser.add_argument("--epochs", type=int, default=30)
-    parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--architecture", choices=sorted(ARCHITECTURES), default="vehicle")
+    parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--vehicle-weight", type=float, default=20.0)
     parser.add_argument("--seed", type=int, default=0)
@@ -95,13 +99,15 @@ def main():
     test_loader = DataLoader(TensorDataset(states[test_indices], frames[test_indices]), batch_size=256)
     print(f"Train frames: {len(train_indices)} | test frames: {len(test_indices)} | device: {device}")
 
-    run_dir = create_run_dir(experiment_results_dir(args.experiment, "StateDecoder") / "experiments", "state_decoder")
+    run_dir = create_run_dir(experiment_results_dir(args.experiment, "StateDecoder") / "experiments",
+                             f"state_decoder_{args.architecture}")
     checkpoint_dir = experiment_checkpoint_dir(args.experiment, "StateDecoder")
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    best_name = "best.pt" if args.architecture == "vehicle" else f"{args.architecture}_best.pt"
     save_run_metadata(run_dir, {"model": "StateDecoder", **vars(args), "device": device,
                                 "train_frames": len(train_indices), "test_frames": len(test_indices)})
 
-    model = StateDecoder().to(device)
+    model = ARCHITECTURES[args.architecture]().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
     best_iou = -1.0
@@ -130,13 +136,14 @@ def main():
                   f"MAE={metrics['test_mae']:.2f}", flush=True)
 
             checkpoint = {"epoch": epoch, "model_state_dict": model.to("cpu").state_dict(),
-                          "model_kwargs": {}, "data": args.data, "run_dir": str(run_dir), **metrics}
+                          "architecture": args.architecture, "model_kwargs": {},
+                          "data": args.data, "run_dir": str(run_dir), **metrics}
             model.to(device)
             torch.save(checkpoint, run_dir / "latest.pt")
             if metrics["test_vehicle_iou"] > best_iou:
                 best_iou = metrics["test_vehicle_iou"]
                 torch.save(checkpoint, run_dir / "best.pt")
-                torch.save(checkpoint, checkpoint_dir / "best.pt")
+                torch.save(checkpoint, checkpoint_dir / best_name)
 
     print(f"Best test vehicle IoU: {best_iou:.3f}. Saved run to {run_dir}")
 

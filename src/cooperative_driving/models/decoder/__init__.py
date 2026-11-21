@@ -1,3 +1,3 @@
-from .state_decoder import StateDecoder
+from .state_decoder import ARCHITECTURES, MLPDeconvDecoder, StateDecoder, load_decoder
 
-__all__ = ["StateDecoder"]
+__all__ = ["ARCHITECTURES", "MLPDeconvDecoder", "StateDecoder", "load_decoder"]

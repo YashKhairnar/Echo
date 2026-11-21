@@ -22,30 +22,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from ...visualization.frames import FRAME_HEIGHT, FRAME_SCALING, FRAME_WIDTH
-from ...visualization.state_renderer import X_RANGE, y_range
+from ...visualization.frames import (
+    CAR_LENGTH, CAR_WIDTH, FRAME_HEIGHT, FRAME_WIDTH, LANE_WIDTH, STATE_X_RANGE, STATE_Y_RANGE,
+    pixel_offsets_m,
+)
+from ...visualization.state_renderer import FEATURES, ROWS
 
-STATE_SIZE = 55
-ROWS, FEATURES = 11, 5  # presence, x, y, vx, vy
+STATE_SIZE = ROWS * FEATURES
 HEIGHT, WIDTH = FRAME_HEIGHT, FRAME_WIDTH
-Y_RANGE = y_range(4)                # CustomEnv has four lanes
-CAMERA_CENTER = (0.3, 0.5)          # HighwayEnv "centering_position" default
-CAR_LENGTH, CAR_WIDTH = 5.0, 2.0    # [m]
-LANE_WIDTH = 4.0                    # [m]
-
-
-def pixel_offsets_m(grid_h, grid_w):
-    """(P, 2) position of each grid cell centre relative to the ego, in metres."""
-    pixel_size = (WIDTH / grid_w) / FRAME_SCALING  # metres per grid cell
-    columns = (torch.arange(grid_w) + 0.5) * pixel_size - CAMERA_CENTER[0] * WIDTH / FRAME_SCALING
-    rows = (torch.arange(grid_h) + 0.5) * pixel_size - CAMERA_CENTER[1] * HEIGHT / FRAME_SCALING
-    ys, xs = torch.meshgrid(rows, columns, indexing="ij")
-    return torch.stack((xs, ys), dim=-1).reshape(-1, 2)
-
-
-def offsets_scale(states):
-    """Divide car-to-pixel offsets by the car size, so a car spans about 1."""
-    return states.new_tensor([CAR_LENGTH, CAR_WIDTH])
 
 
 class _FrameDecoder(nn.Module):
@@ -77,7 +61,7 @@ class _FrameDecoder(nn.Module):
 
     @staticmethod
     def load(path):
-        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+        checkpoint = torch.load(path, map_location="cpu", weights_only=True)
         model_class = ARCHITECTURES[checkpoint.get("architecture", "mlp_deconv")]
         model = model_class(**checkpoint.get("model_kwargs", {}))
         model.load_state_dict(checkpoint["model_state_dict"])
@@ -91,7 +75,10 @@ class StateDecoder(_FrameDecoder):
 
     def __init__(self, hidden=32, features=16):
         super().__init__()
-        self.register_buffer("pixels_m", pixel_offsets_m(*self.GRID))  # (P, 2)
+        # Camera geometry is computed, not learned: keep it out of checkpoints.
+        self.register_buffer("pixels_m", torch.from_numpy(pixel_offsets_m(*self.GRID)), persistent=False)
+        self.register_buffer("car_size", torch.tensor([CAR_LENGTH, CAR_WIDTH]), persistent=False)
+        self.register_buffer("state_scale", torch.tensor([STATE_X_RANGE, STATE_Y_RANGE]), persistent=False)
         # Per (vehicle, pixel): offset in car lengths/widths, velocity, is_ego.
         self.vehicle_mlp = nn.Sequential(
             nn.Linear(5, hidden), nn.ReLU(),
@@ -109,14 +96,18 @@ class StateDecoder(_FrameDecoder):
             nn.Conv2d(16, 1, 3, padding=1),
         )
 
-    @staticmethod
-    def vehicle_inputs(states):
+    def vehicle_inputs(self, states):
         """(batch, 55) -> positions [m] rel. to ego (B, 11, 2), velocities (B, 11, 2),
-        is_ego (B, 11, 1), present (B, 11, 1)."""
+        is_ego (B, 11, 1), present (B, 11, 1).
+
+        ``present`` is the state's presence value. Real states have 0 or 1;
+        a world-model prediction can be in between, and the forward pass
+        treats more than 0.5 as present.
+        """
         rows = states.reshape(-1, ROWS, FEATURES)
         present = rows[..., :1].clone()
         present[:, 0] = 1.0
-        positions = rows[..., 1:3] * rows.new_tensor([X_RANGE, Y_RANGE])
+        positions = rows[..., 1:3] * self.state_scale
         positions[:, 0] = 0.0  # the camera follows the ego
         velocities = rows[..., 3:5].clone()
         velocities[:, 1:] += velocities[:, :1]  # others are relative to the ego
@@ -128,7 +119,8 @@ class StateDecoder(_FrameDecoder):
         """states: (batch, 55) -> pixel logits (batch, 1, 64, 256)."""
         batch, pixels = states.shape[0], self.pixels_m.shape[0]
         positions, velocities, is_ego, present = self.vehicle_inputs(states)
-        offsets = (self.pixels_m[None, None] - positions[:, :, None]) / offsets_scale(states)
+        # Car-to-pixel offset in car lengths and widths, so a car spans about 1.
+        offsets = (self.pixels_m[None, None] - positions[:, :, None]) / self.car_size
         per_vehicle = torch.cat((
             offsets,                                                   # (B, 11, P, 2)
             velocities[:, :, None].expand(-1, -1, pixels, -1),
@@ -137,7 +129,7 @@ class StateDecoder(_FrameDecoder):
         vehicle_features = self.vehicle_mlp(per_vehicle) * (present[:, :, None] > 0.5)
         vehicle_features = vehicle_features.max(dim=1).values          # (B, P, F)
 
-        ego_y = states.reshape(-1, ROWS, FEATURES)[:, 0, 2:3] * Y_RANGE  # (B, 1) [m]
+        ego_y = states.reshape(-1, ROWS, FEATURES)[:, 0, 2:3] * STATE_Y_RANGE  # (B, 1) [m]
         road_y = (ego_y + self.pixels_m[None, :, 1]) / LANE_WIDTH         # (B, P)
         road = self.road_mlp(road_y[..., None])                          # (B, P, F)
 

@@ -1,14 +1,16 @@
 """Compare the drawn frame and the learned decoder against the real frame.
 
-For each held-out state (every fifth episode of the frame dataset):
+For each test state (episode % 5 == 0; not used for training or for picking
+the best training round):
 - real:     the grayscale render saved by collect_frame_dataset;
 - drawn:    StateRenderer, which draws the state directly (no training);
 - baseline: MLPDeconvDecoder, the MLP + transposed-conv decoder;
 - decoded:  StateDecoder, the per-vehicle learned decoder.
 
-Metrics: vehicle-pixel IoU against the real frame (colour ignored, lane-line
-rows left out; the IoU with those rows is reported too), mean absolute gray
-error (MAE, 0-255) and time per frame. Saves the metrics as JSON and an example
+Metrics: vehicle-pixel IoU against the real frame (colour ignored; lane-line
+rows are left out except near the cars of the real state, see
+frames.vehicle_mask; the IoU with all lane-line rows is reported too), mean
+absolute gray error (MAE, 0-255) and time per frame. Saves the metrics as JSON and an example
 image (rows: real, drawn, baseline, decoded). A missing baseline checkpoint
 is skipped.
 
@@ -75,7 +77,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     data = np.load(data_path)
-    _, test_indices = split_by_episode(data["episodes"])
+    _, _, test_indices = split_by_episode(data["episodes"])
     decoders = {name: load_decoder(path) for name, path in checkpoints.items() if path.exists()}
     renderer = StateRenderer(FRAME_WIDTH, FRAME_HEIGHT, FRAME_SCALING)
 
@@ -98,8 +100,7 @@ def main():
     for name in names:
         ious, ious_all_rows, maes = [], [], []
         for state, real, image in zip(states, real_frames, predicted[name]):
-            ego_y = state[2]
-            ious.append(iou(vehicle_mask(real, ego_y), vehicle_mask(image, ego_y)))
+            ious.append(iou(vehicle_mask(real, state), vehicle_mask(image, state)))
             ious_all_rows.append(iou(vehicle_mask(real), vehicle_mask(image)))
             maes.append(float(np.abs(image.astype(int) - real.astype(int)).mean()))
         results[name] = {

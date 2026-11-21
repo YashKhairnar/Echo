@@ -14,7 +14,10 @@ Limits of the state, and so of the drawing:
   moving, but vehicle positions relative to the ego stay correct.
 - The state has no vehicle type and no crash flag, so other vehicles all get
   one neutral colour.
-- The heading is not in the state; it is computed from vx and vy.
+- The heading is not in the state; it is computed from vx and vy. HighwayEnv
+  sets velocity = speed x heading direction, so this is exact for moving
+  cars. A car with speed 0.1 m/s or less (often a crashed car) is drawn with
+  heading 0, and a car with negative speed is drawn turned by 180 degrees.
 """
 
 import math

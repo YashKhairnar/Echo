@@ -1,9 +1,11 @@
-"""Measure how well StateRenderer matches the simulator.
+"""Measure how well StateRenderer matches the simulator at full render size.
 
 For random-action episodes, it reports:
-- position error: decoded state vs true simulator positions [m];
+- position error: each decoded state row vs the exact simulator car that the
+  observation put in that row [m] (relative to the ego), and the ego y error;
 - vehicle-pixel IoU: overlap of vehicle pixels in the drawn image and the
-  real render (colours are ignored, because the state has no vehicle type);
+  real render, with the shared metric of frames.vehicle_mask (gray, colour
+  ignored, lane-line rows left out except near cars);
 - draw time per image [ms].
 
 Run from the project root:
@@ -20,33 +22,34 @@ import numpy as np
 
 from src.cooperative_driving.environments.customEnv import CustomEnv
 from src.cooperative_driving.visualization import StateRenderer, decode_state
-
-ROAD_GREY = 100
-
-
-def vehicle_mask(image):
-    """Pixels that are neither road grey nor white lane markings."""
-    image = image.astype(np.int16)
-    not_road = np.abs(image - ROAD_GREY).max(axis=-1) > 25
-    not_line = image.min(axis=-1) < 230
-    return not_road & not_line
+from src.cooperative_driving.visualization.frames import iou, to_gray, vehicle_mask
+from src.cooperative_driving.visualization.state_renderer import ROWS
 
 
-def iou(first, second):
-    union = np.logical_or(first, second).sum()
-    return float(np.logical_and(first, second).sum() / union) if union else 1.0
+def observed_vehicles(environment):
+    """The simulator cars in the order of observation rows 1..10.
+
+    Uses the same call as HighwayEnv's KinematicObservation.observe.
+    """
+    close = environment.road.close_objects_to(
+        environment.vehicle, environment.PERCEPTION_DISTANCE, count=ROWS - 1,
+        see_behind=True, sort=True, vehicles_only=False,
+    )
+    return close[-(ROWS - 1):]
 
 
 def position_errors(observation, environment):
     """Error of each decoded vehicle relative to the ego, and of the ego y."""
     decoded = decode_state(observation)
     ego = environment.vehicle.position
-    true_relative = np.array([v.position - ego for v in environment.road.vehicles])
     decoded_ego = np.array([decoded[0]["x"], decoded[0]["y"]])
-    errors = []
-    for item in decoded[1:]:
-        relative = np.array([item["x"], item["y"]]) - decoded_ego
-        errors.append(np.linalg.norm(true_relative - relative, axis=1).min())
+    vehicles = observed_vehicles(environment)
+    if len(vehicles) != len(decoded) - 1:
+        raise RuntimeError("Decoded rows do not match the observed vehicles")
+    errors = [
+        float(np.linalg.norm((vehicle.position - ego) - (np.array([item["x"], item["y"]]) - decoded_ego)))
+        for item, vehicle in zip(decoded[1:], vehicles)
+    ]
     return errors, abs(decoded[0]["y"] - ego[1])
 
 
@@ -75,11 +78,12 @@ def main():
             neighbour_errors.extend(errors)
             ego_y_errors.append(ego_y_error)
 
-            real = environment.render()
+            real = to_gray(environment.render())
             start = time.perf_counter()
-            drawn = renderer.draw(observation)
+            drawn = to_gray(renderer.draw(observation))
             draw_ms.append(1000 * (time.perf_counter() - start))
-            ious.append(iou(vehicle_mask(real), vehicle_mask(drawn)))
+            ious.append(iou(vehicle_mask(real, observation, args.scaling),
+                            vehicle_mask(drawn, observation, args.scaling)))
             steps += 1
 
             observation, _, terminated, truncated, _ = environment.step(

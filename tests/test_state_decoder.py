@@ -8,7 +8,8 @@ import torch
 from scripts.training.train_state_decoder import loss_fn, split_by_episode
 from src.cooperative_driving.models.decoder import ARCHITECTURES, StateDecoder, load_decoder
 from src.cooperative_driving.visualization.frames import (
-    FRAME_HEIGHT, FRAME_WIDTH, iou, lane_line_rows, make_frame_environment, to_gray, vehicle_mask,
+    FRAME_HEIGHT, FRAME_WIDTH, ROAD_GREY, iou, lane_line_rows, make_frame_environment, near_vehicles,
+    pixel_offsets_m, to_gray, vehicle_mask,
 )
 
 
@@ -47,30 +48,41 @@ class StateDecoderTests(unittest.TestCase):
         torch.testing.assert_close(first, second)
 
     def test_vehicle_pixels_weigh_more_in_the_loss(self):
-        target = torch.full((1, 1, 4, 4), 100 / 255)
-        target[..., 0, 0] = 160 / 255  # one vehicle pixel
-        miss_vehicle = torch.zeros_like(target)
+        target = torch.full((1, 1, 4, 4), 100, dtype=torch.uint8)
+        target[..., 0, 0] = 160  # one vehicle pixel
+        miss_vehicle = torch.zeros(1, 1, 4, 4)
         miss_vehicle[..., 0, 0] = -5.0
-        miss_road = torch.zeros_like(target)
+        miss_road = torch.zeros(1, 1, 4, 4)
         miss_road[..., 1, 1] = 5.0
         self.assertGreater(loss_fn(miss_vehicle, target, 20.0), loss_fn(miss_road, target, 20.0))
 
-    def test_split_keeps_each_episode_on_one_side(self):
+    def test_loss_weights_use_exact_gray_thresholds(self):
+        # Gray 120 is exactly at the threshold: not a vehicle pixel, weight 1.
+        target = torch.full((1, 1, 2, 2), 120, dtype=torch.uint8)
+        logits = torch.zeros(1, 1, 2, 2)
+        self.assertAlmostEqual(float(loss_fn(logits, target, 20.0)), float(loss_fn(logits, target, 0.0)))
+
+    def test_split_keeps_each_episode_in_one_group(self):
         episodes = np.repeat(np.arange(20), 3)
-        train, test = split_by_episode(episodes)
-        self.assertFalse(set(episodes[train]) & set(episodes[test]))
-        self.assertEqual(sorted(set(episodes[test])), [0, 5, 10, 15])
+        train, validation, test = split_by_episode(episodes)
+        groups = [set(episodes[indices]) for indices in (train, validation, test)]
+        self.assertFalse(groups[0] & groups[1] or groups[0] & groups[2] or groups[1] & groups[2])
+        self.assertEqual(sorted(groups[2]), [0, 5, 10, 15])
+        self.assertEqual(sorted(groups[1]), [1, 6, 11, 16])
+        self.assertEqual(len(train) + len(validation) + len(test), len(episodes))
+
+    def test_geometry_is_not_saved_in_checkpoints(self):
+        keys = StateDecoder().state_dict().keys()
+        self.assertFalse({"pixels_m", "car_size", "state_scale"} & set(keys))
 
 
 class CameraGeometryTests(unittest.TestCase):
     def test_pixel_offsets_match_the_viewer(self):
-        from src.cooperative_driving.models.decoder.state_decoder import pixel_offsets_m
-
         environment = make_frame_environment()
         environment.reset(seed=1)
         environment.render()
         surface = environment.viewer.sim_surface
-        offsets = pixel_offsets_m(FRAME_HEIGHT, FRAME_WIDTH).reshape(FRAME_HEIGHT, FRAME_WIDTH, 2).numpy()
+        offsets = pixel_offsets_m(FRAME_HEIGHT, FRAME_WIDTH).reshape(FRAME_HEIGHT, FRAME_WIDTH, 2)
         ego = environment.vehicle.position
         for vehicle in environment.road.vehicles:
             column, row = surface.vec2pix(vehicle.position)
@@ -100,6 +112,19 @@ class FrameTests(unittest.TestCase):
             self.assertGreater(len(white_rows), 0)
             self.assertTrue(line_rows[white_rows].all(), f"seed {seed}: {white_rows}")
         environment.close()
+
+    def test_mask_drops_a_lane_stripe_but_keeps_a_car_on_a_lane_line(self):
+        state = np.zeros((11, 5), dtype=np.float32)
+        state[0] = [1, 0.0, 6.0 / 16, 0.6, 0]      # ego at road y = 6 m, on a lane line
+        state[1] = [1, 30.0 / 200, 0.0, 0.0, 0]     # a car 30 m ahead, same y
+        gray = np.full((FRAME_HEIGHT, FRAME_WIDTH), ROAD_GREY, dtype=np.uint8)
+        line_row = FRAME_HEIGHT // 2                # the ego row = the line row
+        gray[line_row, :] = 160                     # a soft grey stripe along the whole line
+        mask = vehicle_mask(gray, state.reshape(-1))
+        near = near_vehicles(state.reshape(-1), FRAME_HEIGHT, FRAME_WIDTH)
+        self.assertTrue(mask[line_row][near[line_row]].all())      # car pixels on the line stay
+        self.assertFalse(mask[line_row][~near[line_row]].any())    # the stripe elsewhere goes
+        self.assertTrue(vehicle_mask(gray)[line_row].all())         # without a state, all count
 
 
 if __name__ == "__main__":

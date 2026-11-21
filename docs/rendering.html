@@ -4,11 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Rendering · Echo Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+      onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
   <style>
     :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
     * { box-sizing: border-box; } body { margin: 0; }
     .layout { display: flex; min-height: 100vh; }
-    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
     .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
     .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
     nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
@@ -25,13 +29,13 @@
     @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
   </style>
 </head>
-<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a class="active" href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Rendering</h1>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a class="active" href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Rendering</h1>
 <p>The rendering script shows the trained Request DQN and the frozen three-step MLPx planner driving the HighwayEnv scene.</p>
 <p>This page covers usage and display options. Experiment videos, episode statistics, and policy comparisons live on the <a href="dqn_policy.html">DQN policy page</a>.</p>
 <h2>Select the experiment</h2>
 <p>Run from the project root and select an experiment with both MLPx and DQN checkpoints available:</p>
-<pre><code>ECHO_EXPERIMENT=2</code></pre>
-<p>The renderer loads that experiment's <code>MLPx/best.pt</code> and <code>RequestDQN/best.pt</code> from <code>checkpoints/experiment_N/</code>. Use <code>--mlpx-checkpoint PATH</code> or <code>--dqn-checkpoint PATH</code> to select explicit checkpoints.</p>
+<pre><code>ECHO_EXPERIMENT=6</code></pre>
+<p>The renderer loads <code>RequestDQN/best.pt</code> from the selected experiment. Modern DQN checkpoints also store the exact frozen MLPx path used during training, so Experiment 6 automatically reuses Experiment 5's <code>intent_stage_best.pt</code>. Use <code>--mlpx-checkpoint PATH</code> or <code>--dqn-checkpoint PATH</code> only for deliberate transfer tests.</p>
 <h2>Run the renderer</h2>
 <pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
   --experiment &quot;$ECHO_EXPERIMENT&quot; \
@@ -55,6 +59,13 @@
 <p>The overlay is included in both the interactive window and saved videos.</p>
 <p>The terminal also prints the visible vehicle count, requested vehicle ID, and ego action selected by the planner. At the end of each episode it prints the completed step count, whether the ego crashed or drove to the episode limit, total reward, and total requests sent.</p>
 <h2>Record a video</h2>
+<p>To inspect the optional geometry guard, add --safety-guard to any rendering command. The overlay and terminal identify braking or boundary-mask reasons, and the episode summary includes override counts. See <a href="planner.html">Planner</a> for the guard rules and separate evaluation results. It is disabled by default.</p>
+<p>The full optional guard also accepts <code>--max-target-speed 30</code> and <code>--lane-change-guard</code>, both requiring <code>--safety-guard</code>. The overlay reports speed-cap, destination-gap, maneuver-in-progress, braking, and boundary override reasons. For a historical transfer example, inspect frozen WM4 with the preserved Experiment 3 DQN:</p>
+<pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 4 --dqn-checkpoint checkpoints/experiment_3/RequestDQN/best.pt \
+  --episodes 1 --seed 100220 \
+  --safety-guard --max-target-speed 30 --lane-change-guard</code></pre>
+<p>This is a transfer configuration, not a trained Experiment 4 DQN. The same flags work in <code>scripts.evaluation.evaluate_request_dqn</code>; see <a href="dqn_policy.html">Request DQN</a> for the paired baseline comparison.</p>
 <p>Recording requires <code>ffmpeg</code> on your PATH. Save an MP4 with the request/response overlay using an experiment-specific filename:</p>
 <pre><code>SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
   --experiment &quot;$ECHO_EXPERIMENT&quot; \
@@ -65,8 +76,19 @@
   --video &quot;docs/images/dqn_experiment_${ECHO_EXPERIMENT}_policy.mp4&quot;</code></pre>
 <p>The recording saves one frame per decision plus the terminal scene. At two frames per second, playback advances two decisions per second; it is not a continuous recording of the simulation's intermediate physics frames. The default recording rate is eight frames per second unless overridden.</p>
 <p>Recording overwrites the chosen file if it already exists. Use a new filename to preserve an earlier recording, then embed the selected video and its episode statistics in the corresponding experiment on the DQN policy page.</p>
-<h2>Terminal-only rendering check</h2>
-<p>For a terminal-only smoke test:</p>
+<h2>Render Experiment 6</h2>
+<p>Render the selective Experiment 6 policy with its training guard:</p>
+<pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 6 --episodes 1 --seed 1200000 --delay 0.15 \
+  --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6</code></pre>
+<p>Record the same policy with its request/response overlay:</p>
+<pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 6 --episodes 1 --seed 1200000 --delay 0 \
+  --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6 \
+  --video docs/images/dqn_experiment_6_policy.mp4 --video-fps 8</code></pre>
+<p>The <code>--comfort-ttc 6</code> mode begins reacting before the 3-second emergency brake threshold. It uses safe lane changes when they improve forward clearance, holds a five-step lane-change cooldown, and blocks acceleration for three steps after braking. The verified terminal-only run completed 40/40 steps without a crash and earned 36.394 driving reward. One episode is a visual inspection, not an aggregate policy benchmark; use the <a href="experiment_6.html">Experiment 6</a> evaluations for policy conclusions.</p>
+<p>The DQN checkpoint supplies its versioned ego-control state encoding and frozen intent-stage WM5 path. An explicit <code>--mlpx-checkpoint</code> overrides that path for deliberate transfer tests. Older checkpoints without a stored path use the selected experiment's default WM. Guard flags remain explicit; the renderer warns if a guarded-trained DQN is rendered without the guard.</p>
+<p>For a terminal-only smoke test without opening a window:</p>
 <pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
   --experiment &quot;$ECHO_EXPERIMENT&quot; \
   --episodes 1 \

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Experiment 6 · Echo Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+      onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
+    * { box-sizing: border-box; } body { margin: 0; }
+    .layout { display: flex; min-height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+    .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
+    .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
+    nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
+    nav a:hover, nav a.active { background: #263b78; color: white; }
+    .nav-group { margin: 0 0 18px; }
+    .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
+    main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
+    article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
+    h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    .experiment-title { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }
+    p { line-height: 1.65; } .subtitle { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
+    pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
+    @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
+  </style>
+</head>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a class="active" href="experiment_6.html">Experiment 6: Selective Requests</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1 class="experiment-title">Experiment 6: Selective Request Learning</h1>
+<p>Experiment 6 asks a narrower question: can DQN5's excessive communication be reduced without losing the safety benefit of intent messages?</p>
+<p><strong>Current status:</strong> DQN6 with <code>--comfort-ttc 6</code> is the best learned and safety-oriented complete policy so far. Asking nobody remains the best communication-cost-adjusted baseline.</p>
+<h2>Setup</h2>
+<ul>
+<li>Reuse the frozen Experiment 5 stage-balanced world model.</li>
+<li>Train a new Request DQN for 1,000 episodes: 500 ordinary roads and 500 short paired-intent episodes.</li>
+<li>Preserve the fixed eight spatial request slots, public 45-value DQN state, three-step planner, and full safety guard.</li>
+<li>Store the new policy separately under Experiment 6.</li>
+</ul>
+<h2>Configuration</h2>
+<table><thead><tr><th>Item</th><th>Value</th></tr></thead><tbody><tr><td>Frozen world model</td><td><code>checkpoints/experiment_5/MLPx/intent_stage_best.pt</code></td></tr><tr><td>DQN episodes</td><td>1,000</td></tr><tr><td>Communication cost</td><td>0.05 per request</td></tr><tr><td>Redundant-request penalty</td><td>0.10</td></tr><tr><td>Replay</td><td>Equal ordinary/intent sampling</td></tr><tr><td>Planner horizon</td><td>3</td></tr><tr><td>Training seeds</td><td>Ordinary 1000000+, intent 1100000+</td></tr><tr><td>Evaluation seeds</td><td>Ordinary 1200000+, intent 1300000+</td></tr></tbody></table>
+<p>The new teacher signal compares the planner's action with the selected message against its action with no message. If the response changes nothing, that request receives an additional 0.10 training penalty. This comparison is used only to shape the training reward; the deployed DQN cannot see private intent.</p>
+<h2>Commands</h2>
+<pre><code>.venv/bin/python -m scripts.training.train_request_dqn \
+  --experiment 6 --episodes 1000 --seed 0 \
+  --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
+  --scenario-mix mixed --ordinary-seed 1000000 --challenge-seed 1100000 \
+  --request-state-encoding ego_control_v1 \
+  --communication-cost 0.05 --redundant-request-penalty 0.10 \
+  --safety-guard --max-target-speed 30 --lane-change-guard --batched-planner</code></pre>
+<p>The ordinary and paired-intent evaluations use the same guard flags and explicit Experiment 5 world-model checkpoint. Their complete commands and settings are stored in the evaluation summaries listed under Artifacts.</p>
+<h2>Results</h2>
+<table><thead><tr><th>Traffic set</th><th>Policy</th><th>Adjusted return</th><th>Driving reward</th><th>Requests</th><th>Crashes</th></tr></thead><tbody><tr><td>100 ordinary episodes</td><td>Ask nobody</td><td><strong>36.566</strong></td><td>36.566</td><td>0.00 / episode</td><td>0 / 100</td></tr><tr><td>100 ordinary episodes</td><td>DQN6</td><td>35.801</td><td><strong>36.645</strong></td><td>16.88 / episode</td><td>0 / 100</td></tr><tr><td>200 intent trials</td><td>Ask nobody</td><td><strong>2.643</strong></td><td>2.643</td><td>0.00 / trial</td><td>14 / 200</td></tr><tr><td>200 intent trials</td><td>DQN6</td><td>2.597</td><td><strong>2.649</strong></td><td>1.04 / trial</td><td><strong>9 / 200</strong></td></tr></tbody></table>
+<p>On the exact same fresh seeds, DQN6 improved over DQN5:</p>
+<table><thead><tr><th>Traffic set</th><th>DQN5 return</th><th>DQN6 return</th><th>DQN5 requests</th><th>DQN6 requests</th><th>DQN5 crashes</th><th>DQN6 crashes</th></tr></thead><tbody><tr><td>Ordinary</td><td>34.943</td><td><strong>35.801</strong></td><td>33.31</td><td><strong>16.88</strong></td><td>0</td><td>0</td></tr><tr><td>Intent</td><td>2.563</td><td><strong>2.597</strong></td><td>1.88</td><td><strong>1.04</strong></td><td>10 / 200</td><td><strong>9 / 200</strong></td></tr></tbody></table>
+<h2>Graphs</h2>
+<p><img src="training_graphs/experiment_6_dqn_training.png" alt="Experiment 6 DQN training" style="max-width:100%; height:auto;"></p>
+<p><img src="training_graphs/experiment_6_dqn_by_scenario.png" alt="Experiment 6 training by traffic source" style="max-width:100%; height:auto;"></p>
+<p><img src="policy_graphs/experiment_6_dqn_comparison.png" alt="Experiment 6 policy comparison" style="max-width:100%; height:auto;"></p>
+<h2>Rendering</h2>
+<pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 6 --episodes 1 --seed 1200000 --delay 0.15 \
+  --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6</code></pre>
+<p>The renderer automatically loads DQN6 and its stored Experiment 5 world-model path. The overlay identifies requested vehicles, displays their exact replies, and reports safety-guard interventions.</p>
+<h3>Recorded DQN6 rollout</h3>
+<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/dqn_experiment_6_policy.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
+<p>This recording uses the original Experiment 6 guard and is retained as the policy artifact produced with the DQN6 training/evaluation run. The smooth controller was added afterward and is benchmarked separately below.</p>
+<h3>Smooth controller follow-up</h3>
+<p>The optional <code>--comfort-ttc 6</code> controller reacts before emergency braking, uses a safe lane only when it offers at least equal forward clearance, waits five decisions before another lane command, and blocks acceleration for three decisions after braking.</p>
+<table><thead><tr><th>100 ordinary roads</th><th>Original guard</th><th>Smooth controller</th></tr></thead><tbody><tr><td>Adjusted return</td><td><strong>35.801</strong></td><td>35.748</td></tr><tr><td>Driving reward</td><td><strong>36.645</strong></td><td>36.407</td></tr><tr><td>Mean speed</td><td><strong>27.527 m/s</strong></td><td>27.401 m/s</td></tr><tr><td>Completed lane changes</td><td>171</td><td><strong>240</strong></td></tr><tr><td>Requests</td><td>16.88</td><td><strong>13.17</strong></td></tr><tr><td>Crashes</td><td><strong>0</strong></td><td><strong>0</strong></td></tr></tbody></table>
+<p>The smooth controller increased completed lane changes by 40% while changing adjusted return by only -0.053. On the same 200 intent trials it preserved the 4.5% crash rate (9/200), 1.04 requests per trial, and nearly identical return (2.594 versus 2.597).</p>
+<h2>Evaluation</h2>
+<ul>
+<li>On ordinary roads, DQN6 and asking nobody both completed all 100 episodes without crashing. DQN6's messages cost 0.765 adjusted return on average; the paired bootstrap 95% interval for DQN6 minus none is [-0.916, -0.606].</li>
+<li>In paired-intent trials, DQN6 avoided five crashes that occurred under the no-request policy and introduced none. Its adjusted-return difference was -0.046, with a scene-clustered 95% interval of [-0.078, -0.012].</li>
+<li>DQN6 beat random and all-request baselines on adjusted return in both traffic sets.</li>
+<li>Against DQN5 on identical seeds, DQN6 approximately halved communication, improved adjusted return in both traffic sets, and avoided one additional intent crash.</li>
+<li>The teacher improved request selectivity and safety, but did not make communication cost-effective relative to asking nobody.</li>
+</ul>
+<h3>Final interpretation</h3>
+<p>Use <strong>DQN6 + the smooth controller</strong> for rendering, safety-oriented evaluation, and future development. Use <strong>ask nobody</strong> as the reward baseline that every future communication policy must beat after message costs.</p>
+<h2>Artifacts</h2>
+<ul>
+<li>Checkpoint: <code>checkpoints/experiment_6/RequestDQN/best.pt</code></li>
+<li>Resumable state: <code>checkpoints/experiment_6/RequestDQN/latest.pt</code></li>
+<li>Training run: <code>results/experiment_6/RequestDQN/experiments/20261120_150538_request_dqn/</code></li>
+<li>Ordinary evaluation: <code>results/experiment_6/evaluation/selective_ordinary/</code></li>
+<li>Intent evaluation: <code>results/experiment_6/evaluation/selective_intent/</code></li>
+<li>Same-seed DQN5 ordinary comparison: <code>results/experiment_6/evaluation/dqn5_same_seed_ordinary/</code></li>
+<li>Same-seed DQN5 intent comparison: <code>results/experiment_6/evaluation/dqn5_same_seed_intent/</code></li>
+<li>Smooth-controller ordinary evaluation: <code>results/experiment_6/evaluation/controller_v3_ordinary/</code></li>
+<li>Smooth-controller intent evaluation: <code>results/experiment_6/evaluation/controller_v3_intent/</code></li>
+</ul>
+<h2>Notes</h2>
+<p>The increasing TD loss means the final checkpoint should not be described as fully converged. More episodes alone are unlikely to solve the remaining gap. The next useful experiment is a stronger teacher or validation-selected penalty sweep that suppresses ordinary-road requests while retaining the five avoided intent crashes.</p></article></main></div></body>
+</html>

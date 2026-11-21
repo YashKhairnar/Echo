@@ -4,11 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Planner · Echo Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+      onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
   <style>
     :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
     * { box-sizing: border-box; } body { margin: 0; }
     .layout { display: flex; min-height: 100vh; }
-    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
     .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
     .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
     nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
@@ -25,20 +29,84 @@
     @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
   </style>
 </head>
-<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a class="active" href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Planner</h1>
-<p>The planner compares possible ego actions by asking MLPx to imagine their consequences.</p>
-<h2>One-step decision</h2>
-<p>For each of the five discrete ego actions, the planner sends the current state, action, and message bundle to MLPx. MLPx returns a predicted next state and reward.</p>
-<h2>Multi-step decision</h2>
-<p>With a planning horizon, the predicted next state becomes the input to the next imagined step. The planner accumulates discounted rewards and selects the first action from the highest-value sequence.</p>
-<pre><code>current state
-    -&gt; try each action in MLPx
-    -&gt; predicted next state
-    -&gt; try the next actions
-    -&gt; sum discounted rewards
-    -&gt; choose the best first action</code></pre>
-<p>Because the simplified MLPx has no crash head, the current planner uses predicted reward only. Crash and truncation flags are still retained in the real dataset for evaluation.</p>
-<p>The same message bundle is reused at every imagined step. A three-step search considers all 125 action sequences, using discount 0.99; action agreement in the corrected evaluator ranks the model's selected continuations in the real simulator. It does not establish optimality across all real action sequences.</p>
-<p>The constructor's crash_reward argument is currently stored but not used in the score. Changing it alone does not alter the planner's chosen action. See <a href="mlpx.html">MLPx</a> for prediction metrics and <a href="dqn_policy.html">Request DQN</a> for complete-system crash rates. Good short-rollout prediction does not imply safe full episodes.</p>
-<p>The planner implementation is <code>src/cooperative_driving/planner/MCP.py</code>.</p></article></main></div></body>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a class="active" href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Driving Planner &amp; Safety Guard</h1>
+<p>The <strong>Planner</strong> chooses the ego vehicle's driving action at every step. It uses the learned <strong>MLPx World Model</strong> to simulate the future consequences of candidate action sequences and picks the move that yields the highest cumulative predicted reward.</p>
+<ul>
+<li><strong>Planner Implementation:</strong> <code>src/cooperative_driving/planner/MCP.py</code></li>
+<li><strong>Safety Guard Implementation:</strong> <code>src/cooperative_driving/planner/safety.py</code></li>
+</ul>
+<hr>
+<h2>Component Architecture</h2>
+<p>At each decision step, the planner performs a tree search over future candidate trajectories:</p>
+<pre><code>Current State + Messages
+  │
+  ├── Try Action 1 ──&gt; Imagine Step 1 ──&gt; Imagine Step 2 ──&gt; Imagine Step 3 ──&gt; Sum Returns
+  ├── Try Action 2 ──&gt; Imagine Step 1 ──&gt; Imagine Step 2 ──&gt; Imagine Step 3 ──&gt; Sum Returns
+  ├── Try Action 3 ──&gt; ...
+  ├── Try Action 4 ──&gt; ...
+  └── Try Action 5 ──&gt; ...
+  │
+  └── Best Action Candidate
+           │
+           ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │ Executive Safety Guard (safety.py)                      │
+  │ • Speed Cap: Max 30 m/s                                 │
+  │ • Road Boundary Check: Mask invalid lane commands       │
+  │ • Front Clearance: Force SLOWER if TTC &lt; 3s or gap &lt; 8m │
+  │ • Destination Gap: Block lane change if target occupied │
+  └─────────────────────────────────────────────────────────┘
+           │
+           ▼
+     Execute Action in HighwayEnv</code></pre>
+<hr>
+<h2>Planning Algorithm</h2>
+<ol>
+<li><strong>Candidate Actions:</strong> The ego evaluates 5 discrete actions: <code>LANE_LEFT</code>, <code>IDLE</code>, <code>LANE_RIGHT</code>, <code>FASTER</code>, <code>SLOWER</code>.</li>
+<li><strong>Horizon Rollout (H = 3):</strong> The planner simulates all 5³ = 125 possible 3-step action sequences using MLPx: ```text V(a₁, a₂, a₃) = r₁ + γ·r₂ + γ²·r₃   (with discount factor γ = 0.99) ```</li>
+<li><strong>Action Selection:</strong> The planner identifies the sequence with the highest total discounted return and selects its first action <code>a₁*</code>.</li>
+<li><strong>Receding Horizon:</strong> After the first action is executed and the simulator advances, the entire planning cycle repeats with updated observations.</li>
+</ol>
+<hr>
+<h2>Executive Safety Guards (<code>safety.py</code>)</h2>
+<p>Raw neural world models can occasionally make small optimistic errors (e.g., underestimating the closing speed of a vehicle 3 steps ahead). To guarantee safety, the executive <strong>Safety Guard</strong> filters the planner's selected action using deterministic physical checks:</p>
+<h3>Safety and comfort rules</h3>
+<ol>
+<li><strong>30 m/s Speed Cap:</strong> Blocks the <code>FASTER</code> command if target speed is already ≥ 30 m/s (speed reward maxes out at 30 m/s; preventing runaway acceleration).</li>
+<li><strong>Road Boundary Protection:</strong> Blocks <code>LANE_LEFT</code> when in Lane 0 (left edge) and <code>LANE_RIGHT</code> when in Lane 3 (right edge).</li>
+<li><strong>Front Braking Guard:</strong> Automatically forces <code>SLOWER</code> if bumper clearance to the lead vehicle in the current lane is under <strong>8 meters</strong> or Time-To-Collision (TTC) is under <strong>3 seconds</strong>.</li>
+<li><strong>Destination-Lane Clearance Guard:</strong> Blocks lane changes if the adjacent destination lane lacks at least 8 m front/rear clearance, or if a previous lane maneuver is still settling.</li>
+<li><strong>Optional Proactive Controller:</strong> With <code>comfort_ttc=6</code>, detects a closing front vehicle before the 3-second emergency threshold. It prefers a safe adjacent lane with at least equal forward clearance; otherwise it slows. A five-step lane-change cooldown prevents left/right ping-pong, and a three-step acceleration cooldown after braking prevents immediate <code>SLOWER → FASTER</code> reversals.</li>
+</ol>
+<hr>
+<h2>Python API Usage</h2>
+<pre><code>from src.cooperative_driving.planner.MCP import MCPPlanner
+from src.cooperative_driving.planner.safety import guard_action
+
+# 1. Initialize planner with frozen world model
+planner = MCPPlanner(world_model=mlpx_model, action_size=5, planning_horizon=3)
+
+# 2. Score candidate actions and get preferred first action
+action_scores = planner.action_values(current_state, messages)
+
+# 3. Pass through executive safety guard
+controller_state = {}
+safe_action, guard_info = guard_action(
+    action_scores,
+    env.vehicle,
+    visible_neighbors,
+    env.config[&quot;lanes_count&quot;],
+    max_target_speed=30.0,
+    min_clearance=8.0,
+    min_ttc=3.0,
+    check_lane_changes=True,
+    comfort_ttc=6.0,
+    controller_state=controller_state,
+)
+
+# 4. Step environment with the safe action
+next_obs, reward, done, truncated, info = env.step(safe_action)</code></pre>
+<hr>
+<h3>Related results</h3>
+<p>To see how the safety guards reduced crashes from 97% to 0% across 100 validation seeds, and to read the root-cause analysis of raw neural planning, see <a href="experiment_4.html">Experiment 4: Safety Guards</a>.</p></article></main></div></body>
 </html>

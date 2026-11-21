@@ -1,220 +1,175 @@
-# Training
+# Training Runbook
 
-This page is the run guide for collecting data, training, and evaluating an
-experiment. Results and graphs live on their topic pages:
+This guide covers the step-by-step workflow for data collection, world-model training, request-policy learning, and evaluation.
 
-| Topic | Documentation |
-| --- | --- |
-| Dataset sources, statistics, and coverage | [Dataset dashboard](dataset_dashboard.html) |
-| MLPx configuration, losses, graphs, and rollout results | [MLPx world model](mlpx.html) |
-| DQN configuration, losses, graphs, evaluation, and videos | [Request DQN](dqn_policy.html) |
-| Interactive rendering and recording | [Rendering](rendering.html) |
-| Experiment history and implementation changes | [Progress log](progress_log.html) |
+---
 
-## Select the experiment
+## Workflow Overview
 
-Run commands from the project root. Set the same experiment number for every
-stage in the terminal session:
-
-```bash
-ECHO_EXPERIMENT=3
+```text
+Step 1: Collect Data       Step 2: Train MLPx        Step 3: Evaluate MLPx
+┌────────────────────┐     ┌───────────────────┐     ┌───────────────────┐
+│ Intent & Random    │ ──> │ Neural World      │ ──> │ 3-Step Rollout    │
+│ Transitions (JSONL)│     │ Model (MSE Loss)  │     │ Agreement Check   │
+└────────────────────┘     └───────────────────┘     └───────────────────┘
+                                                               │
+                                                               ▼
+Step 6: Render Live        Step 5: Evaluate Policy   Step 4: Train Request DQN
+┌────────────────────┐     ┌───────────────────┐     ┌───────────────────┐
+│ Visualizer with    │ <── │ 4-Way Policy      │ <── │ Q-Learning with   │
+│ Intent Overlays    │     │ Comparison        │     │ Frozen MLPx       │
+└────────────────────┘     └───────────────────┘     └───────────────────┘
 ```
 
-Use a new number for a new experiment to preserve previous results. Training
-creates a timestamped run directory, but replaces the selected experiment's
-active `best.pt`. Collection and evaluation overwrite their default output
-files when rerun.
+Set the active experiment ID in your terminal:
+```bash
+export ECHO_EXPERIMENT=5
+```
 
-Experiments 1 and 2 contain historical packed informed-message records. The
-corrected adapter rejects those records because missing spatial positions
-cannot be recovered from vehicle IDs alone. Experiment 3 uses corrected
-eight-slot encoding; its empty slots remain in place. Existing no-message
-records remain usable.
+---
 
-## 1. Prepare the dataset
+## Step 1: Collect Transitions
 
-Collect informed transitions, including the no-request case:
+Collect intent-aware transitions where neighbors preview their planned actions:
 
 ```bash
+# 1. Collect intent-informed transitions (including no-request steps)
 .venv/bin/python -m scripts.data_collection.collect_intent_aware_dataset \
-  --experiment "$ECHO_EXPERIMENT" --episodes 1000 --include-none
-```
+  --experiment "$ECHO_EXPERIMENT" --episodes 1000 --include-none --visibility 60
 
-Either collect a new random baseline:
-
-```bash
+# 2. Collect random no-message baseline transitions
 .venv/bin/python -m scripts.data_collection.collect_random_no_message_dataset \
-  --experiment "$ECHO_EXPERIMENT" --episodes 1000
+  --experiment "$ECHO_EXPERIMENT" --episodes 1000 --visibility 60
 
+# 3. Merge both into a single training dataset
 .venv/bin/python -m scripts.data_collection.merge_world_model_datasets \
   --experiment "$ECHO_EXPERIMENT"
 ```
 
-Or reuse the Experiment 2 no-message baseline, as Experiment 3 did:
+*Data is written to:* `data/experiment_<id>/combined_world_model_dataset.jsonl`
 
-```bash
-.venv/bin/python -m scripts.data_collection.merge_world_model_datasets \
-  --experiment "$ECHO_EXPERIMENT" \
-  --random data/experiment_2/random_no_message_dataset.jsonl
-```
+---
 
-Choose one baseline route. See [Intent-aware collection](intent_aware_data_collection.html)
-for the collection process and [Dataset dashboard](dataset_dashboard.html)
-for each experiment's saved data.
+## Step 2: Train the MLPx World Model
 
-## 2. Train MLPx
+Train the multi-layer perceptron to jointly predict the next road state and immediate driving reward:
 
 ```bash
 .venv/bin/python -m scripts.training.train_mlpx_wm \
   --experiment "$ECHO_EXPERIMENT" \
-  --epochs 50 --batch-size 128 --lr 1e-3
+  --epochs 50 \
+  --batch-size 128 \
+  --lr 1e-3 \
+  --balance-by action-message-stage
 ```
 
-The trainer selects the checkpoint with the lowest held-out loss.
-See [MLPx](mlpx.html) for architecture, per-experiment settings, and results.
+*The best checkpoint is saved to:* `checkpoints/experiment_<id>/MLPx/best.pt`
 
-## 3. Evaluate MLPx
+---
+
+## Step 3: Evaluate World Model Rollouts
+
+Verify open-loop rollout accuracy and action agreement before training downstream policies:
 
 ```bash
 .venv/bin/python -m scripts.evaluation.evaluate_mlpx_rollout \
   --experiment "$ECHO_EXPERIMENT" \
-  --episodes 100 --states-per-episode 5 \
-  --sample-every 10 --action-mode planner
+  --episodes 100 \
+  --horizon 3
 ```
 
-Inspect the results before training DQN. The corrected evaluator tests the
-model's preferred continuation for each first action, retains early-terminal
-outcomes, and assigns zero future real reward after an episode ends.
-It does not exhaustively search every action sequence in the real simulator.
-Historical Experiment 1/2 rollout tables used a different evaluation protocol;
-see the model page for interpretation.
+- **Pass criteria:** 3-step action agreement should exceed **80%** against the ground-truth simulator.
 
-## 4. Train the request DQN
+---
+
+## Step 4: Train the Request DQN
+
+Train the Q-learning policy to decide which neighbor to query, using the frozen MLPx planner for driving actions:
 
 ```bash
 .venv/bin/python -m scripts.training.train_request_dqn \
   --experiment "$ECHO_EXPERIMENT" \
-  --episodes 1000 --planning-horizon 3 --communication-cost 0.05
+  --episodes 1000 \
+  --planning-horizon 3 \
+  --communication-cost 0.05 \
+  --safety-guard --max-target-speed 30 --lane-change-guard
 ```
 
-The trainer loads the same experiment's MLPx checkpoint and keeps it frozen.
-The corrected optimizer masks unavailable next requests in its target values.
-See [Request DQN](dqn_policy.html) for the policy design and experiment results.
-
-### Resume DQN training
-
-Continue the selected experiment for 1,000 additional episodes:
-
-```bash
-.venv/bin/python -m scripts.training.train_request_dqn \
-  --experiment "$ECHO_EXPERIMENT" --resume --episodes 1000 --save-every 50
-```
-
-For Experiment 3, set `ECHO_EXPERIMENT=3`. A checkpoint completed at episode
-1,000 continues with episode 1,001 and trains through episode 2,000.
-`--episodes` always counts additional episodes for this invocation.
-
-`--resume` loads `latest.pt` beside the active DQN checkpoint, falling back to
-`best.pt` when no full-state checkpoint exists. To select a specific save:
-
-Experiment 3 currently selects the 1,000-episode model as inference best.pt,
-while latest.pt retains the 2,000-episode training state. Plain --resume
-continues from 2,000. To start a new continuation from the selected 1,000-episode
-policy, explicitly pass --resume checkpoints/experiment_3/RequestDQN/best.pt;
-that file supports weights-only continuation. Keep new runs' evaluation output
-separate when comparing checkpoints.
-
+### Resuming Training
+To continue training an existing model for an additional 1,000 episodes:
 ```bash
 .venv/bin/python -m scripts.training.train_request_dqn \
   --experiment "$ECHO_EXPERIMENT" \
-  --resume "checkpoints/experiment_${ECHO_EXPERIMENT}/RequestDQN/latest.pt" \
+  --resume \
   --episodes 1000
 ```
 
-New `latest.pt` files restore online and target networks, Adam state, replay
-memory, epsilon, episode count, return history, and Python/NumPy/PyTorch random
-states. They restore training settings, including seed, learning rate, batch
-size, planning horizon, and request cost, from the saved configuration. The
-trainer verifies that the frozen World Model file has not changed.
+*The trained model is saved to:* `checkpoints/experiment_<id>/RequestDQN/best.pt`
 
-The selected Experiment 3 best.pt is weights-only: its first continuation
-restores weights and episode count but restarts optimizer, target, replay,
-and random states. Epsilon is inferred from the original decay schedule
-(`0.05` after 1,000 episodes). A warning identifies this partial continuation.
-Compressed-action checkpoints cannot be resumed into fixed spatial actions.
+### Selective-request training
 
-Each invocation creates a new timestamped run directory and CSV with cumulative
-episode numbers. Full-state saves occur at startup, every `--save-every`
-completed episodes, and on successful completion. Ctrl-C leaves the last saved
-boundary available; episodes after that boundary must be repeated. Set
-`--save-every 1` for a save after every episode, at the cost of extra disk IO.
+Experiment 6 adds a training-only teacher penalty when a requested response
+does not change the planner's driving action. The deployed DQN still observes
+only public state.
 
-Full saves are written to the run directory and beside the active output as
-`latest.pt`. Successful completion updates the active `best.pt` and the run's
-`best.pt` with final inference weights. Despite its name, this DQN file is not
-selected by validation score. Graph export follows the latest run's resume
-history and combines related logs into one full-episode graph, marking resume
-boundaries. It checks action encoding and consecutive episode numbers. If
-more than one parent run is possible, pass the chronological CSV paths with
-`--dqn-logs` rather than guessing which runs belong together.
+```bash
+.venv/bin/python -m scripts.training.train_request_dqn \
+  --experiment 6 --episodes 1000 --seed 0 \
+  --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
+  --scenario-mix mixed --ordinary-seed 1000000 --challenge-seed 1100000 \
+  --request-state-encoding ego_control_v1 \
+  --communication-cost 0.05 --redundant-request-penalty 0.10 \
+  --safety-guard --max-target-speed 30 --lane-change-guard --batched-planner
+```
 
-## 5. Evaluate the request DQN
+---
+
+## Step 5: Evaluate Policy Performance
+
+Compare the trained Request DQN against three baselines across identical test seeds:
+1. **Ask Nobody (Blind):** Zero communication cost.
+2. **Ask Random:** Queries a random visible vehicle.
+3. **Ask All:** Queries every visible vehicle.
 
 ```bash
 .venv/bin/python -m scripts.evaluation.evaluate_request_dqn \
   --experiment "$ECHO_EXPERIMENT" \
-  --episodes 200 --planning-horizon 3
+  --episodes 100 \
+  --planning-horizon 3 \
+  --safety-guard --max-target-speed 30 --lane-change-guard
 ```
 
-This compares DQN, no-request, random-request, and ask-all policies on the same
-seed range. Review return, driving reward, request counts, and crash rate
-together.
+*Summary JSON & CSV are written to:* `results/experiment_<id>/evaluation/request_dqn_guarded/`
 
-## 6. Inspect the policy
+---
+
+## Step 6: Visual Rendering & Inspection
+
+Launch the interactive renderer to watch the car drive with live visual overlays showing requested vehicle IDs, replied intentions, and safety-guard interventions:
 
 ```bash
 .venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment "$ECHO_EXPERIMENT" --episodes 1 --seed 7
+  --experiment "$ECHO_EXPERIMENT" \
+  --episodes 1 \
+  --seed 42 \
+  --safety-guard --max-target-speed 30 --lane-change-guard
 ```
 
-The frame displays the requested vehicle ID, intent response, and ego action.
-See [Rendering](rendering.html) for video recording commands.
+---
 
-## Output locations
+## Artifacts & Directory Structure
 
-| Artifact | Path |
-| --- | --- |
-| Combined dataset | `data/experiment_N/combined_world_model_dataset.jsonl` |
-| Active MLPx checkpoint | `checkpoints/experiment_N/MLPx/best.pt` |
-| Active DQN checkpoint | `checkpoints/experiment_N/RequestDQN/best.pt` |
-| Resumable DQN training state | `checkpoints/experiment_N/RequestDQN/latest.pt` |
-| MLPx run logs, checkpoints, and loss plot | `results/experiment_N/MLPx/experiments/<run>/` |
-| DQN run logs and checkpoint | `results/experiment_N/RequestDQN/experiments/<run>/` |
-| MLPx evaluation CSV and JSON | `results/experiment_N/evaluation/mlpx_rollout/` |
-| DQN evaluation CSV and JSON | `results/experiment_N/evaluation/request_dqn/` |
-
-`N` is the selected experiment number. Earlier archived outputs remain under
-`results/archive/`.
-
-## Export documentation graphs
-
-Export dataset charts after collection:
-
-```bash
-.venv/bin/python -m scripts.docs.plot_dataset_graphs \
-  --experiment "$ECHO_EXPERIMENT"
-```
-
-Export matching MLPx and DQN training charts once both training logs exist:
-
-```bash
-.venv/bin/python -m scripts.docs.plot_training_graphs \
-  --experiment "$ECHO_EXPERIMENT"
-```
-
-The MLPx trainer also saves its loss plot in the run directory immediately
-after training. Rebuild HTML after editing documentation sources:
-
-```bash
-.venv/bin/python -m scripts.docs.build_docs_site
+```text
+Echo/
+├── checkpoints/experiment_<id>/
+│   ├── MLPx/best.pt              # Trained world model
+│   └── RequestDQN/best.pt        # Trained communication policy
+├── data/experiment_<id>/
+│   ├── intent_aware_dataset.jsonl
+│   ├── random_no_message_dataset.jsonl
+│   └── combined_world_model_dataset.jsonl
+└── results/experiment_<id>/
+    ├── MLPx/                     # Training loss logs and curves
+    ├── RequestDQN/               # DQN rewards, epsilons, and losses
+    └── evaluation/               # Rollout metrics, benchmark comparisons
 ```

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Experiment 4 · Echo Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+      onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
+    * { box-sizing: border-box; } body { margin: 0; }
+    .layout { display: flex; min-height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+    .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
+    .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
+    nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
+    nav a:hover, nav a.active { background: #263b78; color: white; }
+    .nav-group { margin: 0 0 18px; }
+    .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
+    main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
+    article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
+    h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    .experiment-title { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }
+    p { line-height: 1.65; } .subtitle { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
+    pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
+    @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
+  </style>
+</head>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a class="active" href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1 class="experiment-title">Experiment 4: Planner Crash Forensics &amp; Safety Guards</h1>
+<p><strong>Experiment 4</strong> conducted a forensic investigation into why raw neural world-model planning crashed on test seeds despite low training loss, and introduced <strong>executive safety guards</strong> that completely eliminated crashes.</p>
+<ul>
+<li><strong>World Model Checkpoint:</strong> <code>checkpoints/experiment_4/MLPx/best.pt</code></li>
+<li><strong>Key Code Implementation:</strong> <code>src/cooperative_driving/planner/safety.py</code></li>
+</ul>
+<hr>
+<h2>Objective &amp; Hypothesis</h2>
+<p>Why does a world model with 86% action agreement crash &gt;90% of the time in closed-loop driving, and can lightweight safety constraints guarantee collision-free navigation without slowing down cruising speed?</p>
+<hr>
+<h2>The Three Forensic Discoveries</h2>
+<p>During 20-seed deep-dive replaying, three structural failure modes were uncovered:</p>
+<ol>
+<li><strong>Runaway Target Speed:</strong> Because HighwayEnv gives higher rewards for higher speeds (up to 30 m/s) and lacked an environment cap, the planner continuously issued <code>FASTER</code> commands, pushing vehicle speed above 50 m/s until braking was physically impossible.</li>
+<li><strong>Missing Controller Memory:</strong> The kinematic observation tracked vehicle speed, but omitted the ego's <em>target speed</em> and <em>target lane</em>. Without knowing whether the car was already attempting to accelerate or change lanes, the world model could not reliably predict the next step.</li>
+<li><strong>Continuation Optimism:</strong> In near-crash scenarios, the world model was overly optimistic about recovering on steps 2 and 3, repeatedly choosing <code>IDLE</code> instead of braking.</li>
+</ol>
+<hr>
+<h2>The Solution: Executive Safety Guards (<code>safety.py</code>)</h2>
+<p>A four-rule filter was added to inspect planner decisions before execution:</p>
+<ol>
+<li><strong>30 m/s Speed Cap (<code>--max-target-speed 30</code>):</strong> Blocks <code>FASTER</code> if target speed is ≥ 30 m/s.</li>
+<li><strong>Road Boundary Protection:</strong> Blocks <code>LANE_LEFT</code> on lane 0 and <code>LANE_RIGHT</code> on lane 3.</li>
+<li><strong>Front Braking Guard (<code>--safety-guard</code>):</strong> Forces <code>SLOWER</code> if front clearance &lt; 8 m or closing TTC &lt; 3 s.</li>
+<li><strong>Destination Clearance Guard (<code>--lane-change-guard</code>):</strong> Blocks lane changes if the target lane lacks 8 m clearance or while a maneuver is settling.</li>
+</ol>
+<hr>
+<h2>Benchmark Results Across 100 Fresh Seeds</h2>
+<table><thead><tr><th>Controller Setup</th><th>Crashes</th><th>Finished Full Episode</th><th>Mean Speed</th><th>Settled Lane Changes</th></tr></thead><tbody><tr><td><strong>Raw 3-Step MLPx (No Guards)</strong></td><td>97 / 100</td><td>3%</td><td>32.0 m/s</td><td>—</td></tr><tr><td><strong>MLPx + Speed Cap + Braking Guard</strong></td><td>6 / 100</td><td>94%</td><td>27.3 m/s</td><td>257 commands</td></tr><tr><td><strong>MLPx + Full Destination Guard</strong></td><td><strong>0 / 100</strong></td><td><strong>100%</strong></td><td><strong>27.4 m/s</strong></td><td><strong>165 settled</strong></td></tr><tr><td><em>Rule-Based Geometry Baseline</em></td><td>0 / 100</td><td>100%</td><td>26.8 m/s</td><td>—</td></tr></tbody></table>
+<hr>
+<h2>World Model Training &amp; Policy Comparison</h2>
+<h3>World Model Training Loss (WM4)</h3>
+<p>Trained on 566k counterfactual records balanced equally across all 5 ego commands:</p>
+<p><img src="training_graphs/experiment_4_mlpx_training.png" alt="Experiment 4 World Model Training" style="max-width:100%; height:auto;"></p>
+<h3>Guarded Policy Comparison</h3>
+<p>Comparing DQN3, Ask Nobody, Random, and All across 100 guarded episodes:</p>
+<p><img src="policy_graphs/experiment_4_transfer_comparison.png" alt="Experiment 4 Guarded Policy Transfer Comparison" style="max-width:100%; height:auto;"></p>
+<hr>
+<h2>Guarded Policy Video</h2>
+<p>Driving across 40 timesteps on fresh test seed 100220 with 0 crashes, maintaining highway cruising speed (27.5 m/s):</p>
+<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/dqn_experiment_4_guarded_policy.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
+<hr>
+<h2>Key Findings &amp; Lessons Learned</h2>
+<ol>
+<li><strong>Crashes Reduced from 97% to 0%:</strong> Adding executive safety guards completely eliminated collisions while preserving highway speed.</li>
+<li><strong>Kinematics Suffice on Normal Highways:</strong> Across 100 guarded episodes, asking nobody achieved 37.00 return with 0 crashes. DQN3 requested 16.1 times per episode but gained only +0.05 reward, losing net return due to message costs.</li>
+<li><strong>The Next Frontier:</strong> To demonstrate the true value of communication, we need scenarios where neighbors hide their true destination lane—leading directly to Experiment 5.</li>
+</ol></article></main></div></body>
+</html>

@@ -18,6 +18,13 @@ class TinyEnvironment:
     action_space = SimpleNamespace(n=5)
     vehicle = SimpleNamespace(lane_index=("0", "1", 1), speed=25.)
 
+    @property
+    def observation_type(self):
+        return self
+
+    def observe(self):
+        return np.zeros(55, dtype=np.float32)
+
     def reset(self, seed):
         self.reward = float(np.random.default_rng(seed).uniform())
         return np.zeros(55, dtype=np.float32), {}
@@ -37,15 +44,22 @@ class ResumeTests(unittest.TestCase):
             wm.mkdir()
             (wm / "best.pt").write_bytes(b"unchanged test world model")
 
-            def run(name, episodes, resume=False):
+            def run(name, episodes, resume=False, mixed=False):
                 output = root / name / "best.pt"
                 command = ["train", "--experiment", "3", "--episodes", str(episodes),
                            "--batch-size", "1", "--seed", "5", "--save-every", "1",
                            "--output", str(output)]
                 if resume:
                     command += ["--resume", str(output.with_name("latest.pt"))]
+                if mixed:
+                    command += ['--scenario-mix', 'mixed', '--ordinary-seed', '1000', '--challenge-seed', '2000']
+                def intent_factory(seed, mode):
+                    environment = TinyEnvironment()
+                    environment.reset(seed)
+                    return environment
                 with patch("sys.argv", command), \
                      patch.object(trainer, "CustomEnv", TinyEnvironment), \
+                     patch.object(trainer, 'intent_episode', side_effect=intent_factory), \
                      patch.object(trainer, "visible_neighbors", return_value={}), \
                      patch.object(trainer.MLPxWorldModel, "load", return_value=None), \
                      patch.object(trainer, "MCPPlanner", return_value=SimpleNamespace(plan=lambda *args: 1)), \
@@ -71,6 +85,16 @@ class ResumeTests(unittest.TestCase):
             self.assertEqual(len(logs), 2)
             with logs[-1].open() as file:
                 self.assertEqual([int(row["episode"]) for row in csv.DictReader(file)], [3, 4])
+
+            mixed_full = run('mixed_full', 8, mixed=True)
+            run('mixed_split', 4, mixed=True)
+            mixed_resumed = run('mixed_split', 4, resume=True)
+            self.assertEqual(mixed_full['returns'], mixed_resumed['returns'])
+            self.assertEqual(mixed_resumed['training_config']['scenario_mix'], 'mixed')
+            self.assertEqual(mixed_resumed['training_config']['ordinary_seed'], 1000)
+            for key in ('model_state_dict', 'target_state_dict'):
+                for parameter in mixed_full[key]:
+                    torch.testing.assert_close(mixed_full[key][parameter], mixed_resumed[key][parameter], rtol=0, atol=0)
 
     def test_weights_only_checkpoint_keeps_episode_and_epsilon(self):
         online = trainer.RequestDQN()

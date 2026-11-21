@@ -10,6 +10,8 @@ import shutil
 import subprocess
 import time
 import random
+import math
+import warnings
 from pathlib import Path
 
 import pygame
@@ -31,6 +33,7 @@ from scripts.utils.experiment_utils import (
 from src.cooperative_driving.environments.customEnv import CustomEnv
 from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
 from src.cooperative_driving.planner.MCP import MCPPlanner
+from src.cooperative_driving.planner.safety import guard_action
 from src.cooperative_driving.policies.request_dqn import RequestDQN
 
 
@@ -154,19 +157,38 @@ def main():
     parser.add_argument("--video", default=None, help="Optional MP4 output path")
     parser.add_argument("--video-fps", type=int, default=8)
     parser.add_argument("--no-render", action="store_true")
+    parser.add_argument("--safety-guard", action="store_true", help="Enable the optional geometry braking filter")
+    parser.add_argument("--min-clearance", type=float, default=8.)
+    parser.add_argument("--min-ttc", type=float, default=3.)
+    parser.add_argument('--comfort-ttc', type=float, default=None,
+                        help='Proactively change lanes or slow before the emergency TTC threshold')
+    parser.add_argument('--lane-change-guard', action='store_true')
+    parser.add_argument('--max-target-speed', type=float, default=None)
     args = parser.parse_args()
+    if (args.lane_change_guard or args.max_target_speed is not None) and not args.safety_guard:
+        parser.error('lane-change-guard and max-target-speed require safety-guard')
+    if args.comfort_ttc is not None and (not args.safety_guard or not args.lane_change_guard):
+        parser.error('comfort-ttc requires safety-guard and lane-change-guard')
+    if args.max_target_speed is not None and (not math.isfinite(args.max_target_speed) or args.max_target_speed <= 0):
+        parser.error('max-target-speed must be finite and positive')
+    if args.comfort_ttc is not None and (not math.isfinite(args.comfort_ttc) or args.comfort_ttc <= args.min_ttc):
+        parser.error('comfort-ttc must be finite and greater than min-ttc')
 
     if args.video and args.no_render:
         parser.error("--video requires rendering; remove --no-render")
+    if not all(math.isfinite(v) and v > 0 for v in (args.min_clearance, args.min_ttc)):
+        parser.error("guard thresholds must be finite and positive")
 
     args.dqn_checkpoint = args.dqn_checkpoint or str(
         experiment_checkpoint_dir(args.experiment, "RequestDQN") / "best.pt"
     )
-    args.mlpx_checkpoint = args.mlpx_checkpoint or str(
+    dqn = RequestDQN.load(args.dqn_checkpoint)
+    args.mlpx_checkpoint = args.mlpx_checkpoint or dqn.mlpx_checkpoint or str(
         experiment_checkpoint_dir(args.experiment, "MLPx") / "best.pt"
     )
 
-    dqn = RequestDQN.load(args.dqn_checkpoint)
+    if dqn.training_config.get('safety_guard') and not args.safety_guard:
+        warnings.warn('DQN was trained with a safety guard. Pass its guard flags to reproduce the trained controller.')
     world_model = MLPxWorldModel.load(args.mlpx_checkpoint)
     rng = random.Random(args.seed)
     video_writer = (
@@ -210,17 +232,33 @@ def main():
             total_reward = 0.0
             requests_sent = 0
             steps_completed = 0
+            guard_overrides = 0
+            controller_state = {} if args.comfort_ttc is not None else None
             episode_outcome = None
             print(f"Episode {episode + 1}/{args.episodes}")
 
             for timestep in range(environment.config["duration"]):
+                observation = world_model.observe(environment)
                 visible = visible_neighbors(environment, 60.0, 10.0)
-                state = request_state(environment, visible)
+                state = request_state(environment, visible, dqn.request_state_encoding)
                 request_action = select_action(
                     dqn, state, valid_actions(visible, dqn.request_action_encoding), epsilon=0.0, rng=rng
                 )
                 message = requested_message(environment, visible, request_action, dqn.request_action_encoding)
-                driving_action = planner.plan(observation, message)
+                guard = None
+                if args.safety_guard:
+                    driving_action, guard = guard_action(
+                        planner.action_values(observation, message), environment.vehicle,
+                        visible, environment.config["lanes_count"], args.min_clearance, args.min_ttc,
+                        check_lane_changes=args.lane_change_guard,
+                        max_target_speed=args.max_target_speed,
+                        comfort_ttc=args.comfort_ttc,
+                        controller_state=controller_state,
+                    )
+                    guard_overrides += int(guard["overridden"])
+                else:
+                    driving_action = planner.plan(observation, message)
+                guard_label = " | guard: " + (", ".join(guard["reasons"]) or "pass") if guard else ""
                 visible_ids = ordered_visible_ids(visible)
                 requests_sent += int(request_action != ASK_NOBODY)
                 requested_vehicle = resolve_requested_vehicle(
@@ -230,13 +268,13 @@ def main():
                 requested = "none" if requested_vehicle is None else str(requested_vehicle.vehicle_id)
                 print(
                     f"  step={timestep:02d} visible={len(visible_ids)} "
-                    f"request={requested} driving={ACTION_NAMES[driving_action]}"
+                    f"request={requested} driving={ACTION_NAMES[driving_action]}{guard_label}"
                 )
 
                 if not args.no_render:
                     frame = render_frame(
                         environment, requested_vehicle, message,
-                        f"Episode {episode + 1} | step {timestep} | ego action: {ACTION_NAMES[driving_action]}"
+                        f"Episode {episode + 1} | step {timestep} | ego action: {ACTION_NAMES[driving_action]}{guard_label}"
                     )
                     if video_writer:
                         video_writer.write(frame)
@@ -250,7 +288,7 @@ def main():
                     if not args.no_render:
                         frame = render_frame(
                             environment, requested_vehicle, message,
-                            f"{episode_outcome} | steps {steps_completed} | reward {total_reward:.3f} | requests {requests_sent} | last request/response:"
+                            f"{episode_outcome} | steps {steps_completed} | reward {total_reward:.3f} | requests {requests_sent} | guard overrides {guard_overrides} | last request/response:"
                         )
                         if video_writer:
                             video_writer.write(frame)
@@ -267,7 +305,7 @@ def main():
                 f"  episode summary: steps={steps_completed}/{environment.config['duration']} "
                 f"outcome={episode_outcome} "
                 f"crashed={'yes' if episode_outcome == 'CRASHED' else 'no'} "
-                f"reward={total_reward:.3f} requests_sent={requests_sent}"
+                f"reward={total_reward:.3f} requests_sent={requests_sent} guard_overrides={guard_overrides}"
             )
             environment.close()
     finally:

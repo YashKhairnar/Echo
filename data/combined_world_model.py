@@ -12,6 +12,16 @@ ACTION_SIZE = 5
 STATE_SIZE = 11 * 5
 
 
+def episode_group(record):
+    """Keep all counterfactuals from the same source episode in one split."""
+    return (record.get("dataset_source", "unknown"),
+            record.get("source_episode", record.get("episode", 0)))
+
+
+def heldout_episode_groups(groups):
+    return set(sorted(set(groups), key=str)[::5])
+
+
 def encode_message(message):
     behavior = message.get("behavior_type", "unknown")
     behavior_code = {
@@ -63,44 +73,49 @@ def encode_messages(record):
 class CombinedWorldModelDataset(Dataset):
     """Merged JSONL transitions with a fixed-size state/message representation."""
 
-    def __init__(self, path):
-        records = []
-        with open(path) as file:
-            for line in file:
-                if line.strip():
-                    records.append(json.loads(line))
-
-        if not records:
-            raise ValueError("Dataset is empty")
-
-        self.records = records
+    def __init__(self, path, compact_records=False):
+        # Training only needs action/message presence after encoding. Keeping
+        # the full decoded JSON for every counterfactual wastes substantial RAM.
+        self.records = []
         self.inputs = []
         self.next_states = []
         self.rewards = []
         self.groups = []
-        for record in records:
-            state = np.asarray(record["state"], dtype=np.float32).reshape(-1)
-            next_state = np.asarray(record["next_state"], dtype=np.float32).reshape(-1)
-            if len(state) != STATE_SIZE or len(next_state) != STATE_SIZE:
-                raise ValueError(
-                    f"Expected state size {STATE_SIZE}, got {len(state)} -> {len(next_state)}"
-                )
+        self.state_size = None
+        with open(path) as file:
+            for line in file:
+                if line.strip():
+                    self._append_record(json.loads(line), compact_records)
 
-            action = np.zeros(ACTION_SIZE, dtype=np.float32)
-            action[int(record["ego_action"])] = 1.0
-            self.inputs.append(np.concatenate([state, action, encode_messages(record)]))
-            self.next_states.append(next_state)
-            self.rewards.append(float(record["reward"]))
-
-            group = (
-                record.get("dataset_source", "unknown"),
-                record.get("source_episode", record.get("episode", 0)),
-            )
-            self.groups.append(group)
-
+        if not self.records:
+            raise ValueError("Dataset is empty")
         self.inputs = torch.tensor(np.asarray(self.inputs), dtype=torch.float32)
         self.next_states = torch.tensor(np.asarray(self.next_states), dtype=torch.float32)
         self.rewards = torch.tensor(self.rewards, dtype=torch.float32)[:, None]
+
+    def _append_record(self, record, compact):
+        state = np.asarray(record["state"], dtype=np.float32).reshape(-1)
+        next_state = np.asarray(record["next_state"], dtype=np.float32).reshape(-1)
+        if self.state_size is None:
+            self.state_size = len(state)
+        if self.state_size not in (55, 57) or len(state) != self.state_size or len(next_state) != self.state_size:
+            raise ValueError(
+                f"Expected consistent state size 55 or 57, got {len(state)} -> {len(next_state)}"
+            )
+        if self.state_size == 57 and record.get('state_encoding') != 'kinematics_ego_control_v1':
+            raise ValueError('57-value states must declare kinematics_ego_control_v1')
+        action = np.zeros(ACTION_SIZE, dtype=np.float32)
+        action[int(record["ego_action"])] = 1.0
+        self.inputs.append(np.concatenate([state, action, encode_messages(record)]).astype(np.float32))
+        self.next_states.append(next_state)
+        self.rewards.append(float(record["reward"]))
+        self.groups.append(episode_group(record))
+        self.records.append({"ego_action": record["ego_action"], "messages": bool(record.get("messages"))}
+                            if compact else record)
+        if compact:
+            for key in ('dataset_source', 'depth'):
+                if key in record:
+                    self.records[-1][key] = record[key]
 
     def __len__(self):
         return len(self.inputs)

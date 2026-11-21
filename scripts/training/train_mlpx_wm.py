@@ -9,6 +9,7 @@ results/experiment_N/MLPx/experiments/<time>_mlpx/.
 
 import argparse
 import csv
+from collections import Counter
 from pathlib import Path
 
 import matplotlib
@@ -16,9 +17,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import torch
 from torch.nn import functional as F
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader, Subset, WeightedRandomSampler
 
-from data.combined_world_model import CombinedWorldModelDataset
+from data.combined_world_model import CombinedWorldModelDataset, heldout_episode_groups
 from scripts.utils.experiment_utils import (
     add_experiment_argument,
     create_run_dir,
@@ -30,6 +31,28 @@ from scripts.utils.experiment_utils import (
 from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
 
 LOG_FIELDS = ["epoch", "train_loss", "test_loss", "state_loss", "reward_loss"]
+
+
+def balanced_sampler(records, train_indices, balance_by, seed):
+    """Equal expected sampling mass per observed action(/message) stratum.
+
+    Uses only training indices; the held-out distribution is unchanged.
+    """
+    if balance_by == "none":
+        return None
+    if balance_by not in ("action", "action-message", "action-message-stage"):
+        raise ValueError("Unknown balancing mode")
+    labels = [(int(records[index]["ego_action"]),
+               bool(records[index].get("messages")) if balance_by.startswith("action-message") else False)
+              for index in train_indices]
+    if balance_by == 'action-message-stage':
+        labels = [(*label, records[index].get('dataset_source', 'unknown'),
+                   records[index].get('depth', 0) if records[index].get('dataset_source') == 'matched_intent' else 'ordinary')
+                  for label, index in zip(labels, train_indices)]
+    counts = Counter(labels)
+    weights = torch.tensor([1. / counts[label] for label in labels], dtype=torch.double)
+    return WeightedRandomSampler(weights, len(weights), replacement=True,
+                                 generator=torch.Generator().manual_seed(seed))
 
 
 def compute_losses(model, batch):
@@ -81,6 +104,9 @@ def main():
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--balance-by", choices=["none", "action", "action-message", "action-message-stage"], default="none",
+                        help="Inverse-frequency sampling on training records only")
     args = parser.parse_args()
 
     if args.data is None:
@@ -90,22 +116,28 @@ def main():
     results_root = experiment_results_dir(args.experiment, "MLPx") / "experiments"
     checkpoint_dir = experiment_checkpoint_dir(args.experiment, "MLPx")
 
-    dataset = CombinedWorldModelDataset(args.data)
-    groups = sorted(set(dataset.groups), key=str)
-    test_groups = set(groups[::5])
+    dataset = CombinedWorldModelDataset(args.data, compact_records=True)
+    test_groups = heldout_episode_groups(dataset.groups)
     train_indices = [index for index, group in enumerate(dataset.groups) if group not in test_groups]
     test_indices = [index for index, group in enumerate(dataset.groups) if group in test_groups]
     train_data = Subset(dataset, train_indices)
     test_data = Subset(dataset, test_indices)
-    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True)
+    torch.manual_seed(args.seed)
+    sampler = balanced_sampler(dataset.records, train_indices, args.balance_by, args.seed)
+    train_loader = DataLoader(train_data, batch_size=args.batch_size,
+                              shuffle=sampler is None, sampler=sampler)
     test_loader = DataLoader(test_data, batch_size=args.batch_size)
 
     run_dir = create_run_dir(results_root, "mlpx")
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     save_run_metadata(run_dir, {"model": "MLPx (per-vehicle)",
-                                "message_slot_encoding": "spatial_v1", **vars(args)})
+                                "message_slot_encoding": "spatial_v1",
+                                "state_size": dataset.state_size,
+                                "state_encoding": 'kinematics_ego_control_v1' if dataset.state_size == 57 else 'kinematics_v1',
+                                "train_records": len(train_indices), "heldout_records": len(test_indices),
+                                "heldout_groups": sorted(test_groups, key=str), **vars(args)})
 
-    model = MLPxWorldModel()
+    model = MLPxWorldModel(state_size=dataset.state_size)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     best_test_loss = float("inf")
     log_path = run_dir / "mlpx_training.csv"
@@ -134,6 +166,8 @@ def main():
             checkpoint = {"epoch": epoch, "model_state_dict": model.state_dict(),
                           "test_loss": metrics["test_loss"], "run_dir": str(run_dir),
                           "data": args.data, "message_slot_encoding": "spatial_v1"}
+            checkpoint['state_size'] = model.STATE_SIZE
+            checkpoint['state_encoding'] = model.state_encoding
             torch.save(checkpoint, run_dir / "latest.pt")
             if metrics["test_loss"] < best_test_loss:
                 best_test_loss = metrics["test_loss"]

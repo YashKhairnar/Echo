@@ -36,10 +36,35 @@ def to_gray(rgb):
     return np.clip(rgb[..., :3] @ GRAY_WEIGHTS, 0, 255).astype(np.uint8)
 
 
-def vehicle_mask(gray):
-    """Pixels that are neither road grey nor white lane markings."""
+LANE_WIDTH = 4.0      # [m]
+LANE_LINES_Y = [-2.0 + LANE_WIDTH * k for k in range(5)]  # road edges and lane lines [m]
+STATE_Y_RANGE = 16.0  # [m], normalization range of y in the state (4 lanes x 4 m)
+
+
+def lane_line_rows(ego_y_normalized, height=FRAME_HEIGHT, margin=1.5):
+    """Boolean (height,) mask of frame rows on a lane line or road edge.
+
+    The camera centres the ego vertically, so a line at road y sits at row
+    (y - ego_y) * scaling + height / 2.
+    """
+    ego_y = float(ego_y_normalized) * STATE_Y_RANGE
+    rows = np.arange(height) + 0.5
+    line_rows = [(y - ego_y) * FRAME_SCALING + height / 2 for y in LANE_LINES_Y]
+    return np.any([np.abs(rows - line) <= margin for line in line_rows], axis=0)
+
+
+def vehicle_mask(gray, ego_y_normalized=None):
+    """Pixels that are neither road grey nor white lane markings.
+
+    With ``ego_y_normalized`` (state[2]), rows on lane lines are left out.
+    A learned decoder draws dashed lines as a soft grey stripe, which would
+    otherwise count as vehicle pixels.
+    """
     gray = np.asarray(gray, dtype=np.int16)
-    return (np.abs(gray - ROAD_GREY) > 20) & (gray < 230)
+    mask = (np.abs(gray - ROAD_GREY) > 20) & (gray < 230)
+    if ego_y_normalized is not None:
+        mask &= ~lane_line_rows(ego_y_normalized, gray.shape[0])[:, None]
+    return mask
 
 
 def iou(first, second):

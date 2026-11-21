@@ -8,7 +8,7 @@ import torch
 from scripts.training.train_state_decoder import loss_fn, split_by_episode
 from src.cooperative_driving.models.decoder import ARCHITECTURES, StateDecoder, load_decoder
 from src.cooperative_driving.visualization.frames import (
-    FRAME_HEIGHT, FRAME_WIDTH, iou, make_frame_environment, to_gray, vehicle_mask,
+    FRAME_HEIGHT, FRAME_WIDTH, iou, lane_line_rows, make_frame_environment, to_gray, vehicle_mask,
 )
 
 
@@ -88,6 +88,17 @@ class FrameTests(unittest.TestCase):
         self.assertEqual(gray.shape, (FRAME_HEIGHT, FRAME_WIDTH))
         self.assertGreater(vehicle_mask(gray).sum(), 0)
         self.assertEqual(iou(vehicle_mask(gray), vehicle_mask(gray)), 1.0)
+        environment.close()
+
+    def test_lane_line_rows_cover_the_white_lines(self):
+        environment = make_frame_environment()
+        for seed in range(5):
+            observation, _ = environment.reset(seed=seed)
+            gray = to_gray(environment.render())
+            line_rows = lane_line_rows(observation[0][2])
+            white_rows = np.flatnonzero((gray > 230).any(axis=1))
+            self.assertGreater(len(white_rows), 0)
+            self.assertTrue(line_rows[white_rows].all(), f"seed {seed}: {white_rows}")
         environment.close()
 
 

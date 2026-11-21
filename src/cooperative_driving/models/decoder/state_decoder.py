@@ -64,6 +64,17 @@ class _FrameDecoder(nn.Module):
         frame = torch.sigmoid(self(state))[0, 0] * 255
         return frame.round().byte().cpu().numpy()
 
+    @torch.no_grad()
+    def draw_batch(self, states, batch_size=128):
+        """Return predicted frames of many states as an (N, 64, 256) uint8 array."""
+        device = next(self.parameters()).device
+        states = torch.as_tensor(np.asarray(states), dtype=torch.float32)
+        frames = []
+        for start in range(0, len(states), batch_size):
+            logits = self(states[start:start + batch_size].to(device))
+            frames.append((torch.sigmoid(logits[:, 0]) * 255).round().byte().cpu())
+        return torch.cat(frames).numpy()
+
     @staticmethod
     def load(path):
         checkpoint = torch.load(path, map_location="cpu", weights_only=False)

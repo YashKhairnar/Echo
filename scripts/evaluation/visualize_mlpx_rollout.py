@@ -12,6 +12,10 @@ It also reports, per prediction step, the vehicle-pixel IoU between the
 drawn prediction and the real frame, and the state MSE. Only rollouts that
 last the full horizon are counted.
 
+Works with both MLPx state formats: 55 values (Experiments 1-4) and 57 values
+(Experiment 5 and later: + ego target speed and target lane). The pictures and
+the state MSE use the 55 kinematic values.
+
 ``--messages none`` gives MLPx an empty message input (for a model trained
 without messages). ``--messages all`` gives it, at each step, the messages of
 every visible car in the real environment (for a model trained with them).
@@ -50,11 +54,13 @@ from scripts.utils.experiment_utils import (
 from src.cooperative_driving.models.decoder import load_decoder
 from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
 from src.cooperative_driving.visualization import StateRenderer
+from src.cooperative_driving.visualization.state_renderer import FEATURES, ROWS
 from src.cooperative_driving.visualization.frames import (
     FRAME_HEIGHT, FRAME_SCALING, FRAME_WIDTH, iou, make_frame_environment, to_gray, vehicle_mask,
 )
 
 
+KINEMATIC_STATE_SIZE = ROWS * FEATURES   # 55: presence, x, y, vx, vy for 11 rows
 VISIBILITY_M, SIDE_WINDOW_M = 60.0, 10.0  # same as the request DQN and its renderer
 RANDOM_ACTION_PROBABILITY = 0.3            # same mix as collect_frame_dataset
 
@@ -79,7 +85,9 @@ def rollout(environment, world_model, renderer, decoder, seed, warmup, horizon, 
         observation, _, terminated, truncated, _ = environment.step(choose_action(environment)[0])
         if terminated or truncated:
             return None
-    predicted = np.asarray(observation, dtype=np.float32).reshape(-1)
+    # world_model.observe gives the state in the checkpoint's own format:
+    # 55 values, or 57 for ego-control models (+ target speed and target lane).
+    predicted = world_model.observe(environment)
     frames, ious, mses = [], [], []
     for _ in range(horizon):
         if rng.random() < RANDOM_ACTION_PROBABILITY:
@@ -89,12 +97,14 @@ def rollout(environment, world_model, renderer, decoder, seed, warmup, horizon, 
         message = all_visible_messages(environment) if messages == "all" else None
         predicted = world_model.predict_step(predicted, action, message)[0].numpy()
         observation, _, terminated, truncated, _ = environment.step(action)
+        kinematics = predicted[:KINEMATIC_STATE_SIZE]  # the drawing needs only the 55 kinematic values
         real = to_gray(environment.render())
-        drawn = to_gray(renderer.draw(predicted))
-        frames.append((real, drawn, decoder.draw(predicted)))
+        drawn = to_gray(renderer.draw(kinematics))
+        frames.append((real, drawn, decoder.draw(kinematics)))
         # The metric uses the real state: lane rows are left out except near real cars.
         ious.append(iou(vehicle_mask(real, observation), vehicle_mask(drawn, observation)))
-        mses.append(float(np.mean((predicted - np.asarray(observation).reshape(-1)) ** 2)))
+        # MSE over the 55 kinematic values, so models with 55 and 57 values compare.
+        mses.append(float(np.mean((kinematics - np.asarray(observation).reshape(-1)) ** 2)))
         if terminated or truncated:
             break
     return frames, ious, mses

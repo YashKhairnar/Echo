@@ -1,0 +1,26 @@
+{
+  "input": "data/experiment_5/combined_world_model_dataset.jsonl",
+  "records": 144945,
+  "crash_flags": 10438,
+  "truncation_flags": 92995,
+  "mean_reward": 0.7822755073741757,
+  "actions": {
+    "LANE_LEFT": 28989,
+    "IDLE": 28989,
+    "LANE_RIGHT": 28989,
+    "FASTER": 28989,
+    "SLOWER": 28989
+  },
+  "request_counts": {
+    "0": 73710,
+    "1": 59765,
+    "3": 5270,
+    "2": 6045,
+    "4": 140,
+    "5": 15
+  },
+  "behavior_counts": {
+    "aggressive": 46760,
+    "defensive": 41540
+  }
+}

@@ -4,11 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dqnx Request Policy · Echo Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+      onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
   <style>
     :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
     * { box-sizing: border-box; } body { margin: 0; }
     .layout { display: flex; min-height: 100vh; }
-    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
     .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
     .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
     nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
@@ -25,7 +29,7 @@
     @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
   </style>
 </head>
-<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="../index.html">Home</a><a href="../timeline.html">Timeline</a><a href="../progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="../mlpx.html">MLPx world model</a><a href="../planner.html">Planner</a><a href="../policy.html">Policy</a><a href="../dqn_policy.html">Request DQN</a><a href="../rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="../intent_aware_data_collection.html">Intent-aware collection</a><a href="../training.html">Training</a><a href="../dataset_dashboard.html">Dataset dashboard</a><a href="../merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>DQNx Multi-Request Policy</h1>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="../index.html">Home</a><a href="../timeline.html">Timeline</a><a href="../progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="../mlpx.html">MLPx world model</a><a href="../planner.html">Planner</a><a href="../policy.html">Policy</a><a href="../dqn_policy.html">Request DQN</a><a href="../rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="../experiments.html">Overview</a><a href="../experiment_1.html">Experiment 1: Baseline</a><a href="../experiment_2.html">Experiment 2: Scaled Data</a><a href="../experiment_3.html">Experiment 3: Spatial Slots</a><a href="../experiment_4.html">Experiment 4: Safety Guards</a><a href="../experiment_5.html">Experiment 5: Intent Scenarios</a><a href="../experiment_6.html">Experiment 6: Selective Requests</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="../intent_aware_data_collection.html">Intent-aware collection</a><a href="../training.html">Training runbook</a><a href="../dataset_dashboard.html">Dataset dashboard</a><a href="../intent_scenarios.html">Intent scenarios</a><a href="../merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>DQNx Multi-Request Policy</h1>
 <p>DQNx learns which visible neighboring vehicles should be queried at each timestep. It can request any subset of the currently visible vehicles, or request nobody. A request slot is positional within the current observation; it is not a permanent vehicle ID.</p>
 <h2>Observation and message design</h2>
 <p>The ego observation contains only locally visible kinematics:</p>

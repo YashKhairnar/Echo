@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Experiment 3 · Echo Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+      onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
+    * { box-sizing: border-box; } body { margin: 0; }
+    .layout { display: flex; min-height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+    .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
+    .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
+    nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
+    nav a:hover, nav a.active { background: #263b78; color: white; }
+    .nav-group { margin: 0 0 18px; }
+    .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
+    main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
+    article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
+    h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    .experiment-title { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }
+    p { line-height: 1.65; } .subtitle { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
+    pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
+    @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
+  </style>
+</head>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a class="active" href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1 class="experiment-title">Experiment 3: Spatial Slot Realignment &amp; Baseline</h1>
+<p><strong>Experiment 3</strong> resolved the message-alignment flaw by binding neighbor messages into <strong>8 fixed spatial slots</strong> around the ego car. This produced the project's stable reference baseline checkpoints (<strong>WM3</strong> and <strong>DQN3</strong>).</p>
+<ul>
+<li><strong>World Model Checkpoint:</strong> <code>checkpoints/experiment_3/MLPx/best.pt</code></li>
+<li><strong>Request DQN Checkpoint:</strong> <code>checkpoints/experiment_3/RequestDQN/best.pt</code></li>
+</ul>
+<hr>
+<h2>Objective &amp; Hypothesis</h2>
+<p>By organizing messages into fixed relative spatial coordinates (<code>left-front</code>, <code>left-beside</code>, etc.) and masking empty slots in the DQN action space, does the world model learn consistent spatial representations and improve decision agreement?</p>
+<hr>
+<h2>The Spatial Slot Architecture</h2>
+<p>Messages and DQN request actions were mapped to 8 fixed spatial positions within 60 meters:</p>
+<pre><code>       LEFT LANE              SAME LANE             RIGHT LANE
+┌─────────────────────┐┌─────────────────────┐┌─────────────────────┐
+│  0: Left-Front      ││  3: Same-Lane-Front ││  5: Right-Front     │
+├─────────────────────┤├─────────────────────┤├─────────────────────┤
+│  1: Left-Beside     ││      [ EGO CAR ]    ││  6: Right-Beside    │
+├─────────────────────┤├─────────────────────┤├─────────────────────┤
+│  2: Left-Rear       ││  4: Same-Lane-Rear  ││  7: Right-Rear      │
+└─────────────────────┘└─────────────────────┘└─────────────────────┘
+                             [ 8: Ask Nobody ]</code></pre>
+<hr>
+<h2>Setup &amp; Configuration</h2>
+<table><thead><tr><th>Parameter</th><th>Setting</th><th>Description</th></tr></thead><tbody><tr><td><strong>Dataset Size</strong></td><td>263,375 transitions</td><td>Corrected spatial slot representations</td></tr><tr><td><strong>Action Masking</strong></td><td>Dynamic</td><td>Empty neighbor slots are masked out so the agent only queries real vehicles</td></tr><tr><td><strong>World Model (WM3)</strong></td><td>116 in / 55 out</td><td>3-step action agreement reached <strong>81.9%</strong></td></tr><tr><td><strong>Request DQN (DQN3)</strong></td><td>1,000 episodes</td><td>Fixed-action spatial policy; mean return reached <strong>15.59</strong></td></tr></tbody></table>
+<hr>
+<h2>Training Metrics</h2>
+<h3>World Model Training Loss</h3>
+<p>Clean convergence on the 263k transition dataset:</p>
+<p><img src="training_graphs/experiment_3_mlpx_training.png" alt="Experiment 3 World Model Training" style="max-width:100%; height:auto;"></p>
+<h3>Request DQN Training</h3>
+<p>Reward and Q-loss across 1,000 episodes:</p>
+<p><img src="training_graphs/experiment_3_dqn_training.png" alt="Experiment 3 DQN Training" style="max-width:100%; height:auto;"></p>
+<hr>
+<h2>Policy Driving Video</h2>
+<p>The ego vehicle actively uses spatial request slots to query vehicles in its front and adjacent lanes:</p>
+<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/dqn_experiment_3_policy.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
+<hr>
+<h2>Key Findings &amp; Lessons Learned</h2>
+<ol>
+<li><strong>Spatial Representation Standard:</strong> 3-step action agreement jumped to <strong>81.9%</strong>, confirming that relative spatial ordering is vastly superior to list-order indexing.</li>
+<li><strong>Stable Reference Checkpoint:</strong> Experiment 3 established the primary baseline checkpoints (<code>checkpoints/experiment_3/</code>) preserved throughout all future experiments.</li>
+<li><strong>The Communication Value Dilemma:</strong> Evaluated across 200 highway test seeds, DQN3 had an 88% crash rate, virtually identical to asking nobody (88.5%). On standard highway traffic, kinematics alone were sufficient to anticipate maneuvers; communication costs outweighed the small information benefit.</li>
+</ol></article></main></div></body>
+</html>

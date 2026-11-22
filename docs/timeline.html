@@ -29,7 +29,7 @@
   }
   main { max-width: 860px; margin: 0 auto; padding: 32px 16px 48px; }
   .site-layout { display: flex; min-height: 100vh; }
-  .site-sidebar { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+  .site-sidebar { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
   .site-brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; color: white; }
   .site-tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
   .site-sidebar nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
@@ -104,7 +104,7 @@
 </style>
 </head>
 <body>
-<div class="site-layout"><aside class="site-sidebar"><div class="site-brand">Echo Docs</div><p class="site-tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a class="active" href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><div class="site-content">
+<div class="site-layout"><aside class="site-sidebar"><div class="site-brand">Echo Docs</div><p class="site-tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a class="active" href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><div class="site-content">
 <main>
   <header>
     <h1>Echo: project timeline</h1>
@@ -336,7 +336,7 @@
         </dl></div></details></li>
 
     <li><div class="date">Nov 19</div><div class="dot part"></div>
-      <details class="now" open><summary><span class="title">Selected Experiment 3 policy: modest overall progress</span><span class="badge">NOW</span>
+      <details><summary><span class="title">Selected Experiment 3 policy: modest overall progress</span><span class="badge">PAST</span>
         <span class="line2">Same 200 evaluation seeds · <span class="result part">return +4.2%, eight fewer crashes versus Experiment 1</span></span></summary>
         <div class="body"><dl>
           <dt>Comparison</dt><dd>Experiment 1: return 14.955, crashes 92%, requests 5.040. Selected Experiment 3: return 15.585, crashes 88%, requests 7.015.</dd>
@@ -345,12 +345,43 @@
           <dt>Details</dt><dd><a href="dqn_policy.html">Policy results and videos</a> · <a href="mlpx.html">MLPx results</a> · <a href="training.html">Run guide</a></dd>
         </dl></div></details></li>
 
-    <li><div class="date">Next</div><div class="dot neutral"></div>
-      <details class="next"><summary><span class="title">Investigate decisions near collisions</span>
-        <span class="line2">Compare imagined rewards and states with actual outcomes throughout episodes</span></summary>
+    <div class="phase">PHASE 4 · Safety, hidden intent, and selective requests <small>· Nov 19 – Nov 20</small></div>
+
+    <li><div class="date">Nov 19</div><div class="dot good"></div>
+      <details><summary><span class="title">Experiment 4: diagnose crashes and add the safety guard</span>
+        <span class="line2">Speed cap, braking checks, and lane-change clearance · <span class="result good">97% crashes → 0% on guarded validation</span></span></summary>
         <div class="body"><dl>
-          <dt>Planning</dt><dd>Inspect the actions and messages leading up to crashes to distinguish prediction errors from reward and planning issues.</dd>
-          <dt>Evaluation</dt><dd>The corrected WM evaluator already retains early-terminal cases. Next, inspect actual crash trajectories and repeat training with multiple seeds to quantify uncertainty.</dd>
+          <dt>Diagnosis</dt><dd>The learned planner repeatedly accelerated its internal target speed toward 50 m/s and attempted unsafe or overlapping lane changes.</dd>
+          <dt>Fix</dt><dd>A deterministic executive guard caps the target speed at 30 m/s, brakes for low clearance or TTC, checks destination-lane gaps, and blocks overlapping lane commands.</dd>
+          <dt>Result</dt><dd>The guarded validation eliminated the observed crash regression while preserving real lane changes. The guard is now shared by training, evaluation, and rendering.</dd>
+        </dl><div class="chips"><span class="chip">30 m/s cap</span><span class="chip">TTC 3 s</span><span class="chip">clearance 8 m</span></div></div></details></li>
+
+    <li><div class="date">Nov 20</div><div class="dot part"></div>
+      <details><summary><span class="title">Experiment 5: matched hidden-intent worlds</span>
+        <span class="line2">Identical public state, stay vs cut-in future · <span class="result part">messages reduce crashes, DQN5 asks too often</span></span></summary>
+        <div class="body"><dl>
+          <dt>Data and model</dt><dd>Collected 144,945 transitions and trained a 118-input / 57-output WM5 that includes ego target speed and target lane.</dd>
+          <dt>Controlled result</dt><dd>The stage-balanced WM5 reduced one-shot challenge crashes from 12/200 without messages to 6/200 with messages.</dd>
+          <dt>Learned policy</dt><dd>DQN5 gained a small safety benefit but sent 33.31 requests per ordinary episode and 1.88 per intent trial on the later shared-seed comparison.</dd>
+        </dl><div class="chips"><span class="chip">144,945 transitions</span><span class="chip">118 inputs</span><span class="chip">12 → 6 controlled crashes</span></div></div></details></li>
+
+    <li><div class="date">Nov 20</div><div class="dot good"></div>
+      <details class="now" open><summary><span class="title">Experiment 6: teach the DQN to avoid redundant requests</span><span class="badge">NOW</span>
+        <span class="line2">Penalty when a reply changes no driving action · <span class="result good">roughly half the requests, better same-seed return</span></span></summary>
+        <div class="body"><dl>
+          <dt>Teacher signal</dt><dd>During training only, compare the planner's move with and without the selected reply. A request that changes nothing receives an extra 0.10 penalty; deployed observations remain public.</dd>
+          <dt>Ordinary roads</dt><dd>DQN5 → DQN6: requests 33.31 → 16.88, adjusted return 34.943 → 35.801, with zero crashes for both.</dd>
+          <dt>Intent trials</dt><dd>DQN5 → DQN6: requests 1.88 → 1.04, return 2.563 → 2.597, crashes 10/200 → 9/200.</dd>
+          <dt>Controller follow-up</dt><dd>A proactive 6-second caution mode plus lane/speed cooldowns removed rapid reversals and increased completed lane changes from 171 to 240 across 100 roads, with zero crashes and nearly unchanged return.</dd>
+          <dt>Limit</dt><dd>DQN6 is the strongest learned request policy, but asking nobody still has the highest cost-adjusted return.</dd>
+        </dl><div class="chips"><span class="chip">1,000 episodes</span><span class="chip">240 lane changes / 100 roads</span><span class="chip">63 tests pass</span></div></div></details></li>
+
+    <li><div class="date">Next</div><div class="dot neutral"></div>
+      <details class="next"><summary><span class="title">Select the request penalty on validation seeds</span>
+        <span class="line2">Compare 0.10, 0.20, and 0.30 without touching the final test seeds</span></summary>
+        <div class="body"><dl>
+          <dt>Goal</dt><dd>Suppress the remaining unnecessary ordinary-road requests while preserving the intent crashes avoided by DQN6.</dd>
+          <dt>Method</dt><dd>Train multiple seeds per penalty, choose only on separate validation scenes, and evaluate the selected candidate once on untouched test scenes.</dd>
         </dl></div></details></li>
   </ol>
 

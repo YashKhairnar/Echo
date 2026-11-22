@@ -4,11 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Progress Log · Echo Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+      onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
   <style>
     :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
     * { box-sizing: border-box; } body { margin: 0; }
     .layout { display: flex; min-height: 100vh; }
-    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
     .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
     .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
     nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
@@ -25,9 +29,9 @@
     @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
   </style>
 </head>
-<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a class="active" href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Data and experiments</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Project Progress Log</h1>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a class="active" href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Project Progress Log</h1>
 <h2>Current snapshot</h2>
-<table><thead><tr><th>Area</th><th>Current state</th></tr></thead><tbody><tr><td>Environment</td><td>Four lanes, one ego, aggressive and defensive traffic, stable vehicle IDs</td></tr><tr><td>Visibility</td><td>Up to 60 m, ego lane plus immediate left/right lanes, eight spatial slots</td></tr><tr><td>Dataset</td><td>Experiment 3: 263,375 corrected transitions; Experiment 2: 223,375; Experiment 1: 26,597</td></tr><tr><td>World model</td><td>MLPx: 116 inputs → next state and reward; Experiments 1–3 trained and evaluated</td></tr><tr><td>Planner</td><td>Reward-only MLPx planner with a three-step horizon</td></tr><tr><td>Request policy</td><td>Experiment 3 evaluated at 1,000 and 2,000 episodes; the 1,000-episode fixed-action checkpoint performs better in these evaluations</td></tr><tr><td>Documentation</td><td>HTML site with dedicated system, data, training, rendering, and history pages</td></tr></tbody></table>
+<table><thead><tr><th>Area</th><th>Current state</th></tr></thead><tbody><tr><td>Environment</td><td>Four lanes, one ego, aggressive and defensive traffic, stable vehicle IDs</td></tr><tr><td>Visibility</td><td>Up to 60 m, ego lane plus immediate left/right lanes, eight spatial slots</td></tr><tr><td>Dataset</td><td>Experiment 5: 144,945 paired-intent/control-state transitions; earlier datasets preserved</td></tr><tr><td>World model</td><td>Experiment 5 stage-balanced 118-input/57-output MLPx is frozen for Experiment 6 request learning</td></tr><tr><td>Planner</td><td>Reward-only MLPx planner with a three-step horizon</td></tr><tr><td>Request policy</td><td>DQN6 is the strongest learned request candidate: fewer requests and better same-seed return than DQN5, but below no-request after cost</td></tr><tr><td>Documentation</td><td>HTML site with dedicated system, data, training, rendering, and history pages</td></tr><tr><td>Intent-sensitive scenarios</td><td>Experiment 5 has separate scenario benchmarks and a grouped paired-intent training dataset</td></tr></tbody></table>
 <h2>Active pipeline</h2>
 <pre><code>CustomEnv
   → visible spatial neighbor slots
@@ -36,17 +40,123 @@
   → MLPx imagines three-step ego action outcomes
   → HighwayEnv executes the selected ego action
   → transition and training metrics are logged</code></pre>
-<p>Latest inspected trained artifacts (Experiment 3 dataset is listed separately):</p>
+<p>Latest inspected trained artifacts:</p>
 <ul>
-<li>MLPx checkpoint: <code>checkpoints/experiment_3/MLPx/best.pt</code></li>
-<li>Request DQN checkpoint: <code>checkpoints/experiment_3/RequestDQN/best.pt</code></li>
-<li>Latest combined dataset: <code>data/experiment_3/combined_world_model_dataset.jsonl</code></li>
-<li>Training logs: <code>results/experiment_3/RequestDQN/experiments/</code></li>
-<li>MLPx evaluation results: <code>results/experiment_3/evaluation/mlpx_rollout/</code></li>
-<li>Latest 2,000-episode DQN evaluation: <code>results/experiment_3/evaluation/request_dqn/</code></li>
+<li>MLPx checkpoint: <code>checkpoints/experiment_5/MLPx/intent_stage_best.pt</code></li>
+<li>Request DQN checkpoint: <code>checkpoints/experiment_6/RequestDQN/best.pt</code></li>
+<li>Latest combined dataset: <code>data/experiment_5/combined_world_model_dataset.jsonl</code></li>
+<li>Training logs: <code>results/experiment_6/RequestDQN/experiments/20261120_150538_request_dqn/</code></li>
+<li>Ordinary DQN evaluation: <code>results/experiment_6/evaluation/selective_ordinary/</code></li>
+<li>Paired-intent DQN evaluation: <code>results/experiment_6/evaluation/selective_intent/</code></li>
 <li>Documentation home: <code>docs/index.html</code></li>
 </ul>
 <h2>Latest milestone</h2>
+<h2 class="experiment-title">Experiment 6 · Smooth proactive driving controller</h2>
+<ul>
+<li>Added opt-in <code>--comfort-ttc 6</code> behavior without changing historical experiment defaults. It acts before the 3-second emergency threshold, requires a safe destination lane with at least equal forward clearance, and falls back to slowing when no useful lane exists.</li>
+<li>Added a five-step lane-change cooldown to stop left/right ping-pong and a three-step acceleration cooldown after braking to stop immediate <code>SLOWER → FASTER</code> reversals.</li>
+<li>Across the same 100 ordinary roads, completed lane changes increased 171→240, requests fell 16.88→13.17, and crashes remained 0. Adjusted return was nearly unchanged at 35.748 versus 35.801; mean speed changed 27.527→27.401 m/s.</li>
+<li>Across the same 200 paired-intent trials, crashes remained 9, requests stayed 1.04 per trial, and return was 2.594 versus 2.597. All 63 tests pass.</li>
+</ul>
+<h2 class="experiment-title">Experiment 6 · Selective request teacher</h2>
+<ul>
+<li>Added a training-only counterfactual signal: a requested message receives an extra 0.10 penalty when the planner chooses the same move with and without that response. The DQN input remains public; hidden intent is never exposed at inference time.</li>
+<li>Trained for 1,000 mixed episodes using frozen Experiment 5 <code>intent_stage_best.pt</code>, source-balanced replay, the full guard, and disjoint ordinary/challenge seeds. The original Experiment 5 checkpoints remain unchanged.</li>
+<li>On 100 fresh ordinary roads, DQN6/none adjusted returns were 35.801/36.566, with zero crashes for both. DQN6 sent 16.88 requests per episode—about half DQN5's same-seed 33.31. Its return improved from DQN5's 34.943.</li>
+<li>On 100 fresh paired scenes (200 trials), DQN6/none adjusted returns were 2.597/2.643 and crashes were 9/14. DQN6 avoided five baseline crashes and introduced none, while sending 1.04 requests per trial.</li>
+<li>The safety/selectivity direction improved, and DQN6 beat random/all request baselines. On the same intent seeds it also improved over DQN5: requests 1.88→1.04, return 2.563→2.597, and crashes 10→9. Asking nobody still won adjusted return, so DQN6 is the best learned request candidate rather than the overall policy winner.</li>
+</ul>
+<h2 class="experiment-title">Experiment 5 · Mixed-traffic request DQN training and evaluation</h2>
+<ul>
+<li>Trained DQN5 for 1,000 episodes against frozen intent_stage_best.pt: 500 ordinary roads and 500 short stay/merge episodes from 250 paired scenes.</li>
+<li>Shared the speed cap and full geometry guard between trainer and evaluator. Added source-balanced replay so long ordinary episodes do not dominate. Versioned the 45-value DQN state to include ego target speed and target lane; old DQNs retain their zero-filled ego control slots and existing action maps.</li>
+<li>Training produced 19,967 ordinary steps and 1,473 intent steps. Logs include loss, requests, traffic type, hidden mode for audit only, seeds, and overrides. Full resume restores both replay pools, RNGs, frozen WM hash, and configuration.</li>
+<li>On 100 fresh ordinary roads, DQN5/none returns were 34.840/36.441, both with one crash. DQN5 requested 33.26 vehicles per episode without a safety gain.</li>
+<li>On 100 fresh paired scenes (200 trials), DQN5/none returns were 2.500/2.580 and crashes 18/20. DQN5 avoided two baseline crashes, but request costs still exceeded its reward gain. Its return beat random/all requesting in both sets.</li>
+<li>Checked matched initial scenes across all four policies and clustered paired return analysis by scene. First requests: 40 scenes nobody, 47 relevant neighbor, 13 rear distractor. Identical hidden variants had identical initial requests; the pre-request state does not expose private intent.</li>
+<li>Added training/source plots, evaluation comparisons, renderer usage, and candidate limitations to the docs. All 54 tests pass. This run is not promoted as an overall winner; prior experiment checkpoints remain intact.</li>
+</ul>
+<h2 class="experiment-title">Experiment 5 · WM training and message sensitivity</h2>
+<ul>
+<li>Collected 144,945 transitions: 116,320 paired-intent tree records and 28,625 ordinary-traffic counterfactuals. Each of five actions has 28,989 records; 73,710 records have no messages. Grouping prevents hidden-mode/branch leakage.</li>
+<li>Added a versioned 57-value state with ego target speed and target lane; MLPx now supports 118-input/57-output checkpoints while preserving old 116-input/55-output weights. Normal evaluators and renderer encode by version.</li>
+<li>Trained two 50-epoch runs on 115,680 records, holding out 29,265. Initial action/message balancing selected epoch 50 (loss 0.005619); a source/stage correction selected epoch 38 (loss 0.006208), emphasizing early decisions.</li>
+<li>On fresh paired seeds 420000–420099, WM4 crashed 13/200 with and without messages. Initial WM5 had 13 without / 11 with; stage-balanced WM5 had 12 without / 6 with. The stage candidate changed 32 first actions on request.</li>
+<li>Correct messages modestly beat missing messages and clearly beat swapped messages on the stage candidate's held-out root next-state probe. Always asking still reduced adjusted return by about 0.017 on the final challenge.</li>
+<li>On 100 ordinary guarded episodes, WM4/initial WM5/stage WM5 had 1/0/1 crashes and mean rewards 36.537/36.874/36.322. Kept initial WM5 as default best.pt and saved the stage candidate as intent_stage_best.pt; prior models remain unchanged. DQN5 was subsequently trained and evaluated in the newer milestone above.</li>
+<li>Updated MLPx, scenario, dataset, and training pages. All 51 tests pass.</li>
+</ul>
+<h2 class="experiment-title">Experiment 5 · Matched-intent scenario validation</h2>
+<ul>
+<li>Added a separate challenge-scene builder; ordinary environment defaults are unchanged. Visible kinematics and request states match across stay/merge variants, while genuine preview responses expose the private lane target.</li>
+<li>Used stock aggressive/defensive controllers with assigned committed targets and MOBIL retargeting disabled, plus adjacent-lane rear blockers. Four lanes, 60 m visibility, real dynamics, collisions, and rewards remain in use.</li>
+<li>Validated 100 scene pairs on seeds 400000–400099 after a separate 20-pair pilot. Sixteen pairs changed the oracle action and justified the 0.05 cost. Always asking had negative mean net value versus the best blind oracle.</li>
+<li>A privileged selective-request oracle achieved return 2.714 versus 2.692 for the best blind oracle, requesting in 16% of scenes. This is an upper benchmark, not a learned policy result.</li>
+<li>The message rule avoided 16 aggressive-baseline crashes but lost adjusted reward to the stronger blind oracle. Frozen WM4 had 16/200 mode-trial crashes with and without messages and changed no first actions on receiving them.</li>
+<li>Added an Intent Scenarios documentation tab with the sampler, controls, outcome table, example, and chart. All 46 tests passed at this benchmark-only milestone; the Experiment 5 models and production dataset were created later.</li>
+</ul>
+<h2 class="experiment-title">Experiment 4 · Guarded request-policy transfer evaluation</h2>
+<ul>
+<li>Integrated optional speed cap and destination-lane checks into the normal request evaluator and renderer. They share the guard implementation and require <code>--safety-guard --max-target-speed 30 --lane-change-guard</code>.</li>
+<li>Compared frozen WM4 plus the selected 1,000-episode DQN3 against no-request, random-visible, and all-visible policies on fresh seeds 100220–100319. Verified initial-scene hashes match across all four policies.</li>
+<li>All four completed 100/100 full episodes with no crashes. Adjusted returns: none 37.003, DQN3 36.254, random 34.994, all 32.295.</li>
+<li>DQN3 requested 16.05 vehicles per episode but gained only 0.054 driving reward over none. Its adjusted return lost on 97/100 paired seeds; the mean difference was −0.749. This is a transfer result, not DQN4 training.</li>
+<li>Speeds remained 27.70–27.75 m/s across policies, with 207–216 settled lane changes per 100 episodes. Requesting showed no safety benefit in this batch.</li>
+<li>Added evaluation progress/movement counters, checkpoint hashes, paired comparison statistics, and a chart to Request DQN, Experiment 4. Renderer smoke check completed 40/40 steps without crashing. All 43 tests pass.</li>
+</ul>
+<h2 class="experiment-title">Experiment 4 · Destination-lane guard and paired validation</h2>
+<ul>
+<li>Added opt-in destination-lane front/rear gap projection and a lock against stacked or reversing lane commands while a maneuver is unfinished.</li>
+<li>Preserved the 30 m/s diagnostic command cap and current-lane braking. All checks use the existing visible public geometry; WM4 remains frozen.</li>
+<li>On 100 fresh paired seeds (100120–100219), both old and new cap/guard controllers had zero crashes. The new guard averaged 27.44 m/s, reward 36.622, and completed 165 settled changes: 47 left, 118 right.</li>
+<li>On the earlier 100-seed regression set, crashes fell from 6/100 to 0/100; mean reward was 36.915 and speed 27.56 m/s, with 174 settled changes.</li>
+<li>Verified paired initial-scene hashes for both sets. The new guard had 0/200 crashes overall; fresh validation alone does not demonstrate a crash reduction because its baseline also had zero crashes.</li>
+<li>Added command, lane-index-crossing, and settled-maneuver counters to diagnostic outputs. All 40 tests pass. These are no-message tests; no DQN4 was trained. Guard additions remain opt-in through the diagnostic script.</li>
+</ul>
+<h2 class="experiment-title">Experiment 4 · Planner crash investigation</h2>
+<ul>
+<li>Identified repeated FASTER commands raising ego target speed as high as 50 m/s. The collection rule's target speed is not an environment cap.</li>
+<li>Demonstrated identical WM inputs can have different next states/rewards because ego target speed and target lane are omitted from the observation.</li>
+<li>Replayed 20 pre-crash scenes: 13 model-preferred sequences crashed while privileged simulator search found non-crashing alternatives in every scene.</li>
+<li>Tested horizon reduction, a target-speed command cap, the existing guard, and the cap/guard combination with frozen WM4. One-step planning alone still crashed on all 20 initial diagnostic seeds.</li>
+<li>Validated on 100 fresh paired seeds: cap plus guard reduced no-message crashes from 97% to 6%, with mean reward 36.212 and speed 27.31 m/s. Remaining collisions involved lateral motion; target-lane checks are absent.</li>
+<li>Added a reusable replay investigation script and optional diagnostic speed cap. All 33 tests pass. Defaults and selected WM3/DQN3 weights remain intact.</li>
+<li>Full protocols, ablations, caveats, and artifact paths are in Planner, Experiment 4. No DQN4 was trained or evaluated.</li>
+</ul>
+<h2 class="experiment-title">Experiment 4 · All-action collection, training, and evaluation</h2>
+<ul>
+<li>Collected 566,710 records from 1,000 episodes and 32,968 physical states; each action has exactly 113,342 records, with 164,840 no-message records.</li>
+<li>Included 24,102 counterfactual crash flags. Actual collection rollouts had 269 crashes; counterfactual records are not independent episodes.</li>
+<li>Trained for 50 epochs using action/message balanced sampling; best held-out loss was 0.008617 at epoch 35. WM3 artifacts remain unchanged.</li>
+<li>On the same 110,995 held-out records, reward MAE improved from WM3's 0.04724 to 0.01681; crash-record reward MAE improved from 0.62133 to 0.14087.</li>
+<li>Three-step rollout agreement improved to 86.62% with messages and 86.29% without; five-step agreement worsened to 73.58% and 77.59%.</li>
+<li>Unguarded, no-message WM4 driving crashed on all 20 diagnostic seeds, versus 19/20 for WM3. Better one-step prediction has not produced safer driving. No DQN4 was trained; WM3/DQN3 remains selected.</li>
+<li>Full metrics and graphs are in MLPx and Dataset Dashboard, Experiment 4.</li>
+</ul>
+<h2>Action coverage · Evaluation and collection tooling</h2>
+<ul>
+<li>Added one-step MLPx evaluation by action, message presence, and crash outcome using the training episode-group holdout. Experiment 3 results are in evaluation/mlpx_actions/20261119_234823_actions.</li>
+<li>No-message lane-change reward MAE is 0.034–0.041 versus 0.009 for IDLE; collision-record errors are much larger across actions (0.30–0.56). No message-conditioned collision records occur in this held-out subset.</li>
+<li>Added an all-action counterfactual collector with fixed spatial slots, none/single/all request bundles, mixed rule/random real rollouts, explicit boundary-command labels, and episode progress logging.</li>
+<li>Added optional action or action-message balanced sampling on training records only. Test distribution and episode-group isolation are retained.</li>
+<li>Verified a 55-record smoke dataset had exactly 11 records per action and completed a one-epoch balanced-training smoke test. Temporary training artifacts were moved to /tmp; no production dataset or model was replaced.</li>
+<li>Documented proposed next-experiment commands. No large collection or production retraining was launched.</li>
+</ul>
+<h2 class="experiment-title">Experiment 3 · Optional braking and boundary guard</h2>
+<ul>
+<li>Added a public-geometry filter: mask boundary lane changes, then select SLOWER for front clearance below 8 m or positive-closing TTC below 3 s. It checks the first action only; target-lane safety remains unimplemented.</li>
+<li>Compared five policies on matched seeds 100000–100019 in diagnostic run 20261119_234104_driving. WM/no-message crashes fell from 19/20 to 6/20; WM/DQN crashes from 17/20 to 7/20. Rule/no-message remained at zero.</li>
+<li>Guarded mean driving rewards were 30.239 and 29.690. Logged 206 and 201 action overrides respectively and no boundary lane commands.</li>
+<li>Added opt-in --safety-guard to policy evaluation and rendering. Guarded evaluator outputs default to a separate request_dqn_guarded folder. No checkpoints or baseline planner defaults were changed.</li>
+<li>These are 20-seed diagnostic results; the 200-seed guarded evaluation is still a separate validation step. Documented remaining front and lateral conflict failures on the planner page.</li>
+</ul>
+<h2 class="experiment-title">Experiment 3 · Paired driving diagnostics</h2>
+<ul>
+<li>Added scripts.evaluation.diagnose_driving with matched initial-scene checks, full step traces, one-step WM errors, and five-decision crash tails.</li>
+<li>Ran seeds 100000–100019 using WM3 and the selected 1,000-episode DQN. Both rule policies completed all 20 episodes without crashes; WM/no-message crashed in 19 and WM/DQN in 17.</li>
+<li>Most WM crashes had front-contact geometry. Mean predicted collision-step rewards were about 0.85, versus actual rewards about 0.10. Found 27 and 40 boundary lane-change commands respectively in the WM/no-message and DQN runs.</li>
+<li>Saved run: results/experiment_3/diagnostics/20261119_233504_driving. Added results and a concrete seed-100000 trace to the planner page. Contact labels are heuristic; no driving-policy or safety-filter changes were made.</li>
+</ul>
 <h2>Documentation audit · Selected policy and experiment conclusions</h2>
 <ul>
 <li>Updated README and documentation home to the Experiment 3 dataset and selected 1,000-episode fixed-action policy. Clarified that latest.pt still contains the 2,000-episode resume state.</li>

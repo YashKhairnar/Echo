@@ -32,13 +32,15 @@ def load_dqn_history(log_path, explicit_logs=None):
     def encoding(path):
         config_path = path.with_name("config.json")
         if config_path.exists():
-            return json.loads(config_path.read_text()).get("request_action_encoding", "compressed_v0")
+            config = json.loads(config_path.read_text())
+            return (config.get("request_action_encoding", "compressed_v0"),
+                    config.get('request_state_encoding', 'kinematics_v1'))
         checkpoint_path = path.with_name("best.pt")
         if not checkpoint_path.exists():
             raise ValueError(f"Cannot determine request-action encoding for {path}")
-        return torch.load(checkpoint_path, map_location="cpu", weights_only=False).get(
-            "request_action_encoding", "compressed_v0"
-        )
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+        return (checkpoint.get('request_action_encoding', 'compressed_v0'),
+                checkpoint.get('request_state_encoding', 'kinematics_v1'))
 
     def follow(path, visited):
         if path in visited:
@@ -70,7 +72,7 @@ def load_dqn_history(log_path, explicit_logs=None):
     if explicit_logs:
         paths = [Path(path) for path in explicit_logs]
         if len({encoding(path) for path in paths}) != 1:
-            raise ValueError("Cannot combine DQN runs with different action encodings")
+            raise ValueError("Cannot combine DQN runs with different action encodings or state encodings")
         segments = [read_rows(path) for path in paths]
         rows = [row for segment in segments for row in segment]
         boundaries = [int(segment[0]["episode"]) - 1 for segment in segments[1:] if segment]
@@ -96,6 +98,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_experiment_argument(parser)
     parser.add_argument("--dqn-logs", nargs="+", help="Explicit chronological training CSVs if resume ancestry is ambiguous")
+    parser.add_argument('--mlpx-log', type=Path, help='Explicit WM log; useful when an experiment has several candidates')
+    parser.add_argument('--skip-mlpx', action='store_true',
+                        help='Export only DQN plots when reusing a world model from another experiment')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     results = root / "results" / f"experiment_{args.experiment}"
@@ -103,19 +108,21 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     plt.rcdefaults()
 
-    mlpx_log = latest_log(results, "MLPx", "mlpx_training.csv")
-    rows = read_rows(mlpx_log)
-    epochs = [int(row["epoch"]) for row in rows]
-    fig, axis = plt.subplots(figsize=(10, 6))
-    for key in ["train_loss", "test_loss", "state_loss", "reward_loss"]:
-        axis.plot(epochs, [float(row[key]) for row in rows], label=key)
-    axis.set(title=f"MLPx training · Experiment {args.experiment}",
-             xlabel="Epoch", ylabel="Loss")
-    axis.grid(True)
-    axis.legend()
-    fig.tight_layout()
-    fig.savefig(output / f"experiment_{args.experiment}_mlpx_training.png", dpi=150)
-    plt.close(fig)
+    mlpx_log = None
+    if not args.skip_mlpx:
+        mlpx_log = args.mlpx_log or latest_log(results, "MLPx", "mlpx_training.csv")
+        rows = read_rows(mlpx_log)
+        epochs = [int(row["epoch"]) for row in rows]
+        fig, axis = plt.subplots(figsize=(10, 6))
+        for key in ["train_loss", "test_loss", "state_loss", "reward_loss"]:
+            axis.plot(epochs, [float(row[key]) for row in rows], label=key)
+        axis.set(title=f"MLPx training · Experiment {args.experiment}",
+                 xlabel="Epoch", ylabel="Loss")
+        axis.grid(True)
+        axis.legend()
+        fig.tight_layout()
+        fig.savefig(output / f"experiment_{args.experiment}_mlpx_training.png", dpi=150)
+        plt.close(fig)
 
     dqn_log = latest_log(results, "RequestDQN", "request_dqn_training.csv")
     rows, dqn_logs, boundaries = load_dqn_history(dqn_log, args.dqn_logs)
@@ -147,7 +154,27 @@ def main():
     fig.tight_layout()
     fig.savefig(output / f"experiment_{args.experiment}_dqn_training.png", dpi=160)
     plt.close(fig)
-    print(f"Exported Experiment {args.experiment} plots from {mlpx_log}")
+    sources = sorted({row.get('scenario', '') for row in rows} - {''})
+    if len(sources) > 1:
+        fig, axes = plt.subplots(2, 2, figsize=(12, 7))
+        for source in sources:
+            selected = [row for row in rows if row['scenario'] == source]
+            x = [int(row['episode']) for row in selected]
+            for axis, key, title in zip(axes.flat, ['return', 'requests', 'crashed', 'mean_loss'],
+                                         ['Return by traffic type', 'Requests by traffic type',
+                                          'Training crash fraction by traffic type', 'Loss by traffic type']):
+                values = [float(row[key]) if row[key] else np.nan for row in selected]
+                axis.plot(x, rolling(values, 25), label=source)
+                axis.set_title(title)
+                axis.set_xlabel('Overall episode')
+                axis.grid(alpha=.3)
+                axis.legend()
+        fig.suptitle(f'Request DQN · Experiment {args.experiment} · 25 source-episode rolling means')
+        fig.tight_layout()
+        fig.savefig(output / f'experiment_{args.experiment}_dqn_by_scenario.png', dpi=160)
+        plt.close(fig)
+    source = mlpx_log if mlpx_log is not None else 'DQN log only'
+    print(f"Exported Experiment {args.experiment} plots from {source}")
     print(f"DQN: episodes {episodes[0]}–{episodes[-1]} from {len(dqn_logs)} related logs")
     for path in dqn_logs:
         print(f"  {path}")

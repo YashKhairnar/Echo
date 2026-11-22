@@ -1,97 +1,101 @@
 # Echo: Cooperative Driving
 
-A self-driving car learns **when to ask nearby cars for information, and whom
-to ask**. Every request can cost something, so it should only ask when the
-answer can change how it drives. Built on
-[HighwayEnv](https://github.com/Farama-Foundation/HighwayEnv).
+A self-driving vehicle learns **when to ask nearby cars for information, and whom to ask**. Because communication incurs a cost, the ego vehicle must learn to ask only when a neighbor's hidden intent can change driving safety and rewards. Built on [HighwayEnv](https://github.com/Farama-Foundation/HighwayEnv).
 
-## Active scenario
+---
 
-The active environment has four lanes, one controlled ego vehicle, and ten
-background vehicles. Background traffic uses HighwayEnv's aggressive and
-defensive behavior classes. Vehicles have stable IDs, and the ego can inspect
-up to eight nearby spatial slots within 60 m: left-front, left-beside,
-left-rear, same-lane-front, same-lane-rear, and the corresponding right-lane
-slots.
+## How It Works
 
-The older hidden-driver merge scenario is preserved in the documentation
-archive as historical experiment material.
+```text
+┌────────────────┐     1. Request Policy (DQN)       ┌────────────────────────┐
+│  Ego Vehicle   │ ────────────────────────────────> │ Neighbor Car (Slot 0-7)│
+│ (CustomEnv, 4L)│ <──────────────────────────────── │ (Replies with Intent)  │
+└────────────────┘       2. Private Intent Message   └────────────────────────┘
+        │
+        ▼ 3. 3-Step Simulation
+┌─────────────────────────────────┐
+│     MLPx World Model            │
+│ (Predicts Next State & Reward)  │
+└─────────────────────────────────┘
+        │
+        ▼ 4. Action Optimization
+┌─────────────────────────────────┐
+│     Model-Predictive Planner    │ ──> [Executes Safe Action: Lane / Speed]
+│    + Executive Safety Guard     │
+└─────────────────────────────────┘
+```
 
-## The main parts
+---
 
-| Part | Job | Code |
-| --- | --- | --- |
-| **CustomEnv** | Creates the four-lane scene, vehicle types, IDs, visibility, and intent previews | `src/cooperative_driving/environments/customEnv.py` |
-| **MLPx** (world model) | Predicts the next observation and reward from the current state, ego action, and ordered vehicle messages | `src/cooperative_driving/models/MLPx/mlpx.py` |
-| **Planner** | Imagines three steps for each candidate ego action and picks the best one | `src/cooperative_driving/planner/MCP.py` |
-| **Data-collection policy** | Uses visible neighbors and requested intents to choose one of five ego actions | `scripts/policy/intent_aware_policy.py` |
-| **Request DQN** | Chooses one of eight vehicle slots or asks nobody | `src/cooperative_driving/policies/request_dqn.py` |
-| **Renderer** | Shows the learned request policy, vehicle types, crashes, and requested vehicles | `scripts/evaluation/render_request_dqn.py` |
+## Core System Modules
 
-## Current snapshot
+| Module | Purpose | Code |
+| :--- | :--- | :--- |
+| **CustomEnv** | 4-lane highway with mixed aggressive/defensive traffic and 8 spatial observation slots | `src/cooperative_driving/environments/customEnv.py` |
+| **Request DQN** | Learned communication policy: selects which vehicle slot to ask or asks nobody | `src/cooperative_driving/policies/request_dqn.py` |
+| **MLPx World Model** | Neural network simulating 3-step future state and driving reward | `src/cooperative_driving/models/MLPx/mlpx.py` |
+| **Driving Planner** | Receding-horizon tree search ($5^3=125$ trajectories) picking the best driving action | `src/cooperative_driving/planner/MCP.py` |
+| **Safety Guard** | Executive speed cap (30 m/s) and lane-clearance filter eliminating crashes | `src/cooperative_driving/planner/safety.py` |
+| **Intent Scenarios** | Challenge scenarios with hidden driver intentions (stay vs. cut-in) | `src/cooperative_driving/environments/intent_scenarios.py` |
 
-| Item | Current state |
-| --- | --- |
-| Combined dataset | Experiment 3: 263,375 transitions, including 65,822 no-message records |
-| MLPx input | 116 values: 55 state, 5 ego-action, and 56 message values |
-| MLPx output | 55-value next state plus reward |
-| Planner horizon | Three steps |
-| Request DQN actions | Eight spatial request slots plus ask-nobody |
-| Active checkpoints | `checkpoints/experiment_3/{MLPx,RequestDQN}/` |
-| Selected DQN | Fixed spatial actions, 1,000 episodes; 2,000-episode continuation retained |
+---
 
-Experiment 3 MLPx achieved three-step action agreement of 81.61% without
-messages and 81.94% with all visible messages over 299 sampled states per
-group using the corrected evaluator. See the model docs for errors and limits.
+## Key Findings
 
-On the same 200 evaluation seeds, the selected Experiment 3 DQN achieved
-return 15.585 and 88% crashes, versus Experiment 1's 14.955 and 92%.
-It sends more requests (7.015 versus 5.040 per episode). Its no-request baseline
-already crashes at 88.5%, so a reliable safety benefit from communication is
-not established. The 2,000-episode continuation performed worse (15.142 return,
-90.5% crashes); the 1,000-episode model was restored for inference.
+1. **Highway Cruising Doesn't Need Communication:** On standard open highways, standard vehicle movements are predictable from position and speed alone. Asking nobody achieves **0% crashes** at 27.4 m/s while avoiding unnecessary communication costs.
+2. **Intent Communication Shines in Ambiguous Cut-ins:** In paired challenge scenarios where driver intentions are hidden until the last moment, intent communication **cuts crashes in half** (from 12 down to 6).
+3. **Safety Guards are Essential:** Unbounded neural planners tend to spam acceleration commands up to 50 m/s. Pairing MLPx with an executive speed cap (30 m/s) and destination-lane gap checks reduced crash rates from **97% down to 0%**.
+4. **Selective Requests Improve the Learned Policy:** Experiment 6 approximately
+   halved DQN5's message count on identical seeds and improved intent crashes
+   from 10/200 to 9/200. Asking nobody still has the best cost-adjusted return,
+   so selective communication remains an open learning problem.
+5. **Best Current Learned Configuration:** DQN6 with the smooth controller
+   (`--comfort-ttc 6`) completes 240 lane changes per 100 ordinary episodes
+   with zero crashes. It is the best safety/behavior choice; ask-nobody remains
+   the reward baseline to beat.
 
-## Project timeline
+---
+
+## Project Timeline
 
 <a href="https://yashkhairnar.github.io/Echo/timeline.html"><img src="docs/images/project_timeline.svg" width="100%" alt="Echo project timeline"></a>
 
 [Open the interactive timeline](https://yashkhairnar.github.io/Echo/timeline.html) directly.
 
-## Run it
+---
+
+## Quickstart
 
 ```bash
-# Render the selected Experiment 3 policy (requires local checkpoints)
+# 1. Run live visual rendering with learned policy and safety guards
 .venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 3 --episodes 1 --seed 10
+  --experiment 6 --episodes 1 --seed 1200000 \
+  --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6
 
-# Rebuild the HTML documentation site
+# 2. Evaluate request policy across 100 test scenarios
+.venv/bin/python -m scripts.evaluation.evaluate_request_dqn \
+  --experiment 6 --episodes 100 --seed 1200000 --planning-horizon 3 \
+  --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
+  --safety-guard --max-target-speed 30 --lane-change-guard \
+  --comfort-ttc 6 --batched-planner
+
+# 3. Analyze dataset statistics
+.venv/bin/python -m scripts.evaluation.analyze_intent_aware_dataset --experiment 5
+
+# 4. Rebuild static HTML documentation site
 .venv/bin/python -m scripts.docs.build_docs_site
 ```
 
-Follow [Training](docs/training.html) for collection, training, resume, and
-evaluation commands. Datasets and checkpoints are local generated artifacts
-and are excluded from Git. The active best.pt is the selected 1,000-episode
-model; latest.pt retains the 2,000-episode training state for resuming.
+---
 
-## Docs
+## Documentation Site
 
-- [docs/index.html](docs/index.html): HTML documentation site
-- [docs/mlpx.html](docs/mlpx.html): MLPx world-model definition and evaluation
-- [docs/planner.html](docs/planner.html): three-step model-predictive planner
-- [docs/policy.html](docs/policy.html): rule-based data-collection policy
-- [docs/dqn_policy.html](docs/dqn_policy.html): learned Request DQN policy
-- [docs/rendering.html](docs/rendering.html): renderer controls, colors, and highlights
-- [docs/training.html](docs/training.html): collection, training, resume, and evaluation run guide
-- [docs/intent_aware_data_collection.html](docs/intent_aware_data_collection.html): current vehicle, intent, rule, and dataset workflow
-- [docs/dataset_dashboard.html](docs/dataset_dashboard.html): dataset statistics dashboard
-- [docs/progress_log.html](docs/progress_log.html): dated log of what was done
-- [docs/archive/](docs/archive/): earlier highway and merge experiments
-
-## Publish the docs
-
-The repository includes a GitHub Pages workflow at
-`.github/workflows/deploy-docs.yml`. In the repository settings, set
-**Pages → Build and deployment → Source** to **GitHub Actions**. Every push to
-`main` then publishes the `docs/` folder at:
-
-<https://yashkhairnar.github.io/Echo/>
+- [docs/index.html](docs/index.html): Documentation Home
+- [docs/experiments.html](docs/experiments.html): Experiments 1–6 Breakdown & Key Findings
+- [docs/planner.html](docs/planner.html): Model-predictive planner & safety guards
+- [docs/dqn_policy.html](docs/dqn_policy.html): Learned Request DQN communication policy
+- [docs/intent_scenarios.html](docs/intent_scenarios.html): Challenge cut-in scenarios & intent validation
+- [docs/dataset_dashboard.html](docs/dataset_dashboard.html): Interactive dataset statistics & distribution charts
+- [docs/rendering.html](docs/rendering.html): Visualizer controls & video generation
+- [docs/training.html](docs/training.html): Step-by-step training & evaluation runbook
+- [docs/progress_log.html](docs/progress_log.html): Detailed milestone history & experiment logs

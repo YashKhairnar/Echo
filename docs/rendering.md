@@ -11,12 +11,14 @@ Run from the project root and select an experiment with both MLPx and DQN
 checkpoints available:
 
 ```bash
-ECHO_EXPERIMENT=2
+ECHO_EXPERIMENT=6
 ```
 
-The renderer loads that experiment's `MLPx/best.pt` and `RequestDQN/best.pt`
-from `checkpoints/experiment_N/`. Use `--mlpx-checkpoint PATH` or
-`--dqn-checkpoint PATH` to select explicit checkpoints.
+The renderer loads `RequestDQN/best.pt` from the selected experiment. Modern
+DQN checkpoints also store the exact frozen MLPx path used during training, so
+Experiment 6 automatically reuses Experiment 5's `intent_stage_best.pt`.
+Use `--mlpx-checkpoint PATH` or `--dqn-checkpoint PATH` only for deliberate
+transfer tests.
 
 ## Run the renderer
 
@@ -60,6 +62,28 @@ crashed or drove to the episode limit, total reward, and total requests sent.
 
 ## Record a video
 
+To inspect the optional geometry guard, add --safety-guard to any rendering
+command. The overlay and terminal identify braking or boundary-mask reasons,
+and the episode summary includes override counts. See [Planner](planner.html)
+for the guard rules and separate evaluation results. It is disabled by default.
+
+The full optional guard also accepts `--max-target-speed 30` and
+`--lane-change-guard`, both requiring `--safety-guard`. The overlay reports
+speed-cap, destination-gap, maneuver-in-progress, braking, and boundary
+override reasons. For a historical transfer example, inspect frozen WM4 with
+the preserved Experiment 3 DQN:
+
+```bash
+.venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 4 --dqn-checkpoint checkpoints/experiment_3/RequestDQN/best.pt \
+  --episodes 1 --seed 100220 \
+  --safety-guard --max-target-speed 30 --lane-change-guard
+```
+
+This is a transfer configuration, not a trained Experiment 4 DQN. The same
+flags work in `scripts.evaluation.evaluate_request_dqn`; see
+[Request DQN](dqn_policy.html) for the paired baseline comparison.
+
 Recording requires `ffmpeg` on your PATH. Save an MP4 with the request/response
 overlay using an experiment-specific filename:
 
@@ -82,9 +106,40 @@ Recording overwrites the chosen file if it already exists. Use a new filename
 to preserve an earlier recording, then embed the selected video and its
 episode statistics in the corresponding experiment on the DQN policy page.
 
-## Terminal-only rendering check
+## Render Experiment 6
 
-For a terminal-only smoke test:
+Render the selective Experiment 6 policy with its training guard:
+
+```bash
+.venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 6 --episodes 1 --seed 1200000 --delay 0.15 \
+  --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6
+```
+
+Record the same policy with its request/response overlay:
+
+```bash
+.venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 6 --episodes 1 --seed 1200000 --delay 0 \
+  --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6 \
+  --video docs/images/dqn_experiment_6_policy.mp4 --video-fps 8
+```
+
+The `--comfort-ttc 6` mode begins reacting before the 3-second emergency brake
+threshold. It uses safe lane changes when they improve forward clearance,
+holds a five-step lane-change cooldown, and blocks acceleration for three steps
+after braking. The verified terminal-only run completed 40/40 steps without a
+crash and earned 36.394 driving reward. One
+episode is a visual inspection, not an aggregate policy benchmark; use the
+[Experiment 6](experiment_6.html) evaluations for policy conclusions.
+
+The DQN checkpoint supplies its versioned ego-control state encoding and
+frozen intent-stage WM5 path. An explicit `--mlpx-checkpoint` overrides that
+path for deliberate transfer tests. Older checkpoints without a stored path
+use the selected experiment's default WM. Guard flags remain explicit; the
+renderer warns if a guarded-trained DQN is rendered without the guard.
+
+For a terminal-only smoke test without opening a window:
 
 ```bash
 .venv/bin/python -m scripts.evaluation.render_request_dqn \

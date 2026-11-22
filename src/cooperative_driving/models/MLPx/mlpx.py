@@ -3,8 +3,10 @@
 Input: current observation, ego action, and requested vehicle messages.
 Output: next observation and reward.
 
-The current observation is 11 rows x 5 features = 55 values.  Eight message
-slots x 7 features = 56 values, so the complete input is 116 values.
+Legacy observations contain 55 kinematic values (116 total inputs).
+Versioned ego-control states append target speed and lane: 57 state values
+and 118 inputs. Eight message slots contain seven features each. Checkpoints
+record the state size; old checkpoints retain their original representation.
 """
 
 from __future__ import annotations
@@ -23,8 +25,13 @@ class MLPxWorldModel(nn.Module):
     MESSAGE_SIZE = MAX_MESSAGE_SLOTS * MESSAGE_FEATURES
     INPUT_SIZE = STATE_SIZE + ACTION_SIZE + MESSAGE_SIZE
 
-    def __init__(self, hidden_size=256):
+    def __init__(self, hidden_size=256, state_size=55):
         super().__init__()
+        if state_size not in (55, 57):
+            raise ValueError('Supported state sizes are 55 (legacy) and 57 (ego controls)')
+        self.STATE_SIZE = state_size
+        self.INPUT_SIZE = state_size + self.ACTION_SIZE + self.MESSAGE_SIZE
+        self.state_encoding = 'kinematics_ego_control_v1' if state_size == 57 else 'kinematics_v1'
         self.encoder = nn.Sequential(
             nn.Linear(self.INPUT_SIZE, hidden_size),
             nn.ReLU(),
@@ -46,10 +53,19 @@ class MLPxWorldModel(nn.Module):
     @classmethod
     def load(cls, path):
         checkpoint = torch.load(path, map_location="cpu", weights_only=False)
-        model = cls()
+        model = cls(state_size=checkpoint.get('state_size', 55))
         model.load_state_dict(checkpoint["model_state_dict"])
         model.eval()
         return model
+
+    def observe(self, environment):
+        """Encode real state with the checkpoint's versioned representation."""
+        import numpy as np
+        state = np.asarray(environment.observation_type.observe(), dtype=np.float32).reshape(-1)
+        if self.STATE_SIZE == 57:
+            state = np.concatenate([state, [environment.vehicle.target_speed / 30.,
+                                           environment.vehicle.target_lane_index[2] / 3.]]).astype(np.float32)
+        return state
 
     @staticmethod
     def _action_one_hot(action):

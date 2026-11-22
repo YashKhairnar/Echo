@@ -51,6 +51,8 @@ def evaluate_state(model, environment, observation, message, horizon, action_mod
     real simulator; it is not an exhaustive real-simulator optimality test.
     Messages remain fixed over the imagined horizon, as in MCP.
     """
+    if model.STATE_SIZE == 57:
+        observation = model.observe(environment)
     action_count = environment.action_space.n
     discount = 0.99 if action_mode == "planner" else 1.0
     sequences = [(action,) * horizon for action in range(action_count)]
@@ -89,6 +91,8 @@ def evaluate_state(model, environment, observation, message, horizon, action_mod
                 real_environment.step(sequence[step])
             )
             real_observation = np.asarray(real_observation, dtype=np.float32).reshape(-1)
+            if model.STATE_SIZE == 57:
+                real_observation = model.observe(real_environment)
             real_reward += discount ** step * float(reward)
             state_errors.append(
                 float(np.mean(np.abs(predicted_observation - real_observation)))

@@ -16,6 +16,7 @@ import os
 import random
 import warnings
 from collections import deque
+from itertools import chain
 from pathlib import Path
 
 import numpy as np
@@ -26,6 +27,9 @@ from scripts.data_collection.show_visible_neighbors import SLOT_ORDER, ordered_v
 from src.cooperative_driving.environments.customEnv import CustomEnv
 from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
 from src.cooperative_driving.planner.MCP import MCPPlanner
+from src.cooperative_driving.planner.controller import driving_action as choose_driving
+from src.cooperative_driving.planner.safety import update_controller_state
+from src.cooperative_driving.environments.intent_scenarios import intent_episode
 from src.cooperative_driving.policies.request_dqn import RequestDQN
 from scripts.utils.experiment_utils import (
     add_experiment_argument,
@@ -39,10 +43,14 @@ from scripts.utils.experiment_utils import (
 ASK_NOBODY = 8
 
 
-def request_state(environment, visible):
+def request_state(environment, visible, state_encoding='kinematics_v1'):
     """Encode ego and eight spatial neighbor slots into 45 values."""
     ego = environment.vehicle
     features = [1.0, float(ego.lane_index[2]) / 3.0, ego.speed / 30.0, 0.0, 0.0]
+    if state_encoding == 'ego_control_v1':
+        features[3:] = [ego.target_speed / 30., ego.target_lane_index[2] / 3.]
+    elif state_encoding != 'kinematics_v1':
+        raise ValueError('Unknown request state encoding')
     for slot in SLOT_ORDER:
         candidate = visible.get(slot)
         if candidate is None:
@@ -102,10 +110,50 @@ def select_action(model, state, valid, epsilon, rng):
         return int(masked.argmax())
 
 
+def redundant_request_penalty(request_action, informed_action, blind_action,
+                              penalty):
+    """Penalize a training-time request that changes no planner decision.
+
+    The deployed policy still sees only public state. The private response is
+    used here only as a teacher signal during training.
+    """
+    if request_action == ASK_NOBODY or informed_action != blind_action:
+        return 0.0
+    return -float(penalty)
+
+
+class ScenarioReplay:
+    """Two FIFO pools with equal sampling mass despite unequal episode lengths."""
+    def __init__(self, capacity):
+        self.pools = {'ordinary': deque(maxlen=capacity // 2),
+                      'intent': deque(maxlen=capacity - capacity // 2)}
+
+    def append(self, transition):
+        self.pools[transition[-1]].append(transition)
+
+    def extend(self, transitions):
+        for transition in transitions:
+            self.append(transition)
+
+    def __len__(self):
+        return sum(map(len, self.pools.values()))
+
+    def __iter__(self):
+        return chain.from_iterable(self.pools.values())
+
+    def sample(self, count):
+        ordinary, intent = self.pools.values()
+        k_intent = min(len(intent), count // 2 + int(count % 2 and random.random() < .5))
+        k_ordinary = min(len(ordinary), count - k_intent)
+        k_intent = count - k_ordinary
+        batch = random.sample(list(ordinary), k_ordinary) + random.sample(list(intent), k_intent)
+        return [item[:-1] for item in batch]
+
+
 def optimize(online, target, optimizer, replay, batch_size, gamma):
     if len(replay) < batch_size:
         return None
-    batch = random.sample(replay, batch_size)
+    batch = replay.sample(batch_size) if isinstance(replay, ScenarioReplay) else random.sample(replay, batch_size)
     states, actions, rewards, next_states, dones, next_valid = zip(*batch)
     states = torch.tensor(np.asarray(states), dtype=torch.float32)
     actions = torch.tensor(actions, dtype=torch.long)
@@ -149,6 +197,7 @@ def training_snapshot(online, target, optimizer, replay, rng, epsilon, completed
         "mlpx_checkpoint": config["mlpx_checkpoint"],
         "masked_next_request_targets": True,
         "request_action_encoding": "spatial_v1",
+        "request_state_encoding": config.get('request_state_encoding', 'kinematics_v1'),
     }
 
 
@@ -195,9 +244,29 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--planning-horizon", type=int, default=3)
     parser.add_argument("--communication-cost", type=float, default=0.05)
+    parser.add_argument(
+        "--redundant-request-penalty",
+        type=float,
+        default=0.0,
+        help=("Extra training-only penalty when a requested message does not "
+              "change the planner's driving action"),
+    )
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--replay-size", type=int, default=50000)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument('--mlpx-checkpoint')
+    parser.add_argument('--scenario-mix', choices=['ordinary', 'mixed'], default='ordinary')
+    parser.add_argument('--ordinary-seed', type=int, default=None)
+    parser.add_argument('--challenge-seed', type=int, default=800000)
+    parser.add_argument('--request-state-encoding', choices=['kinematics_v1', 'ego_control_v1'], default='kinematics_v1')
+    parser.add_argument('--safety-guard', action='store_true')
+    parser.add_argument('--lane-change-guard', action='store_true')
+    parser.add_argument('--max-target-speed', type=float)
+    parser.add_argument('--min-clearance', type=float, default=8.)
+    parser.add_argument('--min-ttc', type=float, default=3.)
+    parser.add_argument('--comfort-ttc', type=float, default=None,
+                        help='Proactively change lanes or slow before the emergency TTC threshold')
+    parser.add_argument('--batched-planner', action='store_true')
     parser.add_argument("--output", default=None)
     parser.add_argument("--log-path", default=None,
                         help="CSV path; defaults to the selected experiment's RequestDQN run folder")
@@ -221,12 +290,42 @@ def main():
                 parser.error("Resume checkpoint experiment differs from --experiment")
             for key in ("seed", "planning_horizon", "communication_cost", "batch_size", "replay_size", "lr"):
                 setattr(args, key, saved_config[key])
+            for key in ('scenario_mix', 'ordinary_seed', 'challenge_seed', 'request_state_encoding',
+                        'safety_guard', 'lane_change_guard', 'max_target_speed', 'min_clearance', 'min_ttc', 'batched_planner'):
+                if key in saved_config:
+                    setattr(args, key, saved_config[key])
+            args.comfort_ttc = saved_config.get('comfort_ttc')
+            args.redundant_request_penalty = saved_config.get(
+                'redundant_request_penalty', 0.0
+            )
+            # Older full snapshots have six-field replay records and zeroed ego
+            # control slots. Never reinterpret them as the new mixed contract.
+            if resume_checkpoint.get('checkpoint_version') == 2:
+                for key, default in {'scenario_mix': 'ordinary', 'request_state_encoding': 'kinematics_v1',
+                                     'safety_guard': False, 'lane_change_guard': False,
+                                     'max_target_speed': None, 'batched_planner': False}.items():
+                    setattr(args, key, saved_config.get(key, default))
         else:
             for key in ("planning_horizon", "communication_cost"):
                 setattr(args, key, resume_checkpoint.get(key, getattr(args, key)))
 
+    if (args.lane_change_guard or args.max_target_speed is not None) and not args.safety_guard:
+        parser.error('lane-change-guard and max-target-speed require safety-guard')
+    if args.comfort_ttc is not None and (not args.safety_guard or not args.lane_change_guard):
+        parser.error('comfort-ttc requires safety-guard and lane-change-guard')
+    if not np.isfinite([args.min_clearance, args.min_ttc, args.communication_cost,
+                        args.redundant_request_penalty, args.lr]).all() \
+            or min(args.min_clearance, args.min_ttc, args.lr) <= 0 \
+            or min(args.communication_cost, args.redundant_request_penalty) < 0:
+        parser.error('Guard thresholds/lr must be positive; request costs finite and nonnegative')
+    if args.max_target_speed is not None and (not np.isfinite(args.max_target_speed) or args.max_target_speed <= 0):
+        parser.error('max-target-speed must be finite and positive')
+    if args.comfort_ttc is not None and (not np.isfinite(args.comfort_ttc) or args.comfort_ttc <= args.min_ttc):
+        parser.error('comfort-ttc must be finite and greater than min-ttc')
+    if args.replay_size < max(2, args.batch_size) or args.batch_size < 1:
+        parser.error('replay-size must cover batch-size; batch-size positive')
     random.seed(args.seed); np.random.seed(args.seed); torch.manual_seed(args.seed)
-    mlpx_checkpoint = experiment_checkpoint_dir(args.experiment, "MLPx") / "best.pt"
+    mlpx_checkpoint = Path(args.mlpx_checkpoint) if args.mlpx_checkpoint else experiment_checkpoint_dir(args.experiment, "MLPx") / "best.pt"
     if resume_checkpoint:
         mlpx_checkpoint = Path(resume_checkpoint.get("mlpx_checkpoint", mlpx_checkpoint))
     mlpx_hash = hashlib.sha256(mlpx_checkpoint.read_bytes()).hexdigest()
@@ -235,9 +334,10 @@ def main():
     world_model = MLPxWorldModel.load(mlpx_checkpoint)
     planner = None
     online = RequestDQN()
+    online.request_state_encoding = args.request_state_encoding
     target = RequestDQN(); target.load_state_dict(online.state_dict())
     optimizer = torch.optim.Adam(online.parameters(), lr=args.lr)
-    replay = deque(maxlen=args.replay_size)
+    replay = ScenarioReplay(args.replay_size) if args.scenario_mix == 'mixed' else deque(maxlen=args.replay_size)
     rng = random.Random(args.seed)
     start_episode, epsilon, returns = 0, 1.0, []
     if resume_checkpoint:
@@ -253,9 +353,14 @@ def main():
     run_root = experiment_results_dir(args.experiment, "RequestDQN") / "experiments"
     run_dir = create_run_dir(run_root, "request_dqn")
     config = {key: getattr(args, key) for key in (
-        "experiment", "seed", "planning_horizon", "communication_cost", "batch_size", "replay_size", "lr"
+        "experiment", "seed", "planning_horizon", "communication_cost",
+        "redundant_request_penalty", "batch_size", "replay_size", "lr"
     )}
     config.update(mlpx_checkpoint=str(mlpx_checkpoint), mlpx_sha256=mlpx_hash)
+    config.update({key: getattr(args, key) for key in ('scenario_mix', 'ordinary_seed', 'challenge_seed',
+                  'request_state_encoding', 'safety_guard', 'lane_change_guard', 'max_target_speed',
+                  'min_clearance', 'min_ttc', 'comfort_ttc', 'batched_planner')})
+    config['replay_sampling'] = 'equal_ordinary_intent' if args.scenario_mix == 'mixed' else 'uniform'
     save_run_metadata(run_dir, {**config, "resume_from": str(resume_path) if resume_path else None,
                                "start_episode": start_episode, "additional_episodes": args.episodes,
                                "request_action_encoding": "spatial_v1"})
@@ -265,7 +370,9 @@ def main():
         raise FileExistsError(f"Refusing to overwrite existing training log: {log_path}")
     log_file = log_path.open("x", newline="")
     log = csv.DictWriter(log_file, fieldnames=[
-        "episode", "return", "mean_loss", "epsilon", "requests", "crashed", "truncated"
+        "episode", "return", "mean_loss", "epsilon", "requests", "crashed", "truncated",
+        "scenario", "hidden_mode", "environment_seed", "steps", "guard_overrides",
+        "decision_changing_requests", "redundant_requests", "selectivity_penalty"
     ])
     log.writeheader()
     end_episode = start_episode + args.episodes
@@ -281,28 +388,79 @@ def main():
 
     try:
         for episode in range(start_episode, end_episode):
-            environment = CustomEnv()
-            observation, _ = environment.reset(seed=args.seed + episode)
+            source, mode = 'ordinary', None
+            environment_seed = (args.ordinary_seed if args.ordinary_seed is not None else args.seed) + episode
+            if args.scenario_mix == 'mixed' and episode % 2 == 0:
+                source = 'intent'
+                challenge_index = episode // 2
+                mode = 'stay' if challenge_index % 2 == 0 else 'merge'
+                environment_seed = args.challenge_seed + challenge_index // 2
+                environment = intent_episode(environment_seed, mode)
+                observation = environment.observation_type.observe()
+            else:
+                environment = CustomEnv()
+                observation, _ = environment.reset(seed=environment_seed)
             planner = MCPPlanner(world_model, action_size=environment.action_space.n,
                                  planning_horizon=args.planning_horizon)
             total = 0.0
             episode_losses = []
             requests = 0
+            decision_changing_requests = 0
+            redundant_requests = 0
+            selectivity_penalty = 0.0
+            overrides = 0
+            controller_state = {} if args.comfort_ttc is not None else None
             terminated = truncated = False
-            for _ in range(environment.config["duration"]):
+            for timestep in range(environment.config["duration"]):
                 visible = visible_neighbors(environment, 60.0, 10.0)
-                state = request_state(environment, visible)
+                state = request_state(environment, visible, args.request_state_encoding)
                 action = select_action(online, state, valid_actions(visible), epsilon, rng)
                 message = requested_message(environment, visible, action)
                 requests += int(action != ASK_NOBODY)
-                driving_action = planner.plan(observation, message)
+                if getattr(world_model, 'STATE_SIZE', 55) == 57:
+                    observation = world_model.observe(environment)
+                driving_action, guard = choose_driving(planner, environment, observation, message,
+                    visible=visible,
+                    safety_guard=args.safety_guard, min_clearance=args.min_clearance, min_ttc=args.min_ttc,
+                    lane_change_guard=args.lane_change_guard, max_target_speed=args.max_target_speed,
+                    comfort_ttc=args.comfort_ttc, batched=args.batched_planner,
+                    controller_state=controller_state, commit_state=False)
+                teacher_penalty = 0.0
+                if action != ASK_NOBODY and args.redundant_request_penalty > 0:
+                    blind_action, _ = choose_driving(
+                        planner, environment, observation, None,
+                        visible=visible, safety_guard=args.safety_guard,
+                        min_clearance=args.min_clearance, min_ttc=args.min_ttc,
+                        lane_change_guard=args.lane_change_guard,
+                        max_target_speed=args.max_target_speed,
+                        comfort_ttc=args.comfort_ttc,
+                        batched=args.batched_planner,
+                        controller_state=controller_state,
+                        commit_state=False,
+                    )
+                    teacher_penalty = redundant_request_penalty(
+                        action, driving_action, blind_action,
+                        args.redundant_request_penalty,
+                    )
+                    if teacher_penalty:
+                        redundant_requests += 1
+                    else:
+                        decision_changing_requests += 1
+                    selectivity_penalty += teacher_penalty
+                update_controller_state(controller_state, driving_action)
+                overrides += int(bool(guard and guard['overridden']))
                 next_observation, reward, terminated, truncated, _ = environment.step(driving_action)
                 next_visible = visible_neighbors(environment, 60.0, 10.0)
-                next_state = request_state(environment, next_visible)
-                transition_reward = float(reward) - (args.communication_cost if action != ASK_NOBODY else 0.0)
+                next_state = request_state(environment, next_visible, args.request_state_encoding)
+                transition_reward = (
+                    float(reward)
+                    - (args.communication_cost if action != ASK_NOBODY else 0.0)
+                    + teacher_penalty
+                )
                 total += transition_reward
-                replay.append((state, action, transition_reward, next_state,
-                               terminated or truncated, valid_actions(next_visible)))
+                transition = (state, action, transition_reward, next_state,
+                              terminated or truncated, valid_actions(next_visible))
+                replay.append((*transition, source) if args.scenario_mix == 'mixed' else transition)
                 loss = optimize(online, target, optimizer, replay, args.batch_size, 0.99)
                 if loss is not None:
                     episode_losses.append(loss)
@@ -321,6 +479,11 @@ def main():
                 "requests": requests,
                 "crashed": int(terminated),
                 "truncated": int(truncated),
+                "scenario": source, "hidden_mode": mode, "environment_seed": environment_seed,
+                "steps": timestep + 1, "guard_overrides": overrides,
+                "decision_changing_requests": decision_changing_requests,
+                "redundant_requests": redundant_requests,
+                "selectivity_penalty": selectivity_penalty,
             })
             log_file.flush()
             if (episode + 1) % 10 == 0:
@@ -343,6 +506,7 @@ def main():
                   "planning_horizon": args.planning_horizon, "communication_cost": args.communication_cost,
                   "masked_next_request_targets": True, "mlpx_checkpoint": str(mlpx_checkpoint),
                   "request_action_encoding": "spatial_v1"}
+    checkpoint.update(training_config=config, request_state_encoding=args.request_state_encoding)
     torch.save(checkpoint, output)
     torch.save(checkpoint, run_dir / "best.pt")
     print(f"Saved request DQN to {output}")

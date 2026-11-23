@@ -82,6 +82,14 @@
 <p>Experiment 9 minus Experiment 8: +0.205 [+0.104, +0.331] (original guard) and +0.310 [+0.230, +0.396] (<code>--comfort-ttc 6</code>). Experiment 9 minus ask nobody: +0.009 [-0.028, +0.061] and -0.032 [-0.065, +0.006]; both intervals include zero.</p>
 <p>Seed means (seeds 0-2): 36.527 (original guard) and 36.322 (<code>--comfort-ttc 6</code>). Margin 0: 36.528 and 36.283.</p>
 <hr>
+<h2>Video</h2>
+<p>Two fresh cut-in scenes where Experiment 8 crashes and Experiment 9 does not, then the 2,000-trial results. In each pair the scene, world model, planner and guard are the same; Experiment 9 adds the brake rule and its own request policy.</p>
+<ul>
+<li><strong>Scene 1900012:</strong> Experiment 8 asks the merging car, speeds up and crashes. Experiment 9 asks, holds its speed, then brakes, and is safe.</li>
+<li><strong>Scene 1900038:</strong> Experiment 8 asks nobody, speeds up and crashes. Experiment 9 asks the merging car, brakes, and is safe.</li>
+</ul>
+<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/exp8_vs_exp9_comparison.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
+<hr>
 <h2>Conclusion</h2>
 <ul>
 <li>The message-aware brake rule removes almost all cut-in crashes: 2 of 2,000 fresh trials, against 65 for Experiment 8 and 163 for ask nobody. All three training seeds agree.</li>

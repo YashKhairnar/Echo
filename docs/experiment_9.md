@@ -138,6 +138,17 @@ Seed means (seeds 0-2): 36.527 (original guard) and 36.322 (`--comfort-ttc 6`). 
 
 ---
 
+## Video
+
+Two fresh cut-in scenes where Experiment 8 crashes and Experiment 9 does not, then the 2,000-trial results. In each pair the scene, world model, planner and guard are the same; Experiment 9 adds the brake rule and its own request policy.
+
+- **Scene 1900012:** Experiment 8 asks the merging car, speeds up and crashes. Experiment 9 asks, holds its speed, then brakes, and is safe.
+- **Scene 1900038:** Experiment 8 asks nobody, speeds up and crashes. Experiment 9 asks the merging car, brakes, and is safe.
+
+![Experiment 8 vs Experiment 9](images/exp8_vs_exp9_comparison.mp4)
+
+---
+
 ## Conclusion
 
 - The message-aware brake rule removes almost all cut-in crashes: 2 of 2,000 fresh trials, against 65 for Experiment 8 and 163 for ask nobody. All three training seeds agree.

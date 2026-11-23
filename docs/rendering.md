@@ -1,172 +1,78 @@
-# Rendering
+# Rendering & Visualizing Policies
 
-The rendering script shows the trained Request DQN and the frozen three-step MLPx planner driving the HighwayEnv scene.
+The rendering tool visualizes the driving environment in real-time or renders MP4 policy videos. It displays vehicle trajectories, safety guard interventions, and communication queries between vehicles.
 
-This page covers usage and display options. Experiment videos, episode
-statistics, and policy comparisons live on the [DQN policy page](dqn_policy.html).
+- **Main Script:** `scripts/evaluation/render_request_dqn.py`
+- **Output Videos:** Saved to `docs/images/`
 
-## Select the experiment
+---
 
-Run from the project root and select an experiment with both MLPx and DQN
-checkpoints available:
+## 1. Interactive Visualizer (Watch Live)
 
-```bash
-ECHO_EXPERIMENT=6
-```
-
-The renderer loads `RequestDQN/best.pt` from the selected experiment. Modern
-DQN checkpoints also store the exact frozen MLPx path used during training, so
-Experiment 6 automatically reuses Experiment 5's `intent_stage_best.pt`.
-Use `--mlpx-checkpoint PATH` or `--dqn-checkpoint PATH` only for deliberate
-transfer tests.
-
-## Run the renderer
+Run this from the project root to open a live Pygame window:
 
 ```bash
 .venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment "$ECHO_EXPERIMENT" \
+  --experiment 7 \
   --episodes 1 \
-  --seed 7 \
+  --seed 1200000 \
   --delay 0.15 \
-  --width 1800 \
-  --height 800
+  --safety-guard \
+  --max-target-speed 30 \
+  --lane-change-guard
 ```
 
-The default window is `1800x800` with scaling `6.0`. Change `--width`,
-`--height`, or `--scaling` to adjust the view. The seed controls the initial
-scene; use another `--seed` value to inspect a different episode. Multiple
-episodes use consecutive seeds.
+- `--delay 0.15`: Pauses 0.15 seconds between steps for comfortable viewing.
+- `--seed <N>`: Sets the initial road and traffic seed.
 
-## What the display shows
+---
 
-- Green: controlled ego vehicle
-- Orange: aggressive vehicle
-- Blue: defensive vehicle
-- Yellow: IDM vehicle
-- Red: any vehicle involved in a crash
-- Yellow circle: the vehicle whose message was requested during that step
-- Yellow ID label: identifies the requested vehicle on the road
+## 2. Headless Video Recording (Save to MP4)
 
-The top overlay shows the episode, step, ego action, and requested vehicle ID.
-It displays the exact response supplied to the planner: behavior type, target
-lane (zero-based), target speed in m/s, acceleration in m/s², steering in
-radians, and the crash flag. These are previewed intentions at request time.
-When the ego asks nobody, it shows `Request: nobody` and `Response: None`.
-The terminal frame displays the episode outcome and the last request/response.
-
-The overlay is included in both the interactive window and saved videos.
-
-The terminal also prints the visible vehicle count, requested vehicle ID, and ego action selected by the planner.
-At the end of each episode it prints the completed step count, whether the ego
-crashed or drove to the episode limit, total reward, and total requests sent.
-
-## Record a video
-
-To inspect the optional geometry guard, add --safety-guard to any rendering
-command. The overlay and terminal identify braking or boundary-mask reasons,
-and the episode summary includes override counts. See [Planner](planner.html)
-for the guard rules and separate evaluation results. It is disabled by default.
-
-The full optional guard also accepts `--max-target-speed 30` and
-`--lane-change-guard`, both requiring `--safety-guard`. The overlay reports
-speed-cap, destination-gap, maneuver-in-progress, braking, and boundary
-override reasons. For a historical transfer example, inspect frozen WM4 with
-the preserved Experiment 3 DQN:
-
-```bash
-.venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 4 --dqn-checkpoint checkpoints/experiment_3/RequestDQN/best.pt \
-  --episodes 1 --seed 100220 \
-  --safety-guard --max-target-speed 30 --lane-change-guard
-```
-
-This is a transfer configuration, not a trained Experiment 4 DQN. The same
-flags work in `scripts.evaluation.evaluate_request_dqn`; see
-[Request DQN](dqn_policy.html) for the paired baseline comparison.
-
-Recording requires `ffmpeg` on your PATH. Save an MP4 with the request/response
-overlay using an experiment-specific filename:
+To record a policy run to an `.mp4` file without opening a GUI window:
 
 ```bash
 SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment "$ECHO_EXPERIMENT" \
+  --experiment 7 \
   --episodes 1 \
-  --seed 7 \
-  --delay 0.01 \
+  --seed 1200000 \
+  --safety-guard \
+  --max-target-speed 30 \
+  --lane-change-guard \
   --video-fps 2 \
-  --video "docs/images/dqn_experiment_${ECHO_EXPERIMENT}_policy.mp4"
+  --video "docs/images/dqn_experiment_7_policy.mp4"
 ```
 
-The recording saves one frame per decision plus the terminal scene. At two
-frames per second, playback advances two decisions per second; it is not a
-continuous recording of the simulation's intermediate physics frames.
-The default recording rate is eight frames per second unless overridden.
+---
 
-Recording overwrites the chosen file if it already exists. Use a new filename
-to preserve an earlier recording, then embed the selected video and its
-episode statistics in the corresponding experiment on the DQN policy page.
+## 3. Rendering Cut-In Challenge Scenarios
 
-## Render Experiment 6
-
-Render the selective Experiment 6 policy with its training guard:
+To render the matched-intent cut-in scenario where neighboring vehicles attempt an aggressive merge:
 
 ```bash
-.venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 6 --episodes 1 --seed 1200000 --delay 0.15 \
-  --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6
+SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 7 \
+  --scenario paired-intent \
+  --hidden-mode merge \
+  --seed 1300051 \
+  --safety-guard \
+  --max-target-speed 30 \
+  --lane-change-guard \
+  --video-fps 2 \
+  --video "docs/images/cut_in_demo.mp4"
 ```
 
-Record the same policy with its request/response overlay:
+---
 
-```bash
-.venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 6 --episodes 1 --seed 1200000 --delay 0 \
-  --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6 \
-  --video docs/images/dqn_experiment_6_policy.mp4 --video-fps 8
-```
+## What the Visualizer Shows
 
-The `--comfort-ttc 6` mode begins reacting before the 3-second emergency brake
-threshold. It uses safe lane changes when they improve forward clearance,
-holds a five-step lane-change cooldown, and blocks acceleration for three steps
-after braking. The verified terminal-only run completed 40/40 steps without a
-crash and earned 36.394 driving reward. One
-episode is a visual inspection, not an aggregate policy benchmark; use the
-[Experiment 6](experiment_6.html) evaluations for policy conclusions.
+### Vehicle Colors
+- 🟩 **Green:** Ego vehicle (controlled by MLPx World Model + Safety Guard)
+- 🟧 **Orange:** Aggressive vehicle
+- 🟦 **Blue:** Defensive vehicle
+- 🟨 **Yellow:** Standard IDM background vehicle
+- 🟥 **Red:** Any vehicle involved in a collision
 
-The DQN checkpoint supplies its versioned ego-control state encoding and
-frozen intent-stage WM5 path. An explicit `--mlpx-checkpoint` overrides that
-path for deliberate transfer tests. Older checkpoints without a stored path
-use the selected experiment's default WM. Guard flags remain explicit; the
-renderer warns if a guarded-trained DQN is rendered without the guard.
-
-For a terminal-only smoke test without opening a window:
-
-```bash
-.venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment "$ECHO_EXPERIMENT" \
-  --episodes 1 \
-  --no-render
-```
-
-## Render a cut-in scene
-
-`--scenario paired-intent` renders the matched-intent challenge scene of
-`--seed`. It uses the same scene builder as `evaluate_request_dqn`, so a seed
-shows the same trial as the evaluation CSV. Other options:
-
-- `--hidden-mode merge|stay` selects the hidden intent of the neighbour.
-- `--policy none` renders ask nobody with the same planner and guard.
-- `--batched-planner` uses the batched planner, as in the evaluations.
-
-The overlay and the printed log show the ego speed at every step.
-
-```bash
-.venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 7 --episodes 1 --seed 1300051 \
-  --scenario paired-intent --hidden-mode merge --policy dqn --delay 0 \
-  --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6 \
-  --batched-planner \
-  --dqn-checkpoint checkpoints/experiment_7/stage_bc_balanced/best.pt \
-  --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
-  --video docs/images/dqn_experiment_7_intent_1300051_merge_dqn.mp4 --video-fps 2
-```
+### Communication Overlays
+- **Yellow Circle & Label:** Highlights the specific neighboring vehicle that the ego car queried for intent at that timestep.
+- **Top HUD Panel:** Shows the ego's current speed, chosen driving action, the queried vehicle ID, and its received intent message (`target_lane`, `target_speed`, `acceleration`).

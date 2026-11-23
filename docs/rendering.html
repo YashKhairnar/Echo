@@ -29,68 +29,65 @@
     @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
   </style>
 </head>
-<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a class="active" href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Rendering</h1>
-<p>The rendering script shows the trained Request DQN and the frozen three-step MLPx planner driving the HighwayEnv scene.</p>
-<p>This page covers usage and display options. Experiment videos, episode statistics, and policy comparisons live on the <a href="dqn_policy.html">DQN policy page</a>.</p>
-<h2>Select the experiment</h2>
-<p>Run from the project root and select an experiment with both MLPx and DQN checkpoints available:</p>
-<pre><code>ECHO_EXPERIMENT=6</code></pre>
-<p>The renderer loads <code>RequestDQN/best.pt</code> from the selected experiment. Modern DQN checkpoints also store the exact frozen MLPx path used during training, so Experiment 6 automatically reuses Experiment 5's <code>intent_stage_best.pt</code>. Use <code>--mlpx-checkpoint PATH</code> or <code>--dqn-checkpoint PATH</code> only for deliberate transfer tests.</p>
-<h2>Run the renderer</h2>
-<pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment &quot;$ECHO_EXPERIMENT&quot; \
-  --episodes 1 \
-  --seed 7 \
-  --delay 0.15 \
-  --width 1800 \
-  --height 800</code></pre>
-<p>The default window is <code>1800x800</code> with scaling <code>6.0</code>. Change <code>--width</code>, <code>--height</code>, or <code>--scaling</code> to adjust the view. The seed controls the initial scene; use another <code>--seed</code> value to inspect a different episode. Multiple episodes use consecutive seeds.</p>
-<h2>What the display shows</h2>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a class="active" href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a><a href="experiment_7.html">Experiment 7: Oracle Teacher</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Rendering &amp; Visualizing Policies</h1>
+<p>The rendering tool visualizes the driving environment in real-time or renders MP4 policy videos. It displays vehicle trajectories, safety guard interventions, and communication queries between vehicles.</p>
 <ul>
-<li>Green: controlled ego vehicle</li>
-<li>Orange: aggressive vehicle</li>
-<li>Blue: defensive vehicle</li>
-<li>Yellow: IDM vehicle</li>
-<li>Red: any vehicle involved in a crash</li>
-<li>Yellow circle: the vehicle whose message was requested during that step</li>
-<li>Yellow ID label: identifies the requested vehicle on the road</li>
+<li><strong>Main Script:</strong> <code>scripts/evaluation/render_request_dqn.py</code></li>
+<li><strong>Output Videos:</strong> Saved to <code>docs/images/</code></li>
 </ul>
-<p>The top overlay shows the episode, step, ego action, and requested vehicle ID. It displays the exact response supplied to the planner: behavior type, target lane (zero-based), target speed in m/s, acceleration in m/s², steering in radians, and the crash flag. These are previewed intentions at request time. When the ego asks nobody, it shows <code>Request: nobody</code> and <code>Response: None</code>. The terminal frame displays the episode outcome and the last request/response.</p>
-<p>The overlay is included in both the interactive window and saved videos.</p>
-<p>The terminal also prints the visible vehicle count, requested vehicle ID, and ego action selected by the planner. At the end of each episode it prints the completed step count, whether the ego crashed or drove to the episode limit, total reward, and total requests sent.</p>
-<h2>Record a video</h2>
-<p>To inspect the optional geometry guard, add --safety-guard to any rendering command. The overlay and terminal identify braking or boundary-mask reasons, and the episode summary includes override counts. See <a href="planner.html">Planner</a> for the guard rules and separate evaluation results. It is disabled by default.</p>
-<p>The full optional guard also accepts <code>--max-target-speed 30</code> and <code>--lane-change-guard</code>, both requiring <code>--safety-guard</code>. The overlay reports speed-cap, destination-gap, maneuver-in-progress, braking, and boundary override reasons. For a historical transfer example, inspect frozen WM4 with the preserved Experiment 3 DQN:</p>
+<hr>
+<h2>1. Interactive Visualizer (Watch Live)</h2>
+<p>Run this from the project root to open a live Pygame window:</p>
 <pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 4 --dqn-checkpoint checkpoints/experiment_3/RequestDQN/best.pt \
-  --episodes 1 --seed 100220 \
-  --safety-guard --max-target-speed 30 --lane-change-guard</code></pre>
-<p>This is a transfer configuration, not a trained Experiment 4 DQN. The same flags work in <code>scripts.evaluation.evaluate_request_dqn</code>; see <a href="dqn_policy.html">Request DQN</a> for the paired baseline comparison.</p>
-<p>Recording requires <code>ffmpeg</code> on your PATH. Save an MP4 with the request/response overlay using an experiment-specific filename:</p>
+  --experiment 7 \
+  --episodes 1 \
+  --seed 1200000 \
+  --delay 0.15 \
+  --safety-guard \
+  --max-target-speed 30 \
+  --lane-change-guard</code></pre>
+<ul>
+<li><code>--delay 0.15</code>: Pauses 0.15 seconds between steps for comfortable viewing.</li>
+<li><code>--seed &lt;N&gt;</code>: Sets the initial road and traffic seed.</li>
+</ul>
+<hr>
+<h2>2. Headless Video Recording (Save to MP4)</h2>
+<p>To record a policy run to an <code>.mp4</code> file without opening a GUI window:</p>
 <pre><code>SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment &quot;$ECHO_EXPERIMENT&quot; \
+  --experiment 7 \
   --episodes 1 \
-  --seed 7 \
-  --delay 0.01 \
+  --seed 1200000 \
+  --safety-guard \
+  --max-target-speed 30 \
+  --lane-change-guard \
   --video-fps 2 \
-  --video &quot;docs/images/dqn_experiment_${ECHO_EXPERIMENT}_policy.mp4&quot;</code></pre>
-<p>The recording saves one frame per decision plus the terminal scene. At two frames per second, playback advances two decisions per second; it is not a continuous recording of the simulation's intermediate physics frames. The default recording rate is eight frames per second unless overridden.</p>
-<p>Recording overwrites the chosen file if it already exists. Use a new filename to preserve an earlier recording, then embed the selected video and its episode statistics in the corresponding experiment on the DQN policy page.</p>
-<h2>Render Experiment 6</h2>
-<p>Render the selective Experiment 6 policy with its training guard:</p>
-<pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 6 --episodes 1 --seed 1200000 --delay 0.15 \
-  --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6</code></pre>
-<p>Record the same policy with its request/response overlay:</p>
-<pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 6 --episodes 1 --seed 1200000 --delay 0 \
-  --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6 \
-  --video docs/images/dqn_experiment_6_policy.mp4 --video-fps 8</code></pre>
-<p>The <code>--comfort-ttc 6</code> mode begins reacting before the 3-second emergency brake threshold. It uses safe lane changes when they improve forward clearance, holds a five-step lane-change cooldown, and blocks acceleration for three steps after braking. The verified terminal-only run completed 40/40 steps without a crash and earned 36.394 driving reward. One episode is a visual inspection, not an aggregate policy benchmark; use the <a href="experiment_6.html">Experiment 6</a> evaluations for policy conclusions.</p>
-<p>The DQN checkpoint supplies its versioned ego-control state encoding and frozen intent-stage WM5 path. An explicit <code>--mlpx-checkpoint</code> overrides that path for deliberate transfer tests. Older checkpoints without a stored path use the selected experiment's default WM. Guard flags remain explicit; the renderer warns if a guarded-trained DQN is rendered without the guard.</p>
-<p>For a terminal-only smoke test without opening a window:</p>
-<pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment &quot;$ECHO_EXPERIMENT&quot; \
-  --episodes 1 \
-  --no-render</code></pre></article></main></div></body>
+  --video &quot;docs/images/dqn_experiment_7_policy.mp4&quot;</code></pre>
+<hr>
+<h2>3. Rendering Cut-In Challenge Scenarios</h2>
+<p>To render the matched-intent cut-in scenario where neighboring vehicles attempt an aggressive merge:</p>
+<pre><code>SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 7 \
+  --scenario paired-intent \
+  --hidden-mode merge \
+  --seed 1300051 \
+  --safety-guard \
+  --max-target-speed 30 \
+  --lane-change-guard \
+  --video-fps 2 \
+  --video &quot;docs/images/cut_in_demo.mp4&quot;</code></pre>
+<hr>
+<h2>What the Visualizer Shows</h2>
+<h3>Vehicle Colors</h3>
+<ul>
+<li>🟩 <strong>Green:</strong> Ego vehicle (controlled by MLPx World Model + Safety Guard)</li>
+<li>🟧 <strong>Orange:</strong> Aggressive vehicle</li>
+<li>🟦 <strong>Blue:</strong> Defensive vehicle</li>
+<li>🟨 <strong>Yellow:</strong> Standard IDM background vehicle</li>
+<li>🟥 <strong>Red:</strong> Any vehicle involved in a collision</li>
+</ul>
+<h3>Communication Overlays</h3>
+<ul>
+<li><strong>Yellow Circle &amp; Label:</strong> Highlights the specific neighboring vehicle that the ego car queried for intent at that timestep.</li>
+<li><strong>Top HUD Panel:</strong> Shows the ego's current speed, chosen driving action, the queried vehicle ID, and its received intent message (<code>target_lane</code>, <code>target_speed</code>, <code>acceleration</code>).</li>
+</ul></article></main></div></body>
 </html>

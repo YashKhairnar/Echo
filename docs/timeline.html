@@ -104,7 +104,7 @@
 </style>
 </head>
 <body>
-<div class="site-layout"><aside class="site-sidebar"><div class="site-brand">Echo Docs</div><p class="site-tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a class="active" href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><div class="site-content">
+<div class="site-layout"><aside class="site-sidebar"><div class="site-brand">Echo Docs</div><p class="site-tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a class="active" href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a><a href="experiment_7.html">Experiment 7: Oracle Teacher</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><div class="site-content">
 <main>
   <header>
     <h1>Echo: project timeline</h1>
@@ -366,7 +366,7 @@
         </dl><div class="chips"><span class="chip">144,945 transitions</span><span class="chip">118 inputs</span><span class="chip">12 → 6 controlled crashes</span></div></div></details></li>
 
     <li><div class="date">Nov 20</div><div class="dot good"></div>
-      <details class="now" open><summary><span class="title">Experiment 6: teach the DQN to avoid redundant requests</span><span class="badge">NOW</span>
+      <details><summary><span class="title">Experiment 6: teach the DQN to avoid redundant requests</span>
         <span class="line2">Penalty when a reply changes no driving action · <span class="result good">roughly half the requests, better same-seed return</span></span></summary>
         <div class="body"><dl>
           <dt>Teacher signal</dt><dd>During training only, compare the planner's move with and without the selected reply. A request that changes nothing receives an extra 0.10 penalty; deployed observations remain public.</dd>
@@ -376,13 +376,14 @@
           <dt>Limit</dt><dd>DQN6 is the strongest learned request policy, but asking nobody still has the highest cost-adjusted return.</dd>
         </dl><div class="chips"><span class="chip">1,000 episodes</span><span class="chip">240 lane changes / 100 roads</span><span class="chip">63 tests pass</span></div></div></details></li>
 
-    <li><div class="date">Next</div><div class="dot neutral"></div>
-      <details class="next"><summary><span class="title">Select the request penalty on validation seeds</span>
-        <span class="line2">Compare 0.10, 0.20, and 0.30 without touching the final test seeds</span></summary>
+    <li><div class="date">Nov 22</div><div class="dot good"></div>
+      <details class="now" open><summary><span class="title">Experiment 7: oracle-taught request policy (BC on privileged teacher)</span><span class="badge">NOW</span>
+        <span class="line2">Privileged simulation oracle generates clean demonstration labels · <span class="result good">slashes cut-in crashes by 40% (124 → 75), highest net return</span></span></summary>
         <div class="body"><dl>
-          <dt>Goal</dt><dd>Suppress the remaining unnecessary ordinary-road requests while preserving the intent crashes avoided by DQN6.</dd>
-          <dt>Method</dt><dd>Train multiple seeds per penalty, choose only on separate validation scenes, and evaluate the selected candidate once on untouched test scenes.</dd>
-        </dl></div></details></li>
+          <dt>Teacher oracle</dt><dd>A privileged oracle tests candidate queries in parallel simulation copies, picking "Ask" only when intent changes the outcome and beats the 0.05 request cost. Rare ask labels are balanced during behavior cloning.</dd>
+          <dt>Cut-in trials (2000)</dt><dd>DQN6 → Exp 7: cut-in crashes dropped 124 (6.20%) → 75 (3.75%) against 179 (8.95%) for blind ask-nobody. Net return rose to 2.631 with fewer requests (0.75 vs 0.97 per trial).</dd>
+          <dt>Highway speed</dt><dd>Cruising speed preserved at 27.0 m/s with zero false-alarm hesitation.</dd>
+        </dl><div class="chips"><span class="chip">2,000 cut-in trials</span><span class="chip">75 crashes (3.75%)</span><span class="chip">40% fewer crashes vs DQN6</span><span class="chip">return 2.631</span></div></div></details></li>
   </ol>
 
   <footer>Details: <a href="https://github.com/YashKhairnar/Echo/blob/main/docs/merge_scenario.md">merge_scenario.md</a> · <a href="https://github.com/YashKhairnar/Echo/blob/main/docs/progress_log.md">progress log</a> · <a href="https://github.com/YashKhairnar/Echo">repository</a></footer>

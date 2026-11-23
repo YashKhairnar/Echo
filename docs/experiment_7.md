@@ -215,11 +215,11 @@ BC + DQfD was not better than BC alone, so it was not repeated with
 
 ## Videos
 
-The ordinary-road video uses the Experiment 6 command (seed 1200000). It has
-100 steps, because the `exp 6` commit changed `duration` from 40 to 100. The
-balanced DQN drives to the end without a crash (reward 90.261, 22 requests,
-mean speed 27.14 m/s). Ask nobody drives the same actions on this road. The
-25-30 m/s speed cycle comes from the guard, not from the request policy.
+The ordinary-road video uses the Experiment 6 video command (seed 1200000,
+40 steps, `--comfort-ttc 6`). The balanced DQN drives 40/40 steps without a
+crash: driving reward 36.394 (the same as the Experiment 6 video), 7 requests
+and mean speed 27.35 m/s. The 25-30 m/s speed cycle comes from the guard, not
+from the request policy.
 
 ![Experiment 7 ordinary road](images/dqn_experiment_7_policy.mp4)
 

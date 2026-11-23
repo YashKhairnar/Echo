@@ -6,8 +6,10 @@ knows the real future, so it knows when a message changes the outcome.
 **Result:** on 2000 new cut-in trials, the oracle-taught DQN with a balanced
 ask weight has 75 crashes, against 124 for DQN6 and 179 for ask nobody. It
 also has the highest cost-adjusted return and asks less than DQN6. It is not
-slower than DQN6. On ordinary roads, ask nobody still has the best
-cost-adjusted return.
+slower than DQN6. On ordinary roads (40-step episodes, the Experiment 6
+configuration), it asks about a third as often as DQN6 and has a higher
+cost-adjusted return than DQN6, but ask nobody still has the best
+cost-adjusted return there.
 
 ## Method
 
@@ -154,21 +156,36 @@ Agreement on the steps where the oracle asks: 18.4% (weight 4) and 52.8%
 | 1500000 | BC, balanced | +0.009 [-0.028, +0.050] | **-5.0 pp [-8.0, -2.5]** |
 | 1300000 | DQN6 (published) | -0.046 [-0.078, -0.012] | -2.5 pp |
 
-### Ordinary roads (1200000, 100 episodes)
+### Ordinary roads (Experiment 6 configuration)
 
-| Policy | Return | Requests / episode | Crashes |
-| :--- | ---: | ---: | ---: |
-| Ask nobody | **90.333** | 0.00 | 0 / 100 |
-| BC, ask weight 4 | 90.210 | 1.02 | 0 / 100 |
-| BC, balanced ask weight | 89.741 | 12.67 | 0 / 100 |
+Seed 1200000, 100 episodes of 40 steps, `--safety-guard --max-target-speed 30
+--lane-change-guard --batched-planner`, world model `intent_stage_best.pt`.
+Experiment 6 reports two controller settings, so both are shown. The DQN6 and
+ask-nobody rows reproduce the published Experiment 6 numbers exactly.
 
-Paired difference against ask nobody: -0.12 [-0.24, -0.03] (weight 4) and
--0.59 [-0.84, -0.36] (balanced).
+| Controller | Policy | Adjusted return | Driving reward | Requests / episode | Crashes | Speed (m/s) | Lane changes |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Original guard | Ask nobody | **36.566** | 36.566 | 0.00 | 0 / 100 | 27.491 | 180 |
+| Original guard | DQN6 | 35.801 | 36.645 | 16.88 | 0 / 100 | 27.527 | 171 |
+| Original guard | Experiment 7, seed 0 | 36.390 | 36.634 | 4.88 | 0 / 100 | 27.521 | 172 |
+| Original guard | Experiment 7, seeds 0-2 mean (range) | 36.367 (36.341-36.390) | 36.636 | 5.38 (4.88-5.77) | 0 / 100 each | 27.527 | 172.7 |
+| `--comfort-ttc 6` | Ask nobody | **36.391** | 36.391 | 0.00 | 0 / 100 | 27.414 | 252 |
+| `--comfort-ttc 6` | DQN6 | 35.748 | 36.407 | 13.17 | 0 / 100 | 27.401 | 240 |
+| `--comfort-ttc 6` | Experiment 7, seed 0 | 36.118 | 36.364 | 4.93 | 0 / 100 | 27.360 | 241 |
+| `--comfort-ttc 6` | Experiment 7, seeds 0-2 mean (range) | 36.104 (36.039-36.154) | 36.378 | 5.50 (4.39-7.17) | 0 / 100 each | 27.377 | 239.3 |
 
-The `exp 6` commit changed the ordinary-road `duration` from 40 to 100
-steps. The published Experiment 6 ordinary returns (about 36) use 40 steps,
-so they cannot be compared with these rows. DQN6 lost 0.765 against ask
-nobody on 40-step roads with 16.88 requests per episode.
+Paired adjusted-return difference for Experiment 7 seed 0 (95% bootstrap
+interval over episodes):
+
+| Controller | vs DQN6 | vs ask nobody |
+| :--- | :--- | :--- |
+| Original guard | **+0.589 [+0.420, +0.750]**, 12.0 fewer requests | -0.177 [-0.270, -0.093] |
+| `--comfort-ttc 6` | **+0.370 [+0.274, +0.470]**, 8.2 fewer requests | -0.273 [-0.357, -0.196] |
+
+On ordinary roads Experiment 7 drives like DQN6: the same driving reward,
+speed and lane changes, and no crashes. It asks about a third as often, so
+its cost-adjusted return is higher than DQN6. Ask nobody still has the best
+cost-adjusted return, because no request on these roads prevents a crash.
 
 ### Model selection (validation seeds 1400000)
 
@@ -229,10 +246,13 @@ asks nobody at the first step and speeds up into the merging car.
 - Three training seeds give the same result on two more seed sets.
 - Against ask nobody, it cuts cut-in crashes by about 5 percentage points,
   and its cut-in return is a little higher.
-- On ordinary roads it still asks too often (12.7 requests per 100 steps).
-  Ask nobody keeps the best cost-adjusted return there, and no policy crashes.
-- The weight-4 DQN is the cheaper choice: a small return gain in the intent
-  scenes and a small loss on ordinary roads.
+- On ordinary roads (40 steps) it beats DQN6 by +0.59 (original guard) and
+  +0.37 (`--comfort-ttc 6`) cost-adjusted return, with about a third of the
+  requests. It is still 0.18 and 0.27 below ask nobody there, and no policy
+  crashes.
+- The cut-in results use their own 3-step episodes, so the 40-step change
+  does not affect them (spot check on 1300000: Experiment 7 3/200, DQN6
+  9/200, unchanged).
 
 ## Commands
 
@@ -285,8 +305,20 @@ Use `--bc-ask-weight 4` and `stage_bc_w4` for the weight-4 policy.
 ```
 
 Use `--seed 1500000` for the fresh seeds and `--seed 1400000` for validation.
-For ordinary roads, use `--seed 1200000`, remove `--scenario paired-intent`,
-`oracle` and `--oracle-agreement`.
+For ordinary roads (40-step episodes, the default since commit 96d38e7):
+
+```bash
+.venv/bin/python -m scripts.evaluation.evaluate_request_dqn \
+  --experiment 7 --episodes 100 --seed 1200000 --policies dqn \
+  --dqn-checkpoint checkpoints/experiment_7/stage_bc_balanced/best.pt \
+  --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
+  --safety-guard --max-target-speed 30 --lane-change-guard --batched-planner \
+  --output-dir results/experiment_7/evaluation/ord40_exp7_s0_guard
+```
+
+Add `--comfort-ttc 6` for the smooth controller. For DQN6 and ask nobody, use
+`--policies dqn none` and
+`--dqn-checkpoint checkpoints/experiment_6/RequestDQN/best.pt`.
 
 ```bash
 .venv/bin/python -m scripts.evaluation.compare_request_runs \

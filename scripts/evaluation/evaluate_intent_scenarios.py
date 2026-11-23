@@ -18,7 +18,7 @@ from scripts.data_collection.show_visible_neighbors import SLOT_ORDER, visible_n
 from scripts.training.train_request_dqn import request_state
 from scripts.utils.experiment_utils import add_experiment_argument, create_run_dir, experiment_results_dir, save_run_metadata
 from src.cooperative_driving.environments.intent_scenarios import matched_intent_pair, SCENARIO_SPEC
-from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
+from src.cooperative_driving.models.MLPx.per_vehicle import load_world_model
 from src.cooperative_driving.planner.MCP import MCPPlanner
 from src.cooperative_driving.planner.safety import guard_action
 
@@ -138,7 +138,8 @@ def main():
     args = parser.parse_args()
     if min(args.pairs, args.horizon) < 1 or not np.isfinite(args.communication_cost) or args.communication_cost < 0:
         parser.error('pairs/horizon must be positive and cost finite/nonnegative')
-    model = MLPxWorldModel.load(args.mlpx_checkpoint) if args.mlpx_checkpoint else None
+    # The checkpoint records its architecture (flat MLPx or per_vehicle).
+    model = load_world_model(args.mlpx_checkpoint) if args.mlpx_checkpoint else None
     output = create_run_dir(args.output_root or experiment_results_dir(args.experiment, 'intent_scenarios'), 'matched_intents')
     save_run_metadata(output, {**vars(args), 'hidden_prior': {'stay': .5, 'merge': .5},
                               'scenario_spec': SCENARIO_SPEC,

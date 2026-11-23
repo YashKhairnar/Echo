@@ -67,11 +67,14 @@ class MCPPlanner:
 
 
 def build_planner(mlpx_checkpoint, environment, planning_horizon=3):
-    """Load MLPx and wrap it in the planner used by every script."""
-    from ..models.MLPx.mlpx import MLPxWorldModel
+    """Load the world model and wrap it in the planner used by every script.
+
+    The checkpoint selects the architecture (flat MLPx or PerVehicleMLPx).
+    """
+    from ..models.MLPx.per_vehicle import load_world_model
 
     return MCPPlanner(
-        MLPxWorldModel.load(mlpx_checkpoint),
+        load_world_model(mlpx_checkpoint),
         action_size=environment.action_space.n,
         planning_horizon=planning_horizon,
         crash_reward=environment.config["collision_reward"],

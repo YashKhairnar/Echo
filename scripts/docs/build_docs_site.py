@@ -183,6 +183,7 @@ def sidebar(current):
             ("Experiment 6: Selective Requests", "experiment_6.html"),
             ("Experiment 7: Oracle Teacher", "experiment_7.html"),
             ("Experiment 8: DAgger", "experiment_8.html"),
+            ("Experiment 9: Merge Brake", "experiment_9.html"),
         ]),
         ("Data and Benchmarks", [
             ("Intent-aware collection", "intent_aware_data_collection.html"),
@@ -251,6 +252,7 @@ def main():
         DOCS / "experiment_6.md",
         DOCS / "experiment_7.md",
         DOCS / "experiment_8.md",
+        DOCS / "experiment_9.md",
         DOCS / "merge_scenario.md",
         DOCS / "progress_log.md",
         DOCS / "mlpx.md",
@@ -299,7 +301,8 @@ def main():
 
 <h2>Explore the Documentation</h2>
 <div class="cards">
-<p><a href="experiments.html"><strong>Experiments 1–8 Breakdown</strong></a><br>Chronological milestones, hypotheses, benchmark tables, and findings across all 8 experiments.</p>
+<p><a href="experiments.html"><strong>Experiments 1–9 Breakdown</strong></a><br>Chronological milestones, hypotheses, benchmark tables, and findings across all 9 experiments.</p>
+<p><a href="experiment_9.html"><strong>Experiment 9: Message-Aware Brake Rule</strong></a><br>The ego brakes for a car that says it is moving into its lane: 2 crashes in 2,000 cut-in trials.</p>
 <p><a href="experiment_8.html"><strong>Experiment 8: DAgger and Ask Margin</strong></a><br>The DQN drives, the oracle labels its own states, and a margin removes unsure requests.</p>
 <p><a href="experiment_7.html"><strong>Experiment 7: Oracle-Taught Requests</strong></a><br>How a privileged simulator oracle teaches the request DQN when communication changes the real outcome.</p>
 <p><a href="planner.html"><strong>Planner & Safety Guards</strong></a><br>How 3-step model-predictive control works and how safety guards eliminate crashes.</p>

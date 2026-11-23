@@ -16,7 +16,7 @@ Each experiment below has a dedicated page with detailed setup, world-model loss
 | **[Experiment 4](experiment_4.html)** | Planner Crash Diagnosis & Safety Guards | 566k transitions | 116 in / 55 out | Identified runaway speed (50 m/s) and missing controller state. Safety guards **reduced crashes from 97% to 0%**. |
 | **[Experiment 5](experiment_5.html)** | Matched-Intent Scenarios & Mixed Traffic | 145k transitions | **118 in / 57 out** | Proved value of communication in cut-in scenes: intent messages **cut crashes in half (12 → 6)**. |
 | **[Experiment 6](experiment_6.html)** | Selective Requests + Smooth Control | Reused Experiment 5 | Frozen WM5 + selective DQN | Best learned configuration: fewer requests, 9/200 intent crashes, and 240 completed lane changes; ask-nobody still leads adjusted return. |
-| **[Experiment 7](experiment_7.html)** | Oracle-Taught Requests | ~10k oracle labels | Frozen WM5 + BC request DQN | Balanced oracle-taught DQN: 3/200 intent crashes at ask-nobody intent return; ask-nobody still leads on ordinary roads. |
+| **[Experiment 7](experiment_7.html)** | Oracle-Taught Requests | ~10k oracle labels | Frozen WM5 + BC request DQN | On 2000 cut-in trials: 75 crashes against 124 for DQN6 and 179 for ask nobody, highest return, same speed as DQN6; ask-nobody still leads on ordinary roads. |
 
 ---
 

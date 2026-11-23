@@ -3,10 +3,11 @@
 Experiment 7 teaches the request DQN from a privileged oracle. The oracle
 knows the real future, so it knows when a message changes the outcome.
 
-**Result:** the oracle-taught DQN with a balanced ask weight has 3/200 intent
-crashes, against 9/200 for DQN6 and 14/200 for ask nobody. Its intent return
-is equal to ask nobody and higher than DQN6. On ordinary roads, ask nobody
-still has the best cost-adjusted return.
+**Result:** on 2000 new cut-in trials, the oracle-taught DQN with a balanced
+ask weight has 75 crashes, against 124 for DQN6 and 179 for ask nobody. It
+also has the highest cost-adjusted return and asks less than DQN6. It is not
+slower than DQN6. On ordinary roads, ask nobody still has the best
+cost-adjusted return.
 
 ## Method
 
@@ -64,17 +65,63 @@ driving action. The table shows the labels for `intent_stage_best.pt`.
 | Model selection (validation) | Intent 1400000-1400099 |
 | Test (Experiment 6 seeds) | Ordinary 1200000-1200099, intent 1300000-1300099 |
 | Fresh confirmation | Intent 1500000-1500099 |
+| Large comparison | Intent 1600000-1600999 |
 
 ## Results
 
-Each intent row has 100 scenes. Each scene runs with the neighbour staying
-and with the neighbour merging, so there are 200 trials.
+Each intent scene runs with the neighbour staying and with the neighbour
+merging, so 100 scenes give 200 trials.
+
+### DQN6 reproduction
+
+The Experiment 6 checkpoint (`checkpoints/experiment_6/RequestDQN/best.pt`)
+gives 2.594 return, 1.04 requests per trial and 9/200 crashes on the
+Experiment 6 test seeds. This is the published result, so the comparison
+below uses the right DQN6 and settings.
+
+### Large comparison: 2000 new trials (1600000-1600999)
+
+| Policy | Return | Requests / trial | Crashes | Speed, stay (m/s) | Speed, merge (m/s) |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| Ask nobody | 2.616 | 0.00 | 179 (8.95%) | 27.79 | 26.84 |
+| DQN6 | 2.575 | 0.97 | 124 (6.20%) | 27.56 | 26.33 |
+| Experiment 7 (balanced) | **2.631** | 0.75 | **75 (3.75%)** | 27.63 | 26.30 |
+
+Paired results (95% bootstrap interval over scenes, exact McNemar test on
+crashes):
+
+| Comparison | Return | Crash rate | Requests | Crashes only under A / only under B | McNemar p |
+| :--- | :--- | :--- | :--- | :--- | ---: |
+| Exp 7 (B) vs DQN6 (A) | +0.056 [+0.047, +0.065] | -2.45 pp [-3.15, -1.80] | -0.23 [-0.28, -0.17] | 51 / 2 | 3.2e-13 |
+| Exp 7 (B) vs ask nobody (A) | +0.015 [+0.003, +0.028] | -5.2 pp [-6.2, -4.3] | +0.75 | 104 / 0 | 9.9e-32 |
+| DQN6 (B) vs ask nobody (A) | -0.040 [-0.051, -0.030] | -2.75 pp [-3.45, -2.05] | +0.97 | 55 / 0 | 5.6e-17 |
+
+Speed: Experiment 7 and DQN6 have the same speed when the neighbour merges.
+When the neighbour stays, Experiment 7 is a little faster than DQN6. Both are
+slower than ask nobody, mostly in the merge scenes, where ask nobody crashes.
+The request DQN only chooses whom to ask; the planner and the guard choose the
+driving action.
+
+### Three training seeds against DQN6
+
+The balanced policy was trained three times (`--seed 0, 1, 2`, same labels).
+
+| Seeds | Policy | Return | Requests / trial | Crashes / 200 | McNemar p vs DQN6 |
+| :--- | :--- | ---: | ---: | ---: | ---: |
+| 1300000 | DQN6 | 2.594 | 1.04 | 9 | - |
+| 1300000 | Exp 7, seed 0 / 1 / 2 | 2.638 / 2.660 / 2.650 | 0.80 / 0.51 / 0.67 | 3 / 3 / 3 | 0.031 each |
+| 1500000 | DQN6 | 2.580 | 1.01 | 12 | - |
+| 1500000 | Exp 7, seed 0 / 1 / 2 | 2.620 / 2.636 / 2.620 | 0.82 / 0.62 / 0.78 | 8 / 5 / 7 | 0.22 / 0.039 / 0.125 |
+
+Every seed has fewer crashes than DQN6 and a higher return (+0.040 to +0.066;
+every interval is above zero). On 200 trials some crash differences are not
+significant; the 2000-trial comparison settles them.
 
 ### Intent scenes, Experiment 6 test seeds (1300000)
 
 | Policy | Return | Requests / trial | Crashes | Oracle agreement |
 | :--- | ---: | ---: | ---: | ---: |
-| DQN6 (published) | 2.594 | 1.04 | 9 / 200 | n/a |
+| DQN6 (published and reproduced) | 2.594 | 1.04 | 9 / 200 | n/a |
 | Ask nobody (published) | 2.643 | 0.00 | 14 / 200 | n/a |
 | Ask nobody (measured) | 2.640 | 0.00 | 14 / 200 | 93.5% |
 | BC, ask weight 4 | **2.655** | 0.07 | 12 / 200 | 93.6% |
@@ -92,6 +139,7 @@ Agreement on the steps where the oracle asks: 18.4% (weight 4) and 52.8%
 
 | Policy | Return | Requests / trial | Crashes |
 | :--- | ---: | ---: | ---: |
+| DQN6 | 2.580 | 1.01 | 12 / 200 |
 | Ask nobody | 2.611 | 0.00 | 18 / 200 |
 | BC, ask weight 4 | **2.644** | 0.10 | 13 / 200 |
 | BC, balanced ask weight | 2.620 | 0.82 | **8 / 200** |
@@ -148,12 +196,39 @@ crashes, and the fresh seeds confirm its crash result.
 BC + DQfD was not better than BC alone, so it was not repeated with
 `intent_stage_best.pt`.
 
+## Videos
+
+The ordinary-road video uses the Experiment 6 command (seed 1200000). It has
+100 steps, because the `exp 6` commit changed `duration` from 40 to 100. The
+balanced DQN drives to the end without a crash (reward 90.261, 22 requests,
+mean speed 27.14 m/s). Ask nobody drives the same actions on this road. The
+25-30 m/s speed cycle comes from the guard, not from the request policy.
+
+![Experiment 7 ordinary road](images/dqn_experiment_7_policy.mp4)
+
+Cut-in scenes (`--scenario paired-intent --hidden-mode merge`, two frames per
+second). In each pair the scene, the planner and the guard are the same; only
+the request policy differs.
+
+| Scene | Ask nobody | DQN6 | Experiment 7 |
+| :--- | :--- | :--- | :--- |
+| 1300051 | n/a | [FASTER, crash at step 2](images/dqn_experiment_6_intent_1300051_merge.mp4) | [asks, SLOWER, safe](images/dqn_experiment_7_intent_1300051_merge_dqn.mp4) |
+| 1300005 | [FASTER, crash at step 2](images/dqn_experiment_7_intent_1300005_merge_none.mp4) | [asks, SLOWER, safe](images/dqn_experiment_6_intent_1300005_merge.mp4) | [asks, SLOWER, safe](images/dqn_experiment_7_intent_1300005_merge_dqn.mp4) |
+| 1300061 | [FASTER, crash at step 3](images/dqn_experiment_7_intent_1300061_merge_none.mp4) | n/a | [asks, IDLE, safe](images/dqn_experiment_7_intent_1300061_merge_dqn.mp4) |
+| 1300074 | [FASTER, crash at step 1](images/dqn_experiment_7_intent_1300074_merge_none.mp4) | n/a | [asks, IDLE, safe](images/dqn_experiment_7_intent_1300074_merge_dqn.mp4) |
+| 1300000 (both safe) | [FASTER, safe](images/dqn_experiment_7_intent_1300000_merge_none.mp4) | n/a | [asks, FASTER, safe](images/dqn_experiment_7_intent_1300000_merge_dqn.mp4) |
+
+In 5 of the 6 test scenes where DQN6 crashes and Experiment 7 does not, DQN6
+asks nobody at the first step and speeds up into the merging car.
+
 ## Conclusion
 
-- The balanced oracle-taught DQN beats DQN6 on intent crashes (3/200 against
-  9/200) and on intent return (2.638 against 2.594).
-- Against ask nobody, it cuts intent crashes by about 5 percentage points on
-  two seed sets, and the intent return stays the same.
+- On 2000 new cut-in trials, the balanced oracle-taught DQN has 40% fewer
+  crashes than DQN6 (75 against 124, McNemar p = 3e-13), a higher return
+  (+0.056) and fewer requests (-0.23 per trial), at the same speed.
+- Three training seeds give the same result on two more seed sets.
+- Against ask nobody, it cuts cut-in crashes by about 5 percentage points,
+  and its cut-in return is a little higher.
 - On ordinary roads it still asks too often (12.7 requests per 100 steps).
   Ask nobody keeps the best cost-adjusted return there, and no policy crashes.
 - The weight-4 DQN is the cheaper choice: a small return gain in the intent
@@ -219,9 +294,35 @@ For ordinary roads, use `--seed 1200000`, remove `--scenario paired-intent`,
   --b results/experiment_7/evaluation/stage_intent_bc_balanced/request_dqn_evaluation.csv --b-policy dqn
 ```
 
+Large comparison: run each policy in two parts of 500 scenes (`--seed 1600000`
+and `--seed 1600500`). For DQN6, use
+`--dqn-checkpoint checkpoints/experiment_6/RequestDQN/best.pt` and the output
+directories `dqn6_big_a` and `dqn6_big_b`.
+
+```bash
+.venv/bin/python -m scripts.evaluation.evaluate_request_dqn \
+  --experiment 7 --episodes 500 --seed 1600000 --scenario paired-intent \
+  --policies dqn none \
+  --dqn-checkpoint checkpoints/experiment_7/stage_bc_balanced/best.pt \
+  --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
+  --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6 \
+  --batched-planner --output-dir results/experiment_7/evaluation/big_intent_a
+```
+
+```bash
+.venv/bin/python -m scripts.evaluation.compare_request_runs \
+  --a results/experiment_7/evaluation/dqn6_big_a/request_dqn_evaluation.csv \
+      results/experiment_7/evaluation/dqn6_big_b/request_dqn_evaluation.csv --a-policy dqn \
+  --b results/experiment_7/evaluation/big_intent_a/request_dqn_evaluation.csv \
+      results/experiment_7/evaluation/big_intent_b/request_dqn_evaluation.csv --b-policy dqn
+```
+
+Other training seeds: run the training command with `--seed 1` or `--seed 2`
+and the output `stage_bc_balanced_seed1` or `stage_bc_balanced_seed2`.
+
 ## Artifacts
 
 - Labels: `data/experiment_7/stage_oracle_requests_*.npz`
-- Policies: `checkpoints/experiment_7/stage_bc_balanced/best.pt`,
-  `checkpoints/experiment_7/stage_bc_w4/best.pt`
+- Policies: `checkpoints/experiment_7/stage_bc_balanced/best.pt` (and
+  `_seed1`, `_seed2`), `checkpoints/experiment_7/stage_bc_w4/best.pt`
 - Evaluations: `results/experiment_7/evaluation/`

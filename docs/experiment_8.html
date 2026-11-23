@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Experiment 8 · Echo Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+      onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
+    * { box-sizing: border-box; } body { margin: 0; }
+    .layout { display: flex; min-height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+    .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
+    .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
+    nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
+    nav a:hover, nav a.active { background: #263b78; color: white; }
+    .nav-group { margin: 0 0 18px; }
+    .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
+    main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
+    article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
+    h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    .experiment-title { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }
+    p { line-height: 1.65; } .subtitle { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
+    pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
+    @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
+  </style>
+</head>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a><a href="experiment_7.html">Experiment 7: Oracle Teacher</a><a class="active" href="experiment_8.html">Experiment 8: DAgger</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1 class="experiment-title">Experiment 8: DAgger and Ask Margin</h1>
+<p><strong>Experiment 8</strong> improves the Experiment 7 request DQN with two changes:</p>
+<ol>
+<li><strong>DAgger:</strong> the DQN drives, and the oracle labels the road states that the DQN visits. The DQN then trains again on all labels.</li>
+<li><strong>Ask margin:</strong> the DQN asks only if its best ask score is more than a margin above the ask-nobody score.</li>
+</ol>
+<ul>
+<li><strong>Request DQN Checkpoint:</strong> <code>checkpoints/experiment_8/RequestDQN/best.pt</code> (DAgger round 2, seed 0)</li>
+<li><strong>Ask margin:</strong> <code>--ask-margin 0.5</code> (pass it at evaluation; it is not stored in the checkpoint)</li>
+<li><strong>World Model Used:</strong> <code>checkpoints/experiment_5/MLPx/intent_stage_best.pt</code> (the Experiment 6 and 7 world model)</li>
+<li><strong>Configuration:</strong> the same as Experiments 6 and 7: <code>--safety-guard --max-target-speed 30 --lane-change-guard --batched-planner</code>, with <code>--comfort-ttc 6</code> for cut-in scenes, and 40-step ordinary roads.</li>
+</ul>
+<p><strong>Result:</strong> on 2,000 fresh cut-in trials, Experiment 8 has 65 crashes against 74 for Experiment 7 (McNemar p = 0.012). It also has a higher return (+0.022) and asks about half as often. All three training seeds give the same result. On ordinary roads, Experiment 8 is the same as Experiment 7.</p>
+<hr>
+<h2>Why</h2>
+<p>Experiment 7 learns only from the states that the oracle drives into. When the DQN drives, it reaches other states, where it has no labels. DAgger adds labels for those states.</p>
+<p>Experiment 7 also asks too often on ordinary roads (about 5 requests per 40-step episode). The ask margin removes the requests where the DQN is not sure.</p>
+<hr>
+<h2>Method</h2>
+<h3>DAgger rounds</h3>
+<table><thead><tr><th>Round</th><th>Driver</th><th>New label seeds</th><th>New labels (intent / ordinary steps)</th></tr></thead><tbody><tr><td>0</td><td>Oracle (Experiment 7 labels)</td><td>Intent 1100000+, ordinary 1000000+</td><td>5,967 / 4,000</td></tr><tr><td>1</td><td>Experiment 7 DQN</td><td>Intent 1700000-1700999, ordinary 1000100-1000199</td><td>5,925 / 4,000</td></tr><tr><td>2</td><td>Round 1 DQN</td><td>Intent 1701000-1701999, ordinary 1000200-1000299</td><td>5,951 / 3,900</td></tr><tr><td>3</td><td>Round 2 DQN</td><td>Intent 1702000-1702999, ordinary 1000300-1000399</td><td>5,943 / 4,000</td></tr></tbody></table>
+<p>Ordinary episodes have 40 steps. In round 2, the round 1 DQN (no margin) crashed in 3 of the 100 ordinary label episodes (seeds 1000203, 1000205, 1000271), so those episodes are shorter. The oracle labels these states too. The final Experiment 8 policy has no crash in its 600 ordinary test episodes (3 seeds, 2 controllers, 100 episodes each). Each round trains a new DQN from the start on all labels so far, with the Experiment 7 recipe (behaviour cloning, 30 epochs, balanced ask weight). Round 3 was not better than round 2 on validation, so Experiment 8 uses round 2.</p>
+<p>Code: <code>--drive-checkpoint</code> in <code>scripts/data_collection/collect_oracle_requests.py</code>.</p>
+<h3>Ask margin</h3>
+<p>The DQN scores each request option. Without a margin it picks the highest score. With <code>--ask-margin m</code>, it asks somebody only if the best ask score is more than <code>m</code> above the ask-nobody score.</p>
+<p>Code: <code>select_action(..., ask_margin=m)</code> in <code>scripts/training/train_request_dqn.py</code> and <code>--ask-margin</code> in <code>scripts/evaluation/evaluate_request_dqn.py</code>.</p>
+<h3>Seeds</h3>
+<table><thead><tr><th>Use</th><th>Seeds</th></tr></thead><tbody><tr><td>Labels</td><td>See the DAgger table</td></tr><tr><td>Validation, small</td><td>Intent 1400000-1400099, ordinary 1250000-1250059</td></tr><tr><td>Validation, large</td><td>Intent 1800000-1800999 (2,000 trials)</td></tr><tr><td>Test, fresh</td><td>Intent 1900000-1900999 (2,000 trials)</td></tr><tr><td>Test, Experiment 7 sets</td><td>Intent 1300000, 1500000, 1600000-1600999; ordinary 1200000-1200099</td></tr></tbody></table>
+<hr>
+<h2>Results</h2>
+<h3>Oracle upper limit (2,000 trials, 1600000)</h3>
+<table><thead><tr><th>Policy</th><th>Crashes</th><th>Requests / trial</th><th>Net return</th></tr></thead><tbody><tr><td>Experiment 7</td><td>75</td><td>0.75</td><td>2.631</td></tr><tr><td>Privileged oracle</td><td>42</td><td>0.16</td><td>2.709</td></tr></tbody></table>
+<p>The oracle shows that about 33 more crashes can be prevented with the same world model.</p>
+<h3>Model selection</h3>
+<p>Small validation (200 intent trials, 60 ordinary episodes):</p>
+<table><thead><tr><th>Policy</th><th>Margin</th><th>Crashes / 200</th><th>Intent return</th><th>Ordinary return</th><th>Ordinary requests</th></tr></thead><tbody><tr><td>Experiment 7</td><td>0</td><td>4</td><td>2.642</td><td>36.452</td><td>5.6</td></tr><tr><td>Experiment 7</td><td>1.0</td><td>9</td><td>2.668</td><td>36.572</td><td>2.1</td></tr><tr><td>DAgger round 1</td><td>1.0</td><td>3</td><td>2.690</td><td>36.593</td><td>3.1</td></tr><tr><td>DAgger round 2</td><td>0.5</td><td>3</td><td>2.678</td><td>36.534</td><td>5.2</td></tr><tr><td>DAgger round 2</td><td>1.0</td><td>3</td><td>2.691</td><td>36.602</td><td>2.5</td></tr><tr><td>DAgger round 3</td><td>1.0</td><td>3</td><td>2.689</td><td>36.543</td><td>2.2</td></tr></tbody></table>
+<p>A margin alone (Experiment 7 with margin 1.0) brings crashes back. DAgger keeps the crashes low at larger margins.</p>
+<p>The first pick was round 2 with margin 1.0. On the Experiment 7 test set it had <strong>more</strong> crashes than Experiment 7 (87 against 75 of 2,000, p = 0.008). The 200-trial validation set was too small to show this. So the margin was chosen again on a large validation set, and the final test uses a fresh test set:</p>
+<p>Large validation (2,000 trials, 1800000):</p>
+<table><thead><tr><th>Policy</th><th>Margin</th><th>Crashes</th><th>Net return</th><th>Requests / trial</th></tr></thead><tbody><tr><td>Experiment 7</td><td>0</td><td>77</td><td>2.627</td><td>0.75</td></tr><tr><td>DAgger round 2</td><td>0</td><td>61</td><td>2.635</td><td>0.61</td></tr><tr><td>DAgger round 2</td><td><strong>0.5</strong></td><td>68</td><td>2.646</td><td>0.42</td></tr><tr><td>DAgger round 2</td><td>1.0</td><td>81</td><td>2.652</td><td>0.27</td></tr></tbody></table>
+<p>Margin 0.5 is the only setting that beats Experiment 7 on crashes, intent return and ordinary return on validation. Margin 0 has fewer crashes but a lower ordinary return than Experiment 7 (36.377 against 36.452).</p>
+<h3>Final test: cut-in scenes</h3>
+<table><thead><tr><th>Test set</th><th>Policy</th><th>Crashes</th><th>Net return</th><th>Requests / trial</th><th>Speed, stay / merge (m/s)</th></tr></thead><tbody><tr><td>Fresh, 1900000 (2,000)</td><td>Ask nobody</td><td>163</td><td>2.613</td><td>0.00</td><td>27.80 / 26.75</td></tr><tr><td></td><td>Experiment 7</td><td>74</td><td>2.622</td><td>0.76</td><td>27.58 / 26.24</td></tr><tr><td></td><td><strong>Experiment 8</strong></td><td><strong>65</strong></td><td><strong>2.645</strong></td><td><strong>0.41</strong></td><td>27.54 / 26.20</td></tr><tr><td>Experiment 7 set, 1600000 (2,000)</td><td>DQN6</td><td>124</td><td>2.575</td><td>0.97</td><td>27.56 / 26.33</td></tr><tr><td></td><td>Experiment 7</td><td>75</td><td>2.631</td><td>0.75</td><td>27.63 / 26.30</td></tr><tr><td></td><td><strong>Experiment 8</strong></td><td><strong>72</strong></td><td><strong>2.648</strong></td><td><strong>0.41</strong></td><td>27.60 / 26.24</td></tr><tr><td>1300000 (200)</td><td>Experiment 7</td><td>3</td><td>2.638</td><td>0.80</td><td>27.37 / 26.15</td></tr><tr><td></td><td><strong>Experiment 8</strong></td><td>3</td><td><strong>2.663</strong></td><td><strong>0.47</strong></td><td>27.44 / 26.18</td></tr><tr><td>1500000 (200)</td><td>Experiment 7</td><td>8</td><td>2.620</td><td>0.82</td><td>27.41 / 26.33</td></tr><tr><td></td><td><strong>Experiment 8</strong></td><td><strong>7</strong></td><td><strong>2.654</strong></td><td><strong>0.46</strong></td><td>27.58 / 26.32</td></tr></tbody></table>
+<p>Paired difference, Experiment 8 minus Experiment 7 (95% bootstrap interval; exact McNemar test on crashes):</p>
+<table><thead><tr><th>Test set</th><th>Return</th><th>Requests</th><th>Crashes only under Exp 7 / only under Exp 8</th><th>McNemar p</th></tr></thead><tbody><tr><td>Fresh, 1900000</td><td>+0.022 [+0.018, +0.027]</td><td>-0.34</td><td>10 / 1</td><td>0.012</td></tr><tr><td>1600000</td><td>+0.017 [+0.011, +0.022]</td><td>-0.34</td><td>10 / 7</td><td>0.63</td></tr><tr><td>1300000</td><td>+0.025 [+0.015, +0.038]</td><td>-0.33</td><td>0 / 0</td><td>1</td></tr><tr><td>1500000</td><td>+0.034 [+0.017, +0.051]</td><td>-0.37</td><td>1 / 0</td><td>1</td></tr></tbody></table>
+<p>Against DQN6 on 1600000: 72 against 124 crashes (p = 3e-12), +0.072 return, -0.56 requests.</p>
+<p>Speed is the same as Experiment 7. Experiment 8 does not avoid crashes by driving slower.</p>
+<h3>Three training seeds (fresh 2,000 trials, 1900000)</h3>
+<p>Each seed is compared with the Experiment 7 policy of the same seed.</p>
+<table><thead><tr><th>Seed</th><th>Exp 7 crashes</th><th>Exp 8 crashes</th><th>Return difference</th><th>Request difference</th><th>Only Exp 7 / only Exp 8 crash</th><th>McNemar p</th></tr></thead><tbody><tr><td>0</td><td>74</td><td><strong>65</strong></td><td>+0.022 [+0.018, +0.027]</td><td>-0.34</td><td>10 / 1</td><td>0.012</td></tr><tr><td>1</td><td>64</td><td><strong>57</strong></td><td>+0.017 [+0.011, +0.024]</td><td>-0.13</td><td>10 / 3</td><td>0.092</td></tr><tr><td>2</td><td>66</td><td><strong>55</strong></td><td>+0.019 [+0.012, +0.026]</td><td>-0.19</td><td>11 / 0</td><td>0.001</td></tr></tbody></table>
+<p>All three seeds have fewer crashes, a higher return and fewer requests. Over the three seeds, 31 trials crash only under Experiment 7 and 4 crash only under Experiment 8.</p>
+<h3>Final test: ordinary roads (1200000, 100 episodes of 40 steps)</h3>
+<table><thead><tr><th>Controller</th><th>Policy</th><th>Net return</th><th>Requests / episode</th><th>Crashes</th><th>Speed (m/s)</th></tr></thead><tbody><tr><td>Original guard</td><td>Ask nobody</td><td><strong>36.566</strong></td><td>0.00</td><td>0</td><td>27.49</td></tr><tr><td></td><td>DQN6</td><td>35.801</td><td>16.88</td><td>0</td><td>27.53</td></tr><tr><td></td><td>Experiment 7</td><td>36.390</td><td>4.88</td><td>0</td><td>27.52</td></tr><tr><td></td><td>Experiment 8</td><td>36.370</td><td>5.54</td><td>0</td><td>27.55</td></tr><tr><td><code>--comfort-ttc 6</code></td><td>Ask nobody</td><td><strong>36.391</strong></td><td>0.00</td><td>0</td><td>27.41</td></tr><tr><td></td><td>DQN6</td><td>35.748</td><td>13.17</td><td>0</td><td>27.40</td></tr><tr><td></td><td>Experiment 7</td><td>36.118</td><td>4.93</td><td>0</td><td>27.36</td></tr><tr><td></td><td>Experiment 8</td><td>36.049</td><td>7.15</td><td>0</td><td>27.40</td></tr></tbody></table>
+<p>Experiment 8 minus Experiment 7: -0.019 [-0.138, +0.087] (original guard) and -0.069 [-0.140, +0.004] (<code>--comfort-ttc 6</code>). Both intervals include zero.</p>
+<p>Seed means (seeds 0-2): Experiment 8 36.434 and 36.165; Experiment 7 36.367 and 36.104. On ordinary roads the two policies are the same within noise. Ask nobody is still the best there.</p>
+<hr>
+<h2>Conclusion</h2>
+<ul>
+<li>DAgger reduces cut-in crashes: 65 against 74 on 2,000 fresh trials (p = 0.012), and fewer crashes for all three training seeds.</li>
+<li>Experiment 8 has a higher cut-in return on every test set and asks about half as often as Experiment 7, at the same speed.</li>
+<li>The ask margin must be chosen on a large validation set. A margin that is too large (1.0) brings crashes back, and 200 trials cannot show this.</li>
+<li>On ordinary roads, Experiment 8 is the same as Experiment 7. Ask nobody is still the best there. The ask margin did not fix this.</li>
+<li>The oracle has 42 crashes on 2,000 trials, so there is still room to improve.</li>
+</ul>
+<hr>
+<h2>Commands</h2>
+<p>Run from the project root. <code>WM</code> is <code>checkpoints/experiment_5/MLPx/intent_stage_best.pt</code>.</p>
+<p>DAgger round 1 labels (round 2: <code>--drive-checkpoint</code> of round 1, seeds +1000 and +100). Run the intent part in four parts of 250 scenes and the ordinary part in two parts of 50 episodes:</p>
+<pre><code>.venv/bin/python -m scripts.data_collection.collect_oracle_requests \
+  --experiment 8 --mlpx-checkpoint $WM \
+  --drive-checkpoint checkpoints/experiment_7/stage_bc_balanced/best.pt --drive-seed 1 \
+  --safety-guard --lane-change-guard --max-target-speed 30 \
+  --ordinary-episodes 0 --intent-scenes 250 --challenge-seed 1700000 \
+  --output data/experiment_8/dagger_r1_intent_0.npz</code></pre>
+<pre><code>.venv/bin/python -m scripts.data_collection.collect_oracle_requests \
+  --experiment 8 --mlpx-checkpoint $WM \
+  --drive-checkpoint checkpoints/experiment_7/stage_bc_balanced/best.pt --drive-seed 1 \
+  --safety-guard --lane-change-guard --max-target-speed 30 \
+  --ordinary-episodes 50 --ordinary-seed 1000100 --intent-scenes 0 \
+  --output data/experiment_8/dagger_r1_ordinary_0.npz</code></pre>
+<p>Train round 2 (all Experiment 7 labels plus rounds 1 and 2):</p>
+<pre><code>.venv/bin/python -m scripts.training.train_request_dqn \
+  --experiment 8 --episodes 0 --seed 0 --mlpx-checkpoint $WM \
+  --scenario-mix mixed --request-state-encoding ego_control_v1 \
+  --safety-guard --max-target-speed 30 --lane-change-guard --batched-planner \
+  --oracle-demos data/experiment_7/stage_oracle_requests_*.npz \
+    data/experiment_8/dagger_r1_*.npz data/experiment_8/dagger_r2_*.npz \
+  --bc-epochs 30 --bc-ask-weight balanced \
+  --output checkpoints/experiment_8/RequestDQN/best.pt</code></pre>
+<p>Evaluate (fresh test, first quarter; run <code>--seed 1900250</code>, <code>1900500</code> and <code>1900750</code> for the rest):</p>
+<pre><code>.venv/bin/python -m scripts.evaluation.evaluate_request_dqn \
+  --experiment 8 --episodes 250 --seed 1900000 --scenario paired-intent --policies dqn \
+  --dqn-checkpoint checkpoints/experiment_8/RequestDQN/best.pt --mlpx-checkpoint $WM \
+  --ask-margin 0.5 --safety-guard --max-target-speed 30 --lane-change-guard \
+  --comfort-ttc 6 --batched-planner --output-dir results/experiment_8/evaluation/fresh_exp8_0</code></pre>
+<p>For Experiment 7, use <code>--dqn-checkpoint checkpoints/experiment_7/RequestDQN/best.pt</code> and <code>--ask-margin 0</code>. For ordinary roads, use <code>--seed 1200000 --episodes 100</code>, and remove <code>--scenario paired-intent</code> and <code>--comfort-ttc 6</code>.</p>
+<p>Compare:</p>
+<pre><code>.venv/bin/python -m scripts.evaluation.compare_request_runs \
+  --a results/experiment_8/evaluation/fresh_exp7_{0,1,2,3}/request_dqn_evaluation.csv --a-policy dqn \
+  --b results/experiment_8/evaluation/fresh_exp8_{0,1,2,3}/request_dqn_evaluation.csv --b-policy dqn</code></pre>
+<h2>Artifacts</h2>
+<ul>
+<li>Labels: <code>data/experiment_8/dagger_r{1,2,3}_*.npz</code></li>
+<li>Policies: <code>checkpoints/experiment_8/dagger_r{1,2,3}_s0/best.pt</code>, <code>dagger_r2_s{1,2}/best.pt</code>; final: <code>checkpoints/experiment_8/RequestDQN/best.pt</code></li>
+<li>Evaluations: <code>results/experiment_8/evaluation/</code></li>
+</ul></article></main></div></body>
+</html>

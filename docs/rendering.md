@@ -147,3 +147,26 @@ For a terminal-only smoke test without opening a window:
   --episodes 1 \
   --no-render
 ```
+
+## Render a cut-in scene
+
+`--scenario paired-intent` renders the matched-intent challenge scene of
+`--seed`. It uses the same scene builder as `evaluate_request_dqn`, so a seed
+shows the same trial as the evaluation CSV. Other options:
+
+- `--hidden-mode merge|stay` selects the hidden intent of the neighbour.
+- `--policy none` renders ask nobody with the same planner and guard.
+- `--batched-planner` uses the batched planner, as in the evaluations.
+
+The overlay and the printed log show the ego speed at every step.
+
+```bash
+.venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 7 --episodes 1 --seed 1300051 \
+  --scenario paired-intent --hidden-mode merge --policy dqn --delay 0 \
+  --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6 \
+  --batched-planner \
+  --dqn-checkpoint checkpoints/experiment_7/stage_bc_balanced/best.pt \
+  --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
+  --video docs/images/dqn_experiment_7_intent_1300051_merge_dqn.mp4 --video-fps 2
+```

@@ -110,12 +110,13 @@
 <p>The final policy has no crash in its 600 ordinary test episodes (3 seeds, 2 controllers, 100 episodes each).</p>
 <hr>
 <h2>Video</h2>
-<p>Two fresh cut-in scenes where phase 1 crashes and phase 2 does not, then the 2,000-trial results. In each pair the scene, world model, planner and guard are the same; phase 2 adds the brake rule and its own request policy.</p>
+<p>Experiment 7 against the final Experiment 8 policy on two fresh cut-in scenes where Experiment 7 crashes, then the 2,000-trial results. In each pair the scene, world model, planner and guard are the same.</p>
 <ul>
-<li><strong>Scene 1900012:</strong> phase 1 asks the merging car, speeds up and crashes. Phase 2 asks, holds its speed, then brakes, and is safe.</li>
-<li><strong>Scene 1900038:</strong> phase 1 asks nobody, speeds up and crashes. Phase 2 asks the merging car, brakes, and is safe.</li>
+<li><strong>Scene 1900012:</strong> Experiment 7 asks the merging car, but still speeds up and crashes. Experiment 8 asks, holds its speed, then brakes, and is safe.</li>
+<li><strong>Scene 1900038:</strong> Experiment 7 asks the merging car, but still speeds up and crashes. Experiment 8 asks the merging car, brakes, and is safe.</li>
 </ul>
-<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/experiment_8_phase1_vs_phase2.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
+<p>In every fresh merge scene where Experiment 7 crashes and Experiment 8 does not, Experiment 7 asked the merging car. It had the right message but did not act on it.</p>
+<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/experiment_7_vs_8.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
 <hr>
 <h2>Conclusion</h2>
 <ul>

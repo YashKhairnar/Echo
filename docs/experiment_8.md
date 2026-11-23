@@ -228,12 +228,14 @@ The final policy has no crash in its 600 ordinary test episodes (3 seeds, 2 cont
 
 ## Video
 
-Two fresh cut-in scenes where phase 1 crashes and phase 2 does not, then the 2,000-trial results. In each pair the scene, world model, planner and guard are the same; phase 2 adds the brake rule and its own request policy.
+Experiment 7 against the final Experiment 8 policy on two fresh cut-in scenes where Experiment 7 crashes, then the 2,000-trial results. In each pair the scene, world model, planner and guard are the same.
 
-- **Scene 1900012:** phase 1 asks the merging car, speeds up and crashes. Phase 2 asks, holds its speed, then brakes, and is safe.
-- **Scene 1900038:** phase 1 asks nobody, speeds up and crashes. Phase 2 asks the merging car, brakes, and is safe.
+- **Scene 1900012:** Experiment 7 asks the merging car, but still speeds up and crashes. Experiment 8 asks, holds its speed, then brakes, and is safe.
+- **Scene 1900038:** Experiment 7 asks the merging car, but still speeds up and crashes. Experiment 8 asks the merging car, brakes, and is safe.
 
-![Experiment 8 phase 1 vs phase 2](images/experiment_8_phase1_vs_phase2.mp4)
+In every fresh merge scene where Experiment 7 crashes and Experiment 8 does not, Experiment 7 asked the merging car. It had the right message but did not act on it.
+
+![Experiment 7 vs Experiment 8](images/experiment_7_vs_8.mp4)
 
 ---
 

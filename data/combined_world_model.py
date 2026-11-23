@@ -80,6 +80,7 @@ class CombinedWorldModelDataset(Dataset):
         self.inputs = []
         self.next_states = []
         self.rewards = []
+        self.crashes = []
         self.groups = []
         self.state_size = None
         with open(path) as file:
@@ -92,6 +93,7 @@ class CombinedWorldModelDataset(Dataset):
         self.inputs = torch.tensor(np.asarray(self.inputs), dtype=torch.float32)
         self.next_states = torch.tensor(np.asarray(self.next_states), dtype=torch.float32)
         self.rewards = torch.tensor(self.rewards, dtype=torch.float32)[:, None]
+        self.crashes = torch.tensor(self.crashes, dtype=torch.float32)[:, None]
 
     def _append_record(self, record, compact):
         state = np.asarray(record["state"], dtype=np.float32).reshape(-1)
@@ -109,6 +111,8 @@ class CombinedWorldModelDataset(Dataset):
         self.inputs.append(np.concatenate([state, action, encode_messages(record)]).astype(np.float32))
         self.next_states.append(next_state)
         self.rewards.append(float(record["reward"]))
+        # "terminated" is a crash: offroad_terminal is off in CustomEnv.
+        self.crashes.append(float(bool(record.get("terminated", False))))
         self.groups.append(episode_group(record))
         self.records.append({"ego_action": record["ego_action"], "messages": bool(record.get("messages"))}
                             if compact else record)
@@ -125,4 +129,5 @@ class CombinedWorldModelDataset(Dataset):
             self.inputs[index],
             self.next_states[index],
             self.rewards[index],
+            self.crashes[index],
         )

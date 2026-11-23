@@ -2,6 +2,10 @@
 
     .venv/bin/python -m scripts.training.train_mlpx_wm --epochs 50
 
+Use ``--architecture per_vehicle`` to train PerVehicleMLPx (one shared
+encoder per car, car-matched messages and a crash head) instead of the flat
+MLP. Use ``--checkpoint-name`` to keep the old best.pt.
+
 Saves the best model (lowest test loss) to
 checkpoints/experiment_N/MLPx/best.pt and the run's log and plots to
 results/experiment_N/MLPx/experiments/<time>_mlpx/.
@@ -28,9 +32,9 @@ from scripts.utils.experiment_utils import (
     experiment_results_dir,
     save_run_metadata,
 )
-from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
+from src.cooperative_driving.models.MLPx.per_vehicle import ARCHITECTURES
 
-LOG_FIELDS = ["epoch", "train_loss", "test_loss", "state_loss", "reward_loss"]
+LOG_FIELDS = ["epoch", "train_loss", "test_loss", "state_loss", "reward_loss", "crash_loss"]
 
 
 def balanced_sampler(records, train_indices, balance_by, seed):
@@ -56,14 +60,28 @@ def balanced_sampler(records, train_indices, balance_by, seed):
 
 
 def compute_losses(model, batch):
-    """Return next-state and reward losses for one batch."""
-    inputs, next_states, rewards = batch
-    predicted_states, predicted_rewards = model(inputs)
+    """Return next-state, reward and (if the model has one) crash losses.
+
+    The crash loss is binary cross-entropy on the "terminated" label. It is
+    reported apart, so ``test_loss`` (state + reward) stays comparable
+    between architectures.
+    """
+    inputs, next_states, rewards = batch[:3]
+    if hasattr(model, "forward_all"):
+        predicted_states, predicted_rewards, crash_logits = model.forward_all(inputs)
+    else:
+        (predicted_states, predicted_rewards), crash_logits = model(inputs), None
     losses = {
         "state_loss": F.mse_loss(predicted_states, next_states),
         "reward_loss": F.mse_loss(predicted_rewards, rewards),
     }
+    if crash_logits is not None and len(batch) > 3:
+        losses["crash_loss"] = F.binary_cross_entropy_with_logits(crash_logits, batch[3])
     return losses
+
+
+def training_loss(losses, crash_weight):
+    return losses["state_loss"] + losses["reward_loss"] + crash_weight * losses.get("crash_loss", 0.0)
 
 
 @torch.no_grad()
@@ -77,7 +95,8 @@ def evaluate(model, loader):
             sums[name] = sums.get(name, 0.0) + value.item()
         batches += 1
     metrics = {name: value / batches for name, value in sums.items()}
-    metrics["test_loss"] = sum(metrics.values())
+    metrics["test_loss"] = metrics["state_loss"] + metrics["reward_loss"]
+    metrics.setdefault("crash_loss", "")
     return metrics
 
 
@@ -85,8 +104,9 @@ def save_plot(log_path):
     rows = list(csv.DictReader(log_path.open()))
     epochs = [int(row["epoch"]) for row in rows]
     plt.figure(figsize=(10, 6))
-    for column in ["train_loss", "test_loss", "state_loss", "reward_loss"]:
-        plt.plot(epochs, [float(row[column]) for row in rows], label=column)
+    for column in ["train_loss", "test_loss", "state_loss", "reward_loss", "crash_loss"]:
+        if rows and rows[0].get(column) not in (None, ""):
+            plt.plot(epochs, [float(row[column]) for row in rows], label=column)
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.title("MLPx training")
@@ -107,6 +127,14 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--balance-by", choices=["none", "action", "action-message", "action-message-stage"], default="none",
                         help="Inverse-frequency sampling on training records only")
+    parser.add_argument("--architecture", choices=sorted(ARCHITECTURES), default="flat",
+                        help="flat: MLPx; per_vehicle: PerVehicleMLPx")
+    parser.add_argument("--hidden-size", type=int, default=None,
+                        help="Hidden width (default: 256 for flat, 128 for per_vehicle)")
+    parser.add_argument("--crash-weight", type=float, default=0.1,
+                        help="Weight of the crash loss (per_vehicle only)")
+    parser.add_argument("--checkpoint-name", default="best.pt",
+                        help="File name in checkpoints/experiment_N/MLPx/")
     args = parser.parse_args()
 
     if args.data is None:
@@ -130,14 +158,17 @@ def main():
 
     run_dir = create_run_dir(results_root, "mlpx")
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    save_run_metadata(run_dir, {"model": "MLPx (per-vehicle)",
+    save_run_metadata(run_dir, {"model": ARCHITECTURES[args.architecture].__name__,
                                 "message_slot_encoding": "spatial_v1",
                                 "state_size": dataset.state_size,
                                 "state_encoding": 'kinematics_ego_control_v1' if dataset.state_size == 57 else 'kinematics_v1',
                                 "train_records": len(train_indices), "heldout_records": len(test_indices),
                                 "heldout_groups": sorted(test_groups, key=str), **vars(args)})
 
-    model = MLPxWorldModel(state_size=dataset.state_size)
+    model_kwargs = {"state_size": dataset.state_size}
+    if args.hidden_size is not None:
+        model_kwargs["hidden_size"] = args.hidden_size
+    model = ARCHITECTURES[args.architecture](**model_kwargs)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     best_test_loss = float("inf")
     log_path = run_dir / "mlpx_training.csv"
@@ -150,7 +181,7 @@ def main():
             train_loss = 0.0
             for batch in train_loader:
                 losses = compute_losses(model, batch)
-                loss = sum(losses.values())
+                loss = training_loss(losses, args.crash_weight)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
@@ -168,11 +199,14 @@ def main():
                           "data": args.data, "message_slot_encoding": "spatial_v1"}
             checkpoint['state_size'] = model.STATE_SIZE
             checkpoint['state_encoding'] = model.state_encoding
+            checkpoint['architecture'] = args.architecture
+            if args.architecture == "per_vehicle":
+                checkpoint['hidden_size'] = model.hidden_size
             torch.save(checkpoint, run_dir / "latest.pt")
             if metrics["test_loss"] < best_test_loss:
                 best_test_loss = metrics["test_loss"]
                 torch.save(checkpoint, run_dir / "best.pt")
-                torch.save(checkpoint, checkpoint_dir / "best.pt")
+                torch.save(checkpoint, checkpoint_dir / args.checkpoint_name)
 
     save_plot(log_path)
     print(f"Saved run to {run_dir}")

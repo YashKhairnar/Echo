@@ -124,6 +124,8 @@ def main():
     parser.add_argument('--oracle-drive-probability', type=float, default=0.0,
                         help='DAgger: chance per step that the oracle drives instead of the DQN')
     parser.add_argument('--drive-seed', type=int, default=0)
+    parser.add_argument('--merge-brake', action='store_true',
+                        help='Use the message-aware brake rule in the controller')
     parser.add_argument('--output', default=None)
     args = parser.parse_args()
     if min(args.ordinary_episodes, args.intent_scenes) < 0 or args.lookahead < 1:
@@ -135,7 +137,9 @@ def main():
 
     controls = dict(safety_guard=args.safety_guard, lane_change_guard=args.lane_change_guard,
                     max_target_speed=args.max_target_speed, min_clearance=args.min_clearance,
-                    min_ttc=args.min_ttc, batched=True)
+                    min_ttc=args.min_ttc, batched=True, merge_brake=args.merge_brake)
+    if args.merge_brake and not args.safety_guard:
+        parser.error('merge-brake requires safety-guard')
     world_model = MLPxWorldModel.load(args.mlpx_checkpoint)
     driver = None
     if args.drive_checkpoint:

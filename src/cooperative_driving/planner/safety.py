@@ -19,6 +19,57 @@ def update_controller_state(state, executed_action, lane_change_cooldown=5):
         state['acceleration_cooldown'] = max(0, acceleration_remaining - 1)
 
 
+def merging_neighbours(environment, message):
+    """Requested neighbours whose message announces a move into the ego lane.
+
+    A neighbour counts only if it is not in the ego lane yet and it is not
+    fully behind the ego. Returns (vehicle_id, clearance, ttc) per neighbour.
+    """
+    if not message:
+        return []
+    ego = environment.vehicle
+    lane = int(ego.lane_index[2])
+    found = []
+    for entry in message.get('messages_by_slot', []):
+        if not entry or entry.get('crashed') or entry.get('target_lane') is None:
+            continue
+        if int(entry['target_lane'][2]) != lane:
+            continue
+        vehicle = environment.get_vehicle(entry['vehicle_id'])
+        if int(vehicle.lane_index[2]) == lane:
+            continue  # already in the ego lane: guard_action handles it
+        half_lengths = (ego.LENGTH + vehicle.LENGTH) / 2
+        dx = float(vehicle.position[0] - ego.position[0])
+        if dx < -half_lengths:
+            continue
+        clearance = abs(dx) - half_lengths
+        closing = float(ego.velocity[0] - vehicle.velocity[0])
+        ttc = max(0., clearance) / closing if closing > 0 else math.inf
+        found.append((entry['vehicle_id'], clearance, ttc))
+    return found
+
+
+def merge_brake_action(action, environment, message, min_clearance=8., min_ttc=3.):
+    """Message-aware brake rule applied after guard_action.
+
+    If a requested neighbour says it is moving into the ego lane, treat it as
+    a front car: brake (SLOWER) when its clearance is below ``min_clearance``
+    or its time to collision is below ``min_ttc``; otherwise never accelerate
+    (FASTER becomes IDLE). Returns the action and a short report.
+    """
+    merging = merging_neighbours(environment, message)
+    if not merging:
+        return action, None
+    if any(clearance < min_clearance or ttc < min_ttc for _, clearance, ttc in merging):
+        final = 4
+    elif action == 3:
+        final = 1
+    else:
+        final = action
+    return final, {'merging_neighbours': merging, 'input_action': action,
+                   'executed_action': final, 'changed': final != action}
+
+
 def guard_action(values, ego, visible, lanes_count, min_clearance=8., min_ttc=3.,
                  check_lane_changes=False, max_target_speed=None,
                  comfort_ttc=None, controller_state=None,

@@ -63,7 +63,8 @@ def oracle_controls(args):
                 min_ttc=args.min_ttc, lane_change_guard=args.lane_change_guard,
                 max_target_speed=args.max_target_speed,
                 comfort_ttc=getattr(args, 'comfort_ttc', None),
-                batched=getattr(args, 'batched_planner', False))
+                batched=getattr(args, 'batched_planner', False),
+                merge_brake=getattr(args, 'merge_brake', False))
 
 
 def choose_request(policy, dqn, environment, visible, rng, ask_margin=0.0):
@@ -159,7 +160,8 @@ def evaluate_policy(policy, dqn, world_model, args):
                 max_target_speed=args.max_target_speed,
                 comfort_ttc=getattr(args, 'comfort_ttc', None),
                 batched=getattr(args, 'batched_planner', False),
-                controller_state=controller_state)
+                controller_state=controller_state,
+                merge_brake=getattr(args, 'merge_brake', False))
             guard_overrides += int(bool(guard and guard['overridden']))
             if timestep == 0:
                 initial_request, initial_driving = request_action, driving_action
@@ -228,6 +230,8 @@ def main():
     parser.add_argument('--scenario', choices=['ordinary', 'paired-intent'], default='ordinary',
                         help='paired-intent evaluates BOTH variants for every --episodes public scene')
     parser.add_argument('--batched-planner', action='store_true')
+    parser.add_argument('--merge-brake', action='store_true',
+                        help='Brake for a requested neighbour that announces a move into the ego lane')
     parser.add_argument(
         "--policies",
         nargs="+",
@@ -252,6 +256,8 @@ def main():
         parser.error('max-target-speed must be finite and positive')
     if args.comfort_ttc is not None and (not np.isfinite(args.comfort_ttc) or args.comfort_ttc <= args.min_ttc):
         parser.error('comfort-ttc must be finite and greater than min-ttc')
+    if args.merge_brake and not args.safety_guard:
+        parser.error('merge-brake requires safety-guard')
     if not np.isfinite(args.ask_margin) or args.ask_margin < 0:
         parser.error('ask-margin must be finite and nonnegative')
     if min(args.episodes, args.planning_horizon) < 1:
@@ -352,6 +358,7 @@ def main():
                 "guard_thresholds": {"min_clearance": args.min_clearance, "min_ttc": args.min_ttc} if args.safety_guard else None,
                 "comfort_ttc": args.comfort_ttc,
                 "ask_margin": args.ask_margin,
+                "merge_brake": args.merge_brake,
                 "oracle_lookahead": args.oracle_lookahead
                 if 'oracle' in args.policies or args.oracle_agreement else None,
                 "summary": summary,

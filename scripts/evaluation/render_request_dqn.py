@@ -167,6 +167,10 @@ def main():
     parser.add_argument('--max-target-speed', type=float, default=None)
     parser.add_argument('--batched-planner', action='store_true',
                         help='Use the batched planner, as in training and evaluate_request_dqn')
+    parser.add_argument('--merge-brake', action='store_true',
+                        help='Brake for a requested neighbour that announces a move into the ego lane')
+    parser.add_argument('--ask-margin', type=float, default=0.0,
+                        help='The DQN asks only if its best ask score beats ask-nobody by more than this')
     parser.add_argument('--scenario', choices=['ordinary', 'paired-intent'], default='ordinary',
                         help='paired-intent renders the matched-intent challenge scene of --seed + episode')
     parser.add_argument('--hidden-mode', choices=['stay', 'merge'], default='merge',
@@ -263,7 +267,8 @@ def main():
                 else:
                     state = request_state(environment, visible, dqn.request_state_encoding)
                     request_action = select_action(
-                        dqn, state, valid_actions(visible, dqn.request_action_encoding), epsilon=0.0, rng=rng
+                        dqn, state, valid_actions(visible, dqn.request_action_encoding), epsilon=0.0, rng=rng,
+                        ask_margin=args.ask_margin
                     )
                 message = requested_message(environment, visible, request_action, dqn.request_action_encoding)
                 speed = float(environment.vehicle.speed)
@@ -274,7 +279,8 @@ def main():
                     safety_guard=args.safety_guard, min_clearance=args.min_clearance,
                     min_ttc=args.min_ttc, lane_change_guard=args.lane_change_guard,
                     max_target_speed=args.max_target_speed, comfort_ttc=args.comfort_ttc,
-                    batched=args.batched_planner, controller_state=controller_state)
+                    batched=args.batched_planner, controller_state=controller_state,
+                    merge_brake=args.merge_brake)
                 guard_overrides += int(bool(guard and guard["overridden"]))
                 guard_label = " | guard: " + (", ".join(guard["reasons"]) or "pass") if guard else ""
                 visible_ids = ordered_visible_ids(visible)

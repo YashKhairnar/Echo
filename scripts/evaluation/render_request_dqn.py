@@ -33,7 +33,8 @@ from scripts.utils.experiment_utils import (
 from src.cooperative_driving.environments.customEnv import CustomEnv
 from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
 from src.cooperative_driving.planner.MCP import MCPPlanner
-from src.cooperative_driving.planner.safety import guard_action
+from src.cooperative_driving.environments.intent_scenarios import intent_episode
+from src.cooperative_driving.planner.controller import driving_action as choose_driving
 from src.cooperative_driving.policies.request_dqn import RequestDQN
 
 
@@ -164,6 +165,14 @@ def main():
                         help='Proactively change lanes or slow before the emergency TTC threshold')
     parser.add_argument('--lane-change-guard', action='store_true')
     parser.add_argument('--max-target-speed', type=float, default=None)
+    parser.add_argument('--batched-planner', action='store_true',
+                        help='Use the batched planner, as in training and evaluate_request_dqn')
+    parser.add_argument('--scenario', choices=['ordinary', 'paired-intent'], default='ordinary',
+                        help='paired-intent renders the matched-intent challenge scene of --seed + episode')
+    parser.add_argument('--hidden-mode', choices=['stay', 'merge'], default='merge',
+                        help='Hidden neighbor intent for --scenario paired-intent')
+    parser.add_argument('--policy', choices=['dqn', 'none'], default='dqn',
+                        help='none renders ask nobody with the same planner and guard')
     args = parser.parse_args()
     if (args.lane_change_guard or args.max_target_speed is not None) and not args.safety_guard:
         parser.error('lane-change-guard and max-target-speed require safety-guard')
@@ -202,19 +211,25 @@ def main():
             # Pass the render configuration during construction. CustomEnv performs
             # an initial reset in its constructor, so configuring afterward would
             # leave the first pygame viewer at HighwayEnv's small default size.
-            environment = CustomEnv(
-                config={
-                    "screen_width": args.width,
-                    "screen_height": args.height,
-                    "scaling": args.scaling,
-                },
-                render_mode=(
-                    "rgb_array"
-                    if video_writer
-                    else None if args.no_render else "human"
-                ),
-            )
-            observation, _ = environment.reset(seed=args.seed + episode)
+            render_mode = "rgb_array" if video_writer else None if args.no_render else "human"
+            if args.scenario == 'paired-intent':
+                # Same scene builder and seed as evaluate_request_dqn. The
+                # viewer is created at the first render, so setting the
+                # render configuration now gives the requested frame size.
+                environment = intent_episode(args.seed + episode, args.hidden_mode)
+                environment.config.update(screen_width=args.width, screen_height=args.height,
+                                          scaling=args.scaling)
+                environment.render_mode = render_mode
+            else:
+                environment = CustomEnv(
+                    config={
+                        "screen_width": args.width,
+                        "screen_height": args.height,
+                        "scaling": args.scaling,
+                    },
+                    render_mode=render_mode,
+                )
+                environment.reset(seed=args.seed + episode)
             if video_writer:
                 # RGB-array mode does not create a viewer during reset.
                 # Create it once, then enable its offscreen drawing surface.
@@ -235,29 +250,32 @@ def main():
             guard_overrides = 0
             controller_state = {} if args.comfort_ttc is not None else None
             episode_outcome = None
-            print(f"Episode {episode + 1}/{args.episodes}")
+            speeds = []
+            label = f"{args.policy} | {args.scenario}" + (
+                f" {args.hidden_mode}" if args.scenario == 'paired-intent' else "")
+            print(f"Episode {episode + 1}/{args.episodes} ({label}, seed {args.seed + episode})")
 
             for timestep in range(environment.config["duration"]):
                 observation = world_model.observe(environment)
                 visible = visible_neighbors(environment, 60.0, 10.0)
-                state = request_state(environment, visible, dqn.request_state_encoding)
-                request_action = select_action(
-                    dqn, state, valid_actions(visible, dqn.request_action_encoding), epsilon=0.0, rng=rng
-                )
-                message = requested_message(environment, visible, request_action, dqn.request_action_encoding)
-                guard = None
-                if args.safety_guard:
-                    driving_action, guard = guard_action(
-                        planner.action_values(observation, message), environment.vehicle,
-                        visible, environment.config["lanes_count"], args.min_clearance, args.min_ttc,
-                        check_lane_changes=args.lane_change_guard,
-                        max_target_speed=args.max_target_speed,
-                        comfort_ttc=args.comfort_ttc,
-                        controller_state=controller_state,
-                    )
-                    guard_overrides += int(guard["overridden"])
+                if args.policy == 'none':
+                    request_action = ASK_NOBODY
                 else:
-                    driving_action = planner.plan(observation, message)
+                    state = request_state(environment, visible, dqn.request_state_encoding)
+                    request_action = select_action(
+                        dqn, state, valid_actions(visible, dqn.request_action_encoding), epsilon=0.0, rng=rng
+                    )
+                message = requested_message(environment, visible, request_action, dqn.request_action_encoding)
+                speed = float(environment.vehicle.speed)
+                speeds.append(speed)
+                # The shared controller is the one training and evaluation use.
+                driving_action, guard = choose_driving(
+                    planner, environment, observation, message, visible=visible,
+                    safety_guard=args.safety_guard, min_clearance=args.min_clearance,
+                    min_ttc=args.min_ttc, lane_change_guard=args.lane_change_guard,
+                    max_target_speed=args.max_target_speed, comfort_ttc=args.comfort_ttc,
+                    batched=args.batched_planner, controller_state=controller_state)
+                guard_overrides += int(bool(guard and guard["overridden"]))
                 guard_label = " | guard: " + (", ".join(guard["reasons"]) or "pass") if guard else ""
                 visible_ids = ordered_visible_ids(visible)
                 requests_sent += int(request_action != ASK_NOBODY)
@@ -267,14 +285,14 @@ def main():
 
                 requested = "none" if requested_vehicle is None else str(requested_vehicle.vehicle_id)
                 print(
-                    f"  step={timestep:02d} visible={len(visible_ids)} "
+                    f"  step={timestep:02d} speed={speed:.2f} visible={len(visible_ids)} "
                     f"request={requested} driving={ACTION_NAMES[driving_action]}{guard_label}"
                 )
 
                 if not args.no_render:
                     frame = render_frame(
                         environment, requested_vehicle, message,
-                        f"Episode {episode + 1} | step {timestep} | ego action: {ACTION_NAMES[driving_action]}{guard_label}"
+                        f"{label} | step {timestep} | speed {speed:.2f} m/s | ego action: {ACTION_NAMES[driving_action]}{guard_label}"
                     )
                     if video_writer:
                         video_writer.write(frame)
@@ -288,7 +306,7 @@ def main():
                     if not args.no_render:
                         frame = render_frame(
                             environment, requested_vehicle, message,
-                            f"{episode_outcome} | steps {steps_completed} | reward {total_reward:.3f} | requests {requests_sent} | guard overrides {guard_overrides} | last request/response:"
+                            f"{label} | {episode_outcome} | steps {steps_completed} | speed {environment.vehicle.speed:.2f} m/s | reward {total_reward:.3f} | requests {requests_sent} | guard overrides {guard_overrides}"
                         )
                         if video_writer:
                             video_writer.write(frame)
@@ -305,7 +323,8 @@ def main():
                 f"  episode summary: steps={steps_completed}/{environment.config['duration']} "
                 f"outcome={episode_outcome} "
                 f"crashed={'yes' if episode_outcome == 'CRASHED' else 'no'} "
-                f"reward={total_reward:.3f} requests_sent={requests_sent} guard_overrides={guard_overrides}"
+                f"reward={total_reward:.3f} requests_sent={requests_sent} guard_overrides={guard_overrides} "
+                f"mean_speed={sum(speeds) / len(speeds):.2f} final_speed={environment.vehicle.speed:.2f}"
             )
             environment.close()
     finally:

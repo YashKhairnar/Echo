@@ -16,6 +16,7 @@ Each experiment below has a dedicated page with detailed setup, world-model loss
 | **[Experiment 4](experiment_4.html)** | Planner Crash Diagnosis & Safety Guards | 566k transitions | 116 in / 55 out | Identified runaway speed (50 m/s) and missing controller state. Safety guards **reduced crashes from 97% to 0%**. |
 | **[Experiment 5](experiment_5.html)** | Matched-Intent Scenarios & Mixed Traffic | 145k transitions | **118 in / 57 out** | Proved value of communication in cut-in scenes: intent messages **cut crashes in half (12 → 6)**. |
 | **[Experiment 6](experiment_6.html)** | Selective Requests + Smooth Control | Reused Experiment 5 | Frozen WM5 + selective DQN | Best learned configuration: fewer requests, 9/200 intent crashes, and 240 completed lane changes; ask-nobody still leads adjusted return. |
+| **[Experiment 7](experiment_7.html)** | Oracle-Taught Requests | ~10k oracle labels | Frozen WM5 + BC request DQN | On 2000 cut-in trials: 75 crashes against 124 for DQN6 and 179 for ask nobody, highest return, same speed as DQN6; ask-nobody still leads on ordinary roads. |
 
 ---
 
@@ -28,6 +29,7 @@ Each experiment below has a dedicated page with detailed setup, world-model loss
 <p><a href="experiment_4.html"><strong>Experiment 4: Crash Forensics & Safety Guards</strong></a><br>Root cause analysis of planner failures and executive safety guards eliminating crashes (97% → 0%).</p>
 <p><a href="experiment_5.html"><strong>Experiment 5: Matched-Intent Challenge Scenarios</strong></a><br>Parallel stay vs. cut-in worlds proving that intent messages cut crashes in half (12 → 6).</p>
 <p><a href="experiment_6.html"><strong>Experiment 6: Selective Request Learning</strong></a><br>A training-only counterfactual teacher penalizes questions whose replies do not change the planner's move.</p>
+<p><a href="experiment_7.html"><strong>Experiment 7: Oracle-Taught Requests</strong></a><br>A privileged oracle tries every request option in a copy of the road; the request DQN learns its choices by weighted behaviour cloning.</p>
 </div>
 
 ## Current recommendation

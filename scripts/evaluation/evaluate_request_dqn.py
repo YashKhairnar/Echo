@@ -31,6 +31,7 @@ from scripts.training.train_request_dqn import (
     select_action,
     valid_actions,
 )
+from scripts.policy.request_oracle import agrees_with_oracle, oracle_choice, oracle_request_values
 from scripts.utils.experiment_utils import (
     add_experiment_argument,
     experiment_checkpoint_dir,
@@ -56,6 +57,15 @@ def all_messages(environment, visible):
     return {"messages_by_slot": messages}
 
 
+def oracle_controls(args):
+    """Planner controls the oracle shares with the evaluated controller."""
+    return dict(safety_guard=args.safety_guard, min_clearance=args.min_clearance,
+                min_ttc=args.min_ttc, lane_change_guard=args.lane_change_guard,
+                max_target_speed=args.max_target_speed,
+                comfort_ttc=getattr(args, 'comfort_ttc', None),
+                batched=getattr(args, 'batched_planner', False))
+
+
 def choose_request(policy, dqn, environment, visible, rng):
     visible_ids = ordered_visible_ids(visible)
     if policy == "none" or not visible_ids:
@@ -74,7 +84,7 @@ def choose_request(policy, dqn, environment, visible, rng):
 
 def evaluate_policy(policy, dqn, world_model, args):
     rows = []
-    policy_offsets = {"dqn": 0, "none": 1000, "random": 2000, "all": 3000}
+    policy_offsets = {"dqn": 0, "none": 1000, "random": 2000, "all": 3000, "oracle": 4000}
     rng = random.Random(args.seed + policy_offsets[policy])
     scenario = getattr(args, 'scenario', 'ordinary')
     cases = [(index, mode) for index in range(args.episodes)
@@ -105,6 +115,7 @@ def evaluate_policy(policy, dqn, world_model, args):
         settled_lane = int(environment.vehicle.lane_index[2])
         controller_state = {} if getattr(args, 'comfort_ttc', None) is not None else None
         initial_request = initial_driving = None
+        oracle_steps = oracle_agreements = oracle_asks = oracle_ask_agreements = 0
 
         for timestep in range(environment.config["duration"]):
             observation = world_model.observe(environment)
@@ -114,9 +125,27 @@ def evaluate_policy(policy, dqn, world_model, args):
                 args.visibility,
                 args.side_window,
             )
-            request_action, message = choose_request(
-                policy, dqn, environment, visible, rng
-            )
+            oracle_values = None
+            if policy == 'oracle' or getattr(args, 'oracle_agreement', False):
+                oracle_values, _ = oracle_request_values(
+                    environment, visible, planner, world_model, oracle_controls(args),
+                    lookahead=args.oracle_lookahead, communication_cost=args.communication_cost,
+                    visibility=args.visibility, side_window=args.side_window,
+                    controller_state=controller_state)
+            if policy == 'oracle':
+                request_action = oracle_choice(oracle_values)
+                message = requested_message(environment, visible, request_action)
+            else:
+                request_action, message = choose_request(
+                    policy, dqn, environment, visible, rng
+                )
+            if oracle_values is not None and policy != 'all':
+                agreed = int(agrees_with_oracle(request_action, oracle_values))
+                oracle_asked = int(oracle_choice(oracle_values) != ASK_NOBODY)
+                oracle_steps += 1
+                oracle_agreements += agreed
+                oracle_asks += oracle_asked
+                oracle_ask_agreements += agreed * oracle_asked
             requested_count = (
                 len(ordered_visible_ids(visible))
                 if policy == "all"
@@ -166,6 +195,10 @@ def evaluate_policy(policy, dqn, world_model, args):
                 "guard_overrides": guard_overrides,
                 "crashed": int(terminated),
                 "truncated": int(truncated),
+                "oracle_steps": oracle_steps,
+                "oracle_agreements": oracle_agreements,
+                "oracle_asks": oracle_asks,
+                "oracle_ask_agreements": oracle_ask_agreements,
             }
         )
         environment.close()
@@ -196,9 +229,13 @@ def main():
     parser.add_argument(
         "--policies",
         nargs="+",
-        choices=["dqn", "none", "random", "all"],
+        choices=["dqn", "none", "random", "all", "oracle"],
         default=["dqn", "none", "random", "all"],
+        help="oracle is the privileged planner-based request oracle (upper reference)",
     )
+    parser.add_argument('--oracle-agreement', action='store_true',
+                        help='At every step also run the oracle and record agreement with it')
+    parser.add_argument('--oracle-lookahead', type=int, default=5)
     parser.add_argument("--dqn-checkpoint", default=None)
     parser.add_argument("--mlpx-checkpoint", default=None)
     parser.add_argument("--output-dir", default=None)
@@ -267,6 +304,16 @@ def main():
             "completed_lane_changes": sum(row['completed_lane_changes'] for row in group),
             "requests_per_step": sum(row['requests'] for row in group) / sum(row['steps'] for row in group),
         }
+        oracle_steps = sum(row['oracle_steps'] for row in group)
+        if oracle_steps:
+            summary[policy]['oracle_agreement'] = sum(row['oracle_agreements'] for row in group) / oracle_steps
+            asks = sum(row['oracle_asks'] for row in group)
+            ask_agreements = sum(row['oracle_ask_agreements'] for row in group)
+            agreements = sum(row['oracle_agreements'] for row in group)
+            summary[policy]['oracle_ask_rate_on_visited_steps'] = asks / oracle_steps
+            summary[policy]['oracle_agreement_on_ask_steps'] = ask_agreements / asks if asks else None
+            summary[policy]['oracle_agreement_on_no_ask_steps'] = (
+                (agreements - ask_agreements) / (oracle_steps - asks) if oracle_steps > asks else None)
 
     (output_dir / "request_dqn_summary.json").write_text(
         json.dumps(
@@ -298,6 +345,8 @@ def main():
                 "max_target_speed": args.max_target_speed,
                 "guard_thresholds": {"min_clearance": args.min_clearance, "min_ttc": args.min_ttc} if args.safety_guard else None,
                 "comfort_ttc": args.comfort_ttc,
+                "oracle_lookahead": args.oracle_lookahead
+                if 'oracle' in args.policies or args.oracle_agreement else None,
                 "summary": summary,
             },
             indent=2,
@@ -310,6 +359,10 @@ def main():
             f"driving={metrics['mean_driving_reward']:.3f} "
             f"requests={metrics['mean_requests']:.2f} "
             f"crash_rate={metrics['crash_rate']:.2%}"
+            + (f" oracle_agreement={metrics['oracle_agreement']:.3f}"
+               f" on_ask={metrics['oracle_agreement_on_ask_steps']}"
+               f" on_no_ask={metrics['oracle_agreement_on_no_ask_steps']}"
+               if 'oracle_agreement' in metrics else "")
         )
 
 

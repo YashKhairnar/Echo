@@ -7,11 +7,21 @@ slots plus ask-nobody.
 Run:
 
     .venv/bin/python -m scripts.training.train_request_dqn --episodes 1000
+
+Oracle teaching (labels from scripts.data_collection.collect_oracle_requests):
+
+- ``--oracle-demos FILE ... --bc-epochs N`` gives a behaviour-cloning warm
+  start: cross-entropy between the masked request scores and the oracle choice.
+- ``--demo-batch-size K`` adds K oracle records to every DQN update
+  (DQfD-style): the normal TD loss plus a large-margin loss that keeps the
+  oracle-best options ahead of the others by ``--demo-margin``.
+- ``--episodes 0`` with ``--bc-epochs`` saves a behaviour-cloning-only policy.
 """
 
 import argparse
 import csv
 import hashlib
+import json
 import os
 import random
 import warnings
@@ -150,7 +160,116 @@ class ScenarioReplay:
         return [item[:-1] for item in batch]
 
 
-def optimize(online, target, optimizer, replay, batch_size, gamma):
+def td_loss(online, target, states, actions, rewards, next_states, dones, next_mask, gamma):
+    """Huber TD loss with invalid next request slots masked out."""
+    current = online(states).gather(1, actions[:, None]).squeeze(1)
+    with torch.no_grad():
+        future = target(next_states).masked_fill(~next_mask, -torch.inf).max(dim=1).values
+        expected = rewards + gamma * future * (1.0 - dones)
+    return F.smooth_l1_loss(current, expected)
+
+
+ORACLE_DEMO_KEYS = ('state', 'target', 'valid', 'choice', 'reward', 'next_state',
+                    'done', 'next_valid', 'source')
+
+
+def load_oracle_demos(paths, state_encoding):
+    """Load and join oracle label files from collect_oracle_requests."""
+    parts = []
+    for path in paths:
+        with np.load(path, allow_pickle=False) as data:
+            metadata = json.loads(str(data['metadata']))
+            if metadata.get('request_state_encoding') != state_encoding:
+                raise ValueError(f'{path} uses request state encoding '
+                                 f"{metadata.get('request_state_encoding')}, not {state_encoding}")
+            parts.append({key: data[key] for key in ORACLE_DEMO_KEYS})
+    demos = {key: np.concatenate([part[key] for part in parts]) for key in ORACLE_DEMO_KEYS}
+    if not len(demos['state']):
+        raise ValueError('Oracle demonstration files contain no records')
+    demos['best'] = demos['target'] > 0
+    return demos
+
+
+def sample_demo_indices(demos, count, generator=np.random):
+    """Sample oracle records with equal mass for ordinary and intent sources."""
+    groups = [np.flatnonzero(demos['source'] == source) for source in ('ordinary', 'intent')]
+    groups = [group for group in groups if len(group)]
+    shares = [count // len(groups) + (index < count % len(groups)) for index in range(len(groups))]
+    return np.concatenate([group[generator.randint(0, len(group), share)]
+                           for group, share in zip(groups, shares)])
+
+
+def demo_tensors(demos, indices):
+    pick = {key: demos[key][indices] for key in ('state', 'target', 'valid', 'choice', 'reward',
+                                                 'next_state', 'done', 'next_valid', 'best')}
+    return {
+        'state': torch.tensor(pick['state'], dtype=torch.float32),
+        'target': torch.tensor(pick['target'], dtype=torch.float32),
+        'valid': torch.tensor(pick['valid'], dtype=torch.bool),
+        'best': torch.tensor(pick['best'], dtype=torch.bool),
+        'choice': torch.tensor(pick['choice'], dtype=torch.long),
+        'reward': torch.tensor(pick['reward'], dtype=torch.float32),
+        'next_state': torch.tensor(pick['next_state'], dtype=torch.float32),
+        'done': torch.tensor(pick['done'], dtype=torch.float32),
+        'next_valid': torch.tensor(pick['next_valid'], dtype=torch.bool),
+    }
+
+
+def behaviour_cloning_loss(model, states, targets, valid, ask_weight=1.0):
+    """Cross-entropy between masked request scores and the oracle target.
+
+    ``ask_weight`` scales the records where the oracle asks somebody. Ask
+    records are rare (about 5-9%), so a weight above 1 stops the network from
+    learning to never ask.
+    """
+    logits = model(states).masked_fill(~valid, -1e9)
+    per_record = -(targets * F.log_softmax(logits, dim=1)).sum(dim=1)
+    weights = torch.where(targets[:, ASK_NOBODY] < 1.0, float(ask_weight), 1.0)
+    return (weights * per_record).sum() / weights.sum()
+
+
+def balanced_ask_weight(demos):
+    """Inverse class frequency: no-ask records per ask record."""
+    asks = int(np.sum(demos['target'][:, ASK_NOBODY] < 1.0))
+    if asks == 0:
+        return 1.0
+    return float(len(demos['target']) - asks) / asks
+
+
+def demo_margin_loss(q_values, best, valid, margin):
+    """DQfD large-margin loss: oracle-best options must lead by ``margin``.
+
+    max over valid a of [Q(a) + margin * (a not oracle-best)] minus the best
+    Q among oracle-best options. It is zero when an oracle-best option is
+    already ahead of every other option by the margin.
+    """
+    augmented = (q_values + margin * (~best).float()).masked_fill(~valid, -torch.inf)
+    expert = q_values.masked_fill(~best, -torch.inf).max(dim=1).values
+    return (augmented.max(dim=1).values - expert).mean()
+
+
+def pretrain_behaviour_cloning(model, demos, epochs, batch_size, lr, ask_weight=1.0):
+    """Warm start: fit the request network to oracle choices by cross-entropy."""
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    steps_per_epoch = max(1, len(demos['state']) // batch_size)
+    history = []
+    for epoch in range(epochs):
+        losses = []
+        for _ in range(steps_per_epoch):
+            batch = demo_tensors(demos, sample_demo_indices(demos, batch_size))
+            loss = behaviour_cloning_loss(model, batch['state'], batch['target'], batch['valid'],
+                                          ask_weight)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            losses.append(float(loss.item()))
+        history.append(float(np.mean(losses)))
+        print(f'BC epoch {epoch + 1}/{epochs} | cross-entropy={history[-1]:.4f}', flush=True)
+    return history
+
+
+def optimize(online, target, optimizer, replay, batch_size, gamma, demos=None,
+             demo_batch_size=0, demo_margin=0.05, demo_margin_weight=0.0):
     if len(replay) < batch_size:
         return None
     batch = replay.sample(batch_size) if isinstance(replay, ScenarioReplay) else random.sample(replay, batch_size)
@@ -160,15 +279,18 @@ def optimize(online, target, optimizer, replay, batch_size, gamma):
     rewards = torch.tensor(rewards, dtype=torch.float32)
     next_states = torch.tensor(np.asarray(next_states), dtype=torch.float32)
     dones = torch.tensor(dones, dtype=torch.float32)
-    current = online(states).gather(1, actions[:, None]).squeeze(1)
-    with torch.no_grad():
-        next_values = target(next_states)
-        mask = torch.zeros_like(next_values, dtype=torch.bool)
-        for index, valid in enumerate(next_valid):
-            mask[index, list(valid)] = True
-        future = next_values.masked_fill(~mask, -torch.inf).max(dim=1).values
-        expected = rewards + gamma * future * (1.0 - dones)
-    loss = F.smooth_l1_loss(current, expected)
+    mask = torch.zeros((len(batch), RequestDQN.ACTION_SIZE), dtype=torch.bool)
+    for index, valid in enumerate(next_valid):
+        mask[index, list(valid)] = True
+    loss = td_loss(online, target, states, actions, rewards, next_states, dones, mask, gamma)
+    if demos is not None and demo_batch_size > 0:
+        # DQfD: oracle transitions get the same TD loss plus a large-margin loss.
+        demo = demo_tensors(demos, sample_demo_indices(demos, demo_batch_size))
+        loss = loss + td_loss(online, target, demo['state'], demo['choice'], demo['reward'],
+                              demo['next_state'], demo['done'], demo['next_valid'], gamma)
+        if demo_margin_weight > 0:
+            loss = loss + demo_margin_weight * demo_margin_loss(
+                online(demo['state']), demo['best'], demo['valid'], demo_margin)
     optimizer.zero_grad()
     loss.backward()
     torch.nn.utils.clip_grad_norm_(online.parameters(), 5.0)
@@ -267,12 +389,34 @@ def main():
     parser.add_argument('--comfort-ttc', type=float, default=None,
                         help='Proactively change lanes or slow before the emergency TTC threshold')
     parser.add_argument('--batched-planner', action='store_true')
+    parser.add_argument('--oracle-demos', nargs='+', default=None,
+                        help='Oracle label files from collect_oracle_requests (enables the options below)')
+    parser.add_argument('--bc-epochs', type=int, default=0,
+                        help='Behaviour-cloning warm-start epochs on the oracle choices')
+    parser.add_argument('--bc-batch-size', type=int, default=256)
+    parser.add_argument('--bc-lr', type=float, default=1e-3)
+    parser.add_argument('--bc-ask-weight', default='1',
+                        help="Cross-entropy weight of oracle 'ask' records: a number, or 'balanced' "
+                             "for inverse class frequency")
+    parser.add_argument('--demo-batch-size', type=int, default=0,
+                        help='Oracle records per DQN update (DQfD TD plus margin loss); 0 disables')
+    parser.add_argument('--demo-margin', type=float, default=0.05)
+    parser.add_argument('--demo-margin-weight', type=float, default=1.0)
+    parser.add_argument('--initial-epsilon', type=float, default=1.0)
     parser.add_argument("--output", default=None)
     parser.add_argument("--log-path", default=None,
                         help="CSV path; defaults to the selected experiment's RequestDQN run folder")
     args = parser.parse_args()
-    if args.episodes < 1 or args.save_every < 1:
-        parser.error("episodes and save-every must be positive")
+    # A pure behaviour-cloning run may train zero DQN episodes.
+    min_episodes = 0 if args.oracle_demos and args.bc_epochs > 0 and not args.resume else 1
+    if args.episodes < min_episodes or args.save_every < 1:
+        parser.error("episodes and save-every must be positive (episodes may be 0 only for BC-only)")
+    if (args.bc_epochs > 0 or args.demo_batch_size > 0) and not args.oracle_demos:
+        parser.error('bc-epochs and demo-batch-size require --oracle-demos')
+    if min(args.bc_epochs, args.demo_batch_size) < 0 or args.bc_batch_size < 1 \
+            or min(args.demo_margin, args.demo_margin_weight) < 0 or args.bc_lr <= 0 \
+            or not 0.05 <= args.initial_epsilon <= 1.0:
+        parser.error('oracle options must be nonnegative; initial-epsilon must be in [0.05, 1]')
 
     request_checkpoint_dir = experiment_checkpoint_dir(args.experiment, "RequestDQN")
     resume_checkpoint = None
@@ -291,7 +435,8 @@ def main():
             for key in ("seed", "planning_horizon", "communication_cost", "batch_size", "replay_size", "lr"):
                 setattr(args, key, saved_config[key])
             for key in ('scenario_mix', 'ordinary_seed', 'challenge_seed', 'request_state_encoding',
-                        'safety_guard', 'lane_change_guard', 'max_target_speed', 'min_clearance', 'min_ttc', 'batched_planner'):
+                        'safety_guard', 'lane_change_guard', 'max_target_speed', 'min_clearance', 'min_ttc', 'batched_planner',
+                        'oracle_demos', 'demo_batch_size', 'demo_margin', 'demo_margin_weight'):
                 if key in saved_config:
                     setattr(args, key, saved_config[key])
             args.comfort_ttc = saved_config.get('comfort_ttc')
@@ -335,11 +480,29 @@ def main():
     planner = None
     online = RequestDQN()
     online.request_state_encoding = args.request_state_encoding
+    demos = load_oracle_demos(args.oracle_demos, args.request_state_encoding) if args.oracle_demos else None
+    bc_history = []
+    if demos is not None:
+        if args.bc_ask_weight == 'balanced':
+            args.bc_ask_weight = balanced_ask_weight(demos)
+        else:
+            try:
+                args.bc_ask_weight = float(args.bc_ask_weight)
+            except ValueError:
+                parser.error("bc-ask-weight must be a number or 'balanced'")
+            if not np.isfinite(args.bc_ask_weight) or args.bc_ask_weight <= 0:
+                parser.error('bc-ask-weight must be finite and positive')
+    if demos is not None and args.bc_epochs > 0 and not resume_checkpoint:
+        print(f"Behaviour cloning on {len(demos['state'])} oracle records "
+              f"(ask weight {args.bc_ask_weight:.2f})", flush=True)
+        bc_history = pretrain_behaviour_cloning(online, demos, args.bc_epochs,
+                                                args.bc_batch_size, args.bc_lr,
+                                                args.bc_ask_weight)
     target = RequestDQN(); target.load_state_dict(online.state_dict())
     optimizer = torch.optim.Adam(online.parameters(), lr=args.lr)
     replay = ScenarioReplay(args.replay_size) if args.scenario_mix == 'mixed' else deque(maxlen=args.replay_size)
     rng = random.Random(args.seed)
-    start_episode, epsilon, returns = 0, 1.0, []
+    start_episode, epsilon, returns = 0, args.initial_epsilon, []
     if resume_checkpoint:
         start_episode, epsilon, returns = restore_training(
             resume_checkpoint, online, target, optimizer, replay, rng
@@ -361,6 +524,12 @@ def main():
                   'request_state_encoding', 'safety_guard', 'lane_change_guard', 'max_target_speed',
                   'min_clearance', 'min_ttc', 'comfort_ttc', 'batched_planner')})
     config['replay_sampling'] = 'equal_ordinary_intent' if args.scenario_mix == 'mixed' else 'uniform'
+    if args.oracle_demos:
+        config.update({key: getattr(args, key) for key in (
+            'oracle_demos', 'bc_epochs', 'bc_batch_size', 'bc_lr', 'bc_ask_weight', 'demo_batch_size',
+            'demo_margin', 'demo_margin_weight', 'initial_epsilon')})
+        config['oracle_demo_records'] = int(len(demos['state']))
+        config['bc_history'] = bc_history
     save_run_metadata(run_dir, {**config, "resume_from": str(resume_path) if resume_path else None,
                                "start_episode": start_episode, "additional_episodes": args.episodes,
                                "request_action_encoding": "spatial_v1"})
@@ -461,7 +630,10 @@ def main():
                 transition = (state, action, transition_reward, next_state,
                               terminated or truncated, valid_actions(next_visible))
                 replay.append((*transition, source) if args.scenario_mix == 'mixed' else transition)
-                loss = optimize(online, target, optimizer, replay, args.batch_size, 0.99)
+                loss = optimize(online, target, optimizer, replay, args.batch_size, 0.99,
+                                demos=demos, demo_batch_size=args.demo_batch_size,
+                                demo_margin=args.demo_margin,
+                                demo_margin_weight=args.demo_margin_weight)
                 if loss is not None:
                     episode_losses.append(loss)
                 observation = next_observation

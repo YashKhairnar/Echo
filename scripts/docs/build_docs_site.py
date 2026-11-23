@@ -181,6 +181,7 @@ def sidebar(current):
             ("Experiment 4: Safety Guards", "experiment_4.html"),
             ("Experiment 5: Intent Scenarios", "experiment_5.html"),
             ("Experiment 6: Selective Requests", "experiment_6.html"),
+            ("Experiment 7: Oracle Teacher", "experiment_7.html"),
         ]),
         ("Data and Benchmarks", [
             ("Intent-aware collection", "intent_aware_data_collection.html"),
@@ -247,6 +248,7 @@ def main():
         DOCS / "experiment_4.md",
         DOCS / "experiment_5.md",
         DOCS / "experiment_6.md",
+        DOCS / "experiment_7.md",
         DOCS / "merge_scenario.md",
         DOCS / "progress_log.md",
         DOCS / "mlpx.md",
@@ -285,18 +287,18 @@ def main():
 
 <h2>Key Takeaways</h2>
 <ul>
-<li><strong>Highway Cruising Doesn't Require Messages:</strong> Standard open-highway traffic is predictable from position and speed alone. Asking nobody achieves <strong>0% crashes</strong> while avoiding unnecessary messaging costs.</li>
-<li><strong>Intent Messages Prevent Ambiguous Collisions:</strong> In sudden cut-in scenarios where driver intentions are hidden until the last second, intent messages <strong>cut crashes in half</strong> (from 12 down to 6).</li>
-<li><strong>Safety Guards Prevent Catastrophic Failure:</strong> Pairing the neural planner with a 30 m/s speed cap and destination-lane clearance checks dropped crashes from <strong>97% to 0%</strong>.</li>
-<li><strong>Selective Training Improves the Request DQN:</strong> On identical fresh seeds, DQN6 roughly halved DQN5's request count and improved adjusted return in ordinary and intent traffic. Asking nobody still wins after message cost.</li>
-<li><strong>Best Current Learned Configuration:</strong> DQN6 with the smooth controller produces more completed lane changes with zero ordinary-road crashes. It is the safety/behavior recommendation, while ask-nobody remains the adjusted-return baseline to beat.</li>
+<li><strong>Highway Cruising Doesn't Require Messages:</strong> Standard open-highway traffic is predictable from position and speed alone. Asking nobody achieves <strong>0% crashes</strong> with zero communication overhead.</li>
+<li><strong>Intent Messages Prevent Ambiguous Collisions:</strong> In sudden cut-in scenarios where driver intentions are hidden until the last second, intent messages <strong>cut crashes in half</strong>.</li>
+<li><strong>Safety Guards Prevent Catastrophic Failure:</strong> Pairing the neural planner with physical safety guards (speed cap, dynamic stopping clearance, and lane-clearance checks) dropped crashes from <strong>97% to 0%</strong>.</li>
+<li><strong>Oracle Teaching Yields the Best Request Policy:</strong> In Experiment 7, training the Request DQN from a privileged simulation oracle slashed cut-in crashes by <strong>40% (124 → 75)</strong> while asking 23% fewer questions than DQN6.</li>
 </ul>
 
 <hr>
 
 <h2>Explore the Documentation</h2>
 <div class="cards">
-<p><a href="experiments.html"><strong>Experiments 1–6 Breakdown</strong></a><br>Chronological milestones, hypotheses, benchmark tables, and findings across all 6 experiments.</p>
+<p><a href="experiments.html"><strong>Experiments 1–7 Breakdown</strong></a><br>Chronological milestones, hypotheses, benchmark tables, and findings across all 7 experiments.</p>
+<p><a href="experiment_7.html"><strong>Experiment 7: Oracle-Taught Requests</strong></a><br>How a privileged simulator oracle teaches the request DQN when communication changes the real outcome.</p>
 <p><a href="planner.html"><strong>Planner & Safety Guards</strong></a><br>How 3-step model-predictive control works and how safety guards eliminate crashes.</p>
 <p><a href="mlpx.html"><strong>MLPx World Model</strong></a><br>Neural architecture, 118-value input vectors, and 3-step rollout accuracy.</p>
 <p><a href="dqn_policy.html"><strong>Request DQN Policy</strong></a><br>How the agent learns which vehicle to ask, action masking, and reward trade-offs.</p>

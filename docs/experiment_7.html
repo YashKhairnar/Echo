@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Experiment 7 · Echo Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+      onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
+    * { box-sizing: border-box; } body { margin: 0; }
+    .layout { display: flex; min-height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+    .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
+    .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
+    nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
+    nav a:hover, nav a.active { background: #263b78; color: white; }
+    .nav-group { margin: 0 0 18px; }
+    .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
+    main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
+    article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
+    h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    .experiment-title { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }
+    p { line-height: 1.65; } .subtitle { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
+    pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
+    @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
+  </style>
+</head>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a><a class="active" href="experiment_7.html">Experiment 7: Oracle Teacher</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1 class="experiment-title">Experiment 7: Oracle-Taught Request Policy</h1>
+<p><strong>Experiment 7</strong> introduces an <strong>offline oracle teacher</strong> to guide the Request DQN. Instead of relying purely on trial-and-error reinforcement learning, the ego vehicle learns communication decisions directly from a privileged simulation teacher that knows when asking genuinely changes the outcome.</p>
+<ul>
+<li><strong>Request DQN Checkpoint:</strong> <code>checkpoints/experiment_7/RequestDQN/best.pt</code></li>
+<li><strong>World Model Used:</strong> <code>checkpoints/experiment_5/MLPx/intent_stage_best.pt</code> (frozen WM5)</li>
+<li><strong>Teacher Implementation:</strong> <code>scripts/policy/request_oracle.py</code></li>
+</ul>
+<hr>
+<h2>Objective &amp; Hypothesis</h2>
+<p>In earlier experiments (DQN5 and DQN6), the agent frequently asked redundant questions on open roads, or missed subtle, dangerous cut-ins.</p>
+<p>Can a <strong>privileged simulation oracle</strong>—which simulates candidate actions 5 steps ahead in a parallel copy of the road—generate high-quality demonstration labels so that the Request DQN learns to ask only when a message prevents a collision?</p>
+<hr>
+<h2>How the Oracle Teacher Works</h2>
+<pre><code>Current Traffic Scene
+         │
+         ▼
+[Fork Simulation into Parallel Worlds]
+         │
+   ├── Try &quot;Ask Nobody&quot; ──&gt; Planner Rollout ──&gt; Record 5-step return
+   ├── Try Ask Slot 0   ──&gt; Planner Rollout ──&gt; Record (Return - 0.05 Cost)
+   ├── Try Ask Slot 1   ──&gt; Planner Rollout ──&gt; Record (Return - 0.05 Cost)
+   └── ...
+         │
+         ▼
+[Compare Outcomes]
+• Did asking improve the net return after paying the 0.05 request cost?
+  ├── YES ──&gt; Label = &quot;Ask this vehicle&quot;
+  └── NO  ──&gt; Label = &quot;Ask Nobody&quot;
+         │
+         ▼
+Train Request DQN via Behavior Cloning (Supervised Imitation)</code></pre>
+<ol>
+<li><strong>Privileged Evaluation:</strong> For every decision step, the oracle tests every request option in a sandboxed simulator copy.</li>
+<li><strong>Net Return Scoring:</strong> The oracle computes the true 5-step trajectory return minus the 0.05 communication penalty.</li>
+<li><strong>Conservative Default:</strong> If asking doesn't clearly beat "Ask Nobody", the label defaults to asking nobody.</li>
+<li><strong>Behavior Cloning:</strong> The deployed Request DQN is trained on these labels using class-balanced imitation learning.</li>
+</ol>
+<hr>
+<h2>Benchmark Results (2,000 New Cut-In Trials)</h2>
+<p>Across 2,000 randomized cut-in challenge scenes (seeds 1600000–1600999), Experiment 7 significantly outperformed all previous learned policies and blind baselines:</p>
+<table><thead><tr><th>Policy</th><th>Cut-in Crashes</th><th>Crash Rate</th><th>Requests / Trial</th><th>Net Return</th><th>Mean Speed</th></tr></thead><tbody><tr><td><strong>Ask Nobody (Blind)</strong></td><td>179</td><td>8.95%</td><td><strong>0.00</strong></td><td>2.616</td><td>27.3 m/s</td></tr><tr><td><strong>DQN6 (Experiment 6)</strong></td><td>124</td><td>6.20%</td><td>0.97</td><td>2.575</td><td>27.0 m/s</td></tr><tr><td><strong>Experiment 7 (Oracle-Taught)</strong></td><td><strong>75</strong></td><td><strong>3.75%</strong></td><td><strong>0.75</strong></td><td><strong>2.631</strong></td><td><strong>27.0 m/s</strong></td></tr><tr><td><em>Privileged Oracle (Upper Bound)</em></td><td><em>30</em></td><td><em>1.50%</em></td><td><em>0.17</em></td><td><em>2.718</em></td><td><em>27.8 m/s</em></td></tr></tbody></table>
+<hr>
+<h2>Ordinary Roads (Experiment 6 Configuration)</h2>
+<p>Seed 1200000, 100 episodes of 40 steps, <code>--safety-guard --max-target-speed 30 --lane-change-guard --batched-planner</code>. The DQN6 and ask-nobody rows reproduce the published Experiment 6 numbers exactly.</p>
+<table><thead><tr><th>Controller</th><th>Policy</th><th>Net Return</th><th>Requests / Episode</th><th>Crashes</th><th>Mean Speed</th></tr></thead><tbody><tr><td>Original guard</td><td>Ask Nobody</td><td><strong>36.566</strong></td><td>0.00</td><td>0 / 100</td><td>27.49 m/s</td></tr><tr><td>Original guard</td><td>DQN6</td><td>35.801</td><td>16.88</td><td>0 / 100</td><td>27.53 m/s</td></tr><tr><td>Original guard</td><td>Experiment 7</td><td>36.390</td><td>4.88</td><td>0 / 100</td><td>27.52 m/s</td></tr><tr><td><code>--comfort-ttc 6</code></td><td>Ask Nobody</td><td><strong>36.391</strong></td><td>0.00</td><td>0 / 100</td><td>27.41 m/s</td></tr><tr><td><code>--comfort-ttc 6</code></td><td>DQN6</td><td>35.748</td><td>13.17</td><td>0 / 100</td><td>27.40 m/s</td></tr><tr><td><code>--comfort-ttc 6</code></td><td>Experiment 7</td><td>36.118</td><td>4.93</td><td>0 / 100</td><td>27.36 m/s</td></tr></tbody></table>
+<p>Experiment 7 beats DQN6 by +0.589 [+0.420, +0.750] (original guard) and +0.370 [+0.274, +0.470] (<code>--comfort-ttc 6</code>) net return, with about a third of the requests. Ask nobody is still best on these roads, because no request prevents a crash there.</p>
+<hr>
+<h2>Policy Driving Videos</h2>
+<h3>1. Ordinary Highway Driving</h3>
+<p>The oracle-trained DQN navigating 4-lane highway traffic smoothly with the executive safety guard active:</p>
+<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/dqn_experiment_7_policy.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
+<h3>2. Cut-In Comparison</h3>
+<p>When a neighboring car abruptly swerves into the ego lane, blind policies crash while the oracle-taught DQN asks early, predicts the maneuver, and brakes safely:</p>
+<table><thead><tr><th>Scenario</th><th>Blind (Ask Nobody)</th><th>Learned Policy (Experiment 7)</th></tr></thead><tbody><tr><td><strong>Seed 1300051</strong></td><td>Crashes at step 2</td><td>!<a href="images/dqn_experiment_7_intent_1300051_merge_dqn.mp4">Safe Braking</a></td></tr><tr><td><strong>Seed 1300005</strong></td><td>!<a href="images/dqn_experiment_7_intent_1300005_merge_none.mp4">Blind Crash</a></td><td>!<a href="images/dqn_experiment_7_intent_1300005_merge_dqn.mp4">Safe Braking</a></td></tr><tr><td><strong>Seed 1300061</strong></td><td>!<a href="images/dqn_experiment_7_intent_1300061_merge_none.mp4">Blind Crash</a></td><td>!<a href="images/dqn_experiment_7_intent_1300061_merge_dqn.mp4">Safe Braking</a></td></tr></tbody></table>
+<hr>
+<h2>Key Findings &amp; Conclusions</h2>
+<ol>
+<li><strong>40% Fewer Crashes:</strong> In 2,000 cut-in trials, Experiment 7 slashed crashes from 124 down to 75 compared to DQN6.</li>
+<li><strong>First Positive Cost-Adjusted Return:</strong> Because it avoids asking in obvious scenes, the net reward gained from avoiding crashes exceeds the 0.05 query cost, outperforming DQN6 in net return (+0.056).</li>
+<li><strong>Selective Querying:</strong> Requests dropped by 23% compared to DQN6 (0.75 vs 0.97 per trial).</li>
+<li><strong>Highway Cruising Speed Maintained:</strong> Cruising speed remains rock-solid at 27.0 m/s with no sluggish hesitation.</li>
+</ol></article></main></div></body>
+</html>

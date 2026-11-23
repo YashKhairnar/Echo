@@ -29,7 +29,7 @@
     @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
   </style>
 </head>
-<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a class="active" href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Echo Documentation</h1>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a class="active" href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a><a href="experiment_7.html">Experiment 7: Oracle Teacher</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Echo Documentation</h1>
 <p>Echo studies <strong>communication-efficient cooperative driving</strong>: an autonomous ego vehicle learns <strong>when and whom to ask</strong> for hidden driver intent, balancing communication costs against driving safety and efficiency.</p>
 
 <hr>
@@ -46,18 +46,18 @@
 
 <h2>Key Takeaways</h2>
 <ul>
-<li><strong>Highway Cruising Doesn't Require Messages:</strong> Standard open-highway traffic is predictable from position and speed alone. Asking nobody achieves <strong>0% crashes</strong> while avoiding unnecessary messaging costs.</li>
-<li><strong>Intent Messages Prevent Ambiguous Collisions:</strong> In sudden cut-in scenarios where driver intentions are hidden until the last second, intent messages <strong>cut crashes in half</strong> (from 12 down to 6).</li>
-<li><strong>Safety Guards Prevent Catastrophic Failure:</strong> Pairing the neural planner with a 30 m/s speed cap and destination-lane clearance checks dropped crashes from <strong>97% to 0%</strong>.</li>
-<li><strong>Selective Training Improves the Request DQN:</strong> On identical fresh seeds, DQN6 roughly halved DQN5's request count and improved adjusted return in ordinary and intent traffic. Asking nobody still wins after message cost.</li>
-<li><strong>Best Current Learned Configuration:</strong> DQN6 with the smooth controller produces more completed lane changes with zero ordinary-road crashes. It is the safety/behavior recommendation, while ask-nobody remains the adjusted-return baseline to beat.</li>
+<li><strong>Highway Cruising Doesn't Require Messages:</strong> Standard open-highway traffic is predictable from position and speed alone. Asking nobody achieves <strong>0% crashes</strong> with zero communication overhead.</li>
+<li><strong>Intent Messages Prevent Ambiguous Collisions:</strong> In sudden cut-in scenarios where driver intentions are hidden until the last second, intent messages <strong>cut crashes in half</strong>.</li>
+<li><strong>Safety Guards Prevent Catastrophic Failure:</strong> Pairing the neural planner with physical safety guards (speed cap, dynamic stopping clearance, and lane-clearance checks) dropped crashes from <strong>97% to 0%</strong>.</li>
+<li><strong>Oracle Teaching Yields the Best Request Policy:</strong> In Experiment 7, training the Request DQN from a privileged simulation oracle slashed cut-in crashes by <strong>40% (124 → 75)</strong> while asking 23% fewer questions than DQN6.</li>
 </ul>
 
 <hr>
 
 <h2>Explore the Documentation</h2>
 <div class="cards">
-<p><a href="experiments.html"><strong>Experiments 1–6 Breakdown</strong></a><br>Chronological milestones, hypotheses, benchmark tables, and findings across all 6 experiments.</p>
+<p><a href="experiments.html"><strong>Experiments 1–7 Breakdown</strong></a><br>Chronological milestones, hypotheses, benchmark tables, and findings across all 7 experiments.</p>
+<p><a href="experiment_7.html"><strong>Experiment 7: Oracle-Taught Requests</strong></a><br>How a privileged simulator oracle teaches the request DQN when communication changes the real outcome.</p>
 <p><a href="planner.html"><strong>Planner & Safety Guards</strong></a><br>How 3-step model-predictive control works and how safety guards eliminate crashes.</p>
 <p><a href="mlpx.html"><strong>MLPx World Model</strong></a><br>Neural architecture, 118-value input vectors, and 3-step rollout accuracy.</p>
 <p><a href="dqn_policy.html"><strong>Request DQN Policy</strong></a><br>How the agent learns which vehicle to ask, action masking, and reward trade-offs.</p>

@@ -115,7 +115,7 @@ def evaluate_policy(policy, dqn, world_model, args):
         settled_lane = int(environment.vehicle.lane_index[2])
         controller_state = {} if getattr(args, 'comfort_ttc', None) is not None else None
         initial_request = initial_driving = None
-        oracle_steps = oracle_agreements = oracle_asks = 0
+        oracle_steps = oracle_agreements = oracle_asks = oracle_ask_agreements = 0
 
         for timestep in range(environment.config["duration"]):
             observation = world_model.observe(environment)
@@ -140,9 +140,12 @@ def evaluate_policy(policy, dqn, world_model, args):
                     policy, dqn, environment, visible, rng
                 )
             if oracle_values is not None and policy != 'all':
+                agreed = int(agrees_with_oracle(request_action, oracle_values))
+                oracle_asked = int(oracle_choice(oracle_values) != ASK_NOBODY)
                 oracle_steps += 1
-                oracle_agreements += int(agrees_with_oracle(request_action, oracle_values))
-                oracle_asks += int(oracle_choice(oracle_values) != ASK_NOBODY)
+                oracle_agreements += agreed
+                oracle_asks += oracle_asked
+                oracle_ask_agreements += agreed * oracle_asked
             requested_count = (
                 len(ordered_visible_ids(visible))
                 if policy == "all"
@@ -195,6 +198,7 @@ def evaluate_policy(policy, dqn, world_model, args):
                 "oracle_steps": oracle_steps,
                 "oracle_agreements": oracle_agreements,
                 "oracle_asks": oracle_asks,
+                "oracle_ask_agreements": oracle_ask_agreements,
             }
         )
         environment.close()
@@ -303,7 +307,13 @@ def main():
         oracle_steps = sum(row['oracle_steps'] for row in group)
         if oracle_steps:
             summary[policy]['oracle_agreement'] = sum(row['oracle_agreements'] for row in group) / oracle_steps
-            summary[policy]['oracle_ask_rate_on_visited_steps'] = sum(row['oracle_asks'] for row in group) / oracle_steps
+            asks = sum(row['oracle_asks'] for row in group)
+            ask_agreements = sum(row['oracle_ask_agreements'] for row in group)
+            agreements = sum(row['oracle_agreements'] for row in group)
+            summary[policy]['oracle_ask_rate_on_visited_steps'] = asks / oracle_steps
+            summary[policy]['oracle_agreement_on_ask_steps'] = ask_agreements / asks if asks else None
+            summary[policy]['oracle_agreement_on_no_ask_steps'] = (
+                (agreements - ask_agreements) / (oracle_steps - asks) if oracle_steps > asks else None)
 
     (output_dir / "request_dqn_summary.json").write_text(
         json.dumps(
@@ -350,6 +360,8 @@ def main():
             f"requests={metrics['mean_requests']:.2f} "
             f"crash_rate={metrics['crash_rate']:.2%}"
             + (f" oracle_agreement={metrics['oracle_agreement']:.3f}"
+               f" on_ask={metrics['oracle_agreement_on_ask_steps']}"
+               f" on_no_ask={metrics['oracle_agreement_on_no_ask_steps']}"
                if 'oracle_agreement' in metrics else "")
         )
 

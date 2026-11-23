@@ -215,10 +215,25 @@ def demo_tensors(demos, indices):
     }
 
 
-def behaviour_cloning_loss(model, states, targets, valid):
-    """Cross-entropy between masked request scores and the oracle target."""
+def behaviour_cloning_loss(model, states, targets, valid, ask_weight=1.0):
+    """Cross-entropy between masked request scores and the oracle target.
+
+    ``ask_weight`` scales the records where the oracle asks somebody. Ask
+    records are rare (about 5-9%), so a weight above 1 stops the network from
+    learning to never ask.
+    """
     logits = model(states).masked_fill(~valid, -1e9)
-    return -(targets * F.log_softmax(logits, dim=1)).sum(dim=1).mean()
+    per_record = -(targets * F.log_softmax(logits, dim=1)).sum(dim=1)
+    weights = torch.where(targets[:, ASK_NOBODY] < 1.0, float(ask_weight), 1.0)
+    return (weights * per_record).sum() / weights.sum()
+
+
+def balanced_ask_weight(demos):
+    """Inverse class frequency: no-ask records per ask record."""
+    asks = int(np.sum(demos['target'][:, ASK_NOBODY] < 1.0))
+    if asks == 0:
+        return 1.0
+    return float(len(demos['target']) - asks) / asks
 
 
 def demo_margin_loss(q_values, best, valid, margin):
@@ -233,7 +248,7 @@ def demo_margin_loss(q_values, best, valid, margin):
     return (augmented.max(dim=1).values - expert).mean()
 
 
-def pretrain_behaviour_cloning(model, demos, epochs, batch_size, lr):
+def pretrain_behaviour_cloning(model, demos, epochs, batch_size, lr, ask_weight=1.0):
     """Warm start: fit the request network to oracle choices by cross-entropy."""
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     steps_per_epoch = max(1, len(demos['state']) // batch_size)
@@ -242,7 +257,8 @@ def pretrain_behaviour_cloning(model, demos, epochs, batch_size, lr):
         losses = []
         for _ in range(steps_per_epoch):
             batch = demo_tensors(demos, sample_demo_indices(demos, batch_size))
-            loss = behaviour_cloning_loss(model, batch['state'], batch['target'], batch['valid'])
+            loss = behaviour_cloning_loss(model, batch['state'], batch['target'], batch['valid'],
+                                          ask_weight)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -379,6 +395,9 @@ def main():
                         help='Behaviour-cloning warm-start epochs on the oracle choices')
     parser.add_argument('--bc-batch-size', type=int, default=256)
     parser.add_argument('--bc-lr', type=float, default=1e-3)
+    parser.add_argument('--bc-ask-weight', default='1',
+                        help="Cross-entropy weight of oracle 'ask' records: a number, or 'balanced' "
+                             "for inverse class frequency")
     parser.add_argument('--demo-batch-size', type=int, default=0,
                         help='Oracle records per DQN update (DQfD TD plus margin loss); 0 disables')
     parser.add_argument('--demo-margin', type=float, default=0.05)
@@ -463,10 +482,22 @@ def main():
     online.request_state_encoding = args.request_state_encoding
     demos = load_oracle_demos(args.oracle_demos, args.request_state_encoding) if args.oracle_demos else None
     bc_history = []
+    if demos is not None:
+        if args.bc_ask_weight == 'balanced':
+            args.bc_ask_weight = balanced_ask_weight(demos)
+        else:
+            try:
+                args.bc_ask_weight = float(args.bc_ask_weight)
+            except ValueError:
+                parser.error("bc-ask-weight must be a number or 'balanced'")
+            if not np.isfinite(args.bc_ask_weight) or args.bc_ask_weight <= 0:
+                parser.error('bc-ask-weight must be finite and positive')
     if demos is not None and args.bc_epochs > 0 and not resume_checkpoint:
-        print(f"Behaviour cloning on {len(demos['state'])} oracle records", flush=True)
+        print(f"Behaviour cloning on {len(demos['state'])} oracle records "
+              f"(ask weight {args.bc_ask_weight:.2f})", flush=True)
         bc_history = pretrain_behaviour_cloning(online, demos, args.bc_epochs,
-                                                args.bc_batch_size, args.bc_lr)
+                                                args.bc_batch_size, args.bc_lr,
+                                                args.bc_ask_weight)
     target = RequestDQN(); target.load_state_dict(online.state_dict())
     optimizer = torch.optim.Adam(online.parameters(), lr=args.lr)
     replay = ScenarioReplay(args.replay_size) if args.scenario_mix == 'mixed' else deque(maxlen=args.replay_size)
@@ -495,7 +526,7 @@ def main():
     config['replay_sampling'] = 'equal_ordinary_intent' if args.scenario_mix == 'mixed' else 'uniform'
     if args.oracle_demos:
         config.update({key: getattr(args, key) for key in (
-            'oracle_demos', 'bc_epochs', 'bc_batch_size', 'bc_lr', 'demo_batch_size',
+            'oracle_demos', 'bc_epochs', 'bc_batch_size', 'bc_lr', 'bc_ask_weight', 'demo_batch_size',
             'demo_margin', 'demo_margin_weight', 'initial_epsilon')})
         config['oracle_demo_records'] = int(len(demos['state']))
         config['bc_history'] = bc_history

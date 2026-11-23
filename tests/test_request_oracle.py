@@ -15,6 +15,7 @@ from scripts.policy.request_oracle import (
 )
 from scripts.training.train_request_dqn import (
     ASK_NOBODY,
+    balanced_ask_weight,
     behaviour_cloning_loss,
     demo_margin_loss,
     load_oracle_demos,
@@ -137,6 +138,25 @@ class OracleTrainingTests(unittest.TestCase):
             loss = float(behaviour_cloning_loss(model, states, target, valid))
         self.assertTrue(np.isfinite(loss))
         self.assertLess(loss, 2.)
+
+    def test_ask_weight_scales_only_ask_records(self):
+        model = RequestDQN()
+        states = torch.zeros(2, 45)
+        valid = torch.ones(2, 9, dtype=torch.bool)
+        target = torch.zeros(2, 9)
+        target[0, ASK_NOBODY] = 1.
+        target[1, 2] = 1.
+        with torch.no_grad():
+            model.network[-1].weight.zero_()
+            model.network[-1].bias.zero_()
+            model.network[-1].bias[ASK_NOBODY] = 3.
+            plain = float(behaviour_cloning_loss(model, states, target, valid))
+            weighted = float(behaviour_cloning_loss(model, states, target, valid, ask_weight=3.))
+        self.assertGreater(weighted, plain)
+        demos = {'target': np.zeros((10, 9), dtype=np.float32)}
+        demos['target'][:8, ASK_NOBODY] = 1.
+        demos['target'][8:, 1] = 1.
+        self.assertAlmostEqual(balanced_ask_weight(demos), 4.)
 
     def test_demo_sampling_balances_sources(self):
         demos = synthetic_demos()

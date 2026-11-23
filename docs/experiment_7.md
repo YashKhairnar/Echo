@@ -59,6 +59,23 @@ Across 2,000 randomized cut-in challenge scenes (seeds 1600000–1600999), Exper
 
 ---
 
+## Ordinary Roads (Experiment 6 Configuration)
+
+Seed 1200000, 100 episodes of 40 steps, `--safety-guard --max-target-speed 30 --lane-change-guard --batched-planner`. The DQN6 and ask-nobody rows reproduce the published Experiment 6 numbers exactly.
+
+| Controller | Policy | Net Return | Requests / Episode | Crashes | Mean Speed |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| Original guard | Ask Nobody | **36.566** | 0.00 | 0 / 100 | 27.49 m/s |
+| Original guard | DQN6 | 35.801 | 16.88 | 0 / 100 | 27.53 m/s |
+| Original guard | Experiment 7 | 36.390 | 4.88 | 0 / 100 | 27.52 m/s |
+| `--comfort-ttc 6` | Ask Nobody | **36.391** | 0.00 | 0 / 100 | 27.41 m/s |
+| `--comfort-ttc 6` | DQN6 | 35.748 | 13.17 | 0 / 100 | 27.40 m/s |
+| `--comfort-ttc 6` | Experiment 7 | 36.118 | 4.93 | 0 / 100 | 27.36 m/s |
+
+Experiment 7 beats DQN6 by +0.589 [+0.420, +0.750] (original guard) and +0.370 [+0.274, +0.470] (`--comfort-ttc 6`) net return, with about a third of the requests. Ask nobody is still best on these roads, because no request prevents a crash there.
+
+---
+
 ## Policy Driving Videos
 
 ### 1. Ordinary Highway Driving

@@ -10,6 +10,7 @@ import copy
 import json
 import multiprocessing
 import random
+import sys
 from concurrent.futures import ProcessPoolExecutor
 
 from scripts.data_collection.enumerate_message_requests import jsonable
@@ -118,7 +119,9 @@ def main():
     tasks += [('ordinary_traffic', i, args.seed+100000+i) for i in range(args.ordinary_episodes)]
     counts = {'matched_intent': 0, 'ordinary_traffic': 0}
     with output.open('x') as file, ProcessPoolExecutor(max_workers=args.workers, mp_context=multiprocessing.get_context('spawn')) as executor:
-        for index, records in enumerate(executor.map(collect_task, tasks, buffersize=args.workers*2)):
+        # ``buffersize`` exists only on Python 3.14 and later.
+        extra = {'buffersize': args.workers * 2} if sys.version_info >= (3, 14) else {}
+        for index, records in enumerate(executor.map(collect_task, tasks, **extra)):
             file.writelines(records)
             counts[tasks[index][0]] += len(records)
             if (index+1) % 10 == 0 or index+1 == len(tasks):

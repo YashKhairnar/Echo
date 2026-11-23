@@ -44,7 +44,7 @@ class CustomEnv(HighwayEnv):
                 "ego_target_speed": 27.0,
                 "goal_lane_id": None,
                 "initial_lane_id": None,
-                "duration": 100,
+                "duration": 40,
                 "ego_spacing": 2,
                 "vehicles_density": 1,
                 "collision_reward": -1,

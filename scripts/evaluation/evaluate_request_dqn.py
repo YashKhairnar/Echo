@@ -37,7 +37,7 @@ from scripts.utils.experiment_utils import (
     experiment_results_dir,
 )
 from src.cooperative_driving.environments.customEnv import CustomEnv
-from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
+from src.cooperative_driving.models.MLPx.per_vehicle import load_world_model
 from src.cooperative_driving.planner.MCP import MCPPlanner
 from src.cooperative_driving.planner.safety import guard_action
 from src.cooperative_driving.planner.controller import driving_action as choose_driving
@@ -228,7 +228,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     if dqn and dqn.training_config.get('safety_guard') and not args.safety_guard:
         warnings.warn('DQN was trained with a safety guard. Pass its guard flags to reproduce the trained controller.')
-    world_model = MLPxWorldModel.load(mlpx_checkpoint)
+    world_model = load_world_model(mlpx_checkpoint)
 
     rows = []
     for policy in args.policies:

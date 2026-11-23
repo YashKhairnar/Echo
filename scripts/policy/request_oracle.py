@@ -15,6 +15,9 @@ policy.
 
 Options that give the same first driving action have the same future, so the
 oracle simulates each distinct first action only one time.
+
+The smooth controller (``comfort_ttc``) keeps per-episode memory. The oracle
+reads a copy of that memory and never changes the caller's copy.
 """
 
 import copy
@@ -24,33 +27,38 @@ import numpy as np
 from scripts.data_collection.show_visible_neighbors import visible_neighbors
 from scripts.training.train_request_dqn import ASK_NOBODY, requested_message, valid_actions
 from src.cooperative_driving.planner.controller import driving_action as choose_driving
+from src.cooperative_driving.planner.safety import update_controller_state
 
 ACTION_COUNT = 9
 TIE_TOLERANCE = 1e-6
 
 
-def planner_action(planner, world_model, environment, visible, message, controls):
+def planner_action(planner, world_model, environment, visible, message, controls,
+                   controller_state=None):
     """Return the planner's driving action for one message (no state commit)."""
     observation = world_model.observe(environment)
     action, _ = choose_driving(planner, environment, observation, message, visible=visible,
-                               controller_state=None, commit_state=False, **controls)
+                               controller_state=controller_state, commit_state=False, **controls)
     return int(action)
 
 
 def blind_rollout_return(environment, first_action, planner, world_model, controls,
-                         lookahead, visibility=60.0, side_window=10.0, gamma=1.0):
+                         lookahead, visibility=60.0, side_window=10.0, gamma=1.0,
+                         controller_state=None):
     """Real return of one first action, then blind driving, in a copy of the road."""
     copied = copy.deepcopy(environment)
+    state = copy.deepcopy(controller_state)
     try:
         total = 0.0
         action = first_action
         for step in range(lookahead):
+            update_controller_state(state, action)
             _, reward, terminated, truncated, _ = copied.step(action)
             total += (gamma ** step) * float(reward)
             if terminated or truncated:
                 break
             visible = visible_neighbors(copied, visibility, side_window)
-            action = planner_action(planner, world_model, copied, visible, None, controls)
+            action = planner_action(planner, world_model, copied, visible, None, controls, state)
         return total
     finally:
         copied.close()
@@ -58,23 +66,24 @@ def blind_rollout_return(environment, first_action, planner, world_model, contro
 
 def oracle_request_values(environment, visible, planner, world_model, controls, *,
                           lookahead=3, communication_cost=0.05, visibility=60.0,
-                          side_window=10.0, gamma=1.0):
+                          side_window=10.0, gamma=1.0, controller_state=None):
     """Return a 9-value array: oracle value per request option, -inf if invalid.
 
     Also returns the driving action that each valid option leads to.
     """
-    if controls.get('comfort_ttc') is not None:
-        raise ValueError('The oracle does not support the stateful comfort controller')
+    if controls.get('comfort_ttc') is not None and controller_state is None:
+        raise ValueError('The comfort controller needs its controller_state')
     values = np.full(ACTION_COUNT, -np.inf, dtype=np.float64)
     first_actions = {}
     rollout_cache = {}
     for option in valid_actions(visible):
         message = requested_message(environment, visible, option)
-        action = planner_action(planner, world_model, environment, visible, message, controls)
+        action = planner_action(planner, world_model, environment, visible, message, controls,
+                                copy.deepcopy(controller_state))
         if action not in rollout_cache:
             rollout_cache[action] = blind_rollout_return(
                 environment, action, planner, world_model, controls, lookahead,
-                visibility, side_window, gamma)
+                visibility, side_window, gamma, controller_state)
         cost = communication_cost if option != ASK_NOBODY else 0.0
         values[option] = rollout_cache[action] - cost
         first_actions[option] = action

@@ -130,7 +130,8 @@ def evaluate_policy(policy, dqn, world_model, args):
                 oracle_values, _ = oracle_request_values(
                     environment, visible, planner, world_model, oracle_controls(args),
                     lookahead=args.oracle_lookahead, communication_cost=args.communication_cost,
-                    visibility=args.visibility, side_window=args.side_window)
+                    visibility=args.visibility, side_window=args.side_window,
+                    controller_state=controller_state)
             if policy == 'oracle':
                 request_action = oracle_choice(oracle_values)
                 message = requested_message(environment, visible, request_action)

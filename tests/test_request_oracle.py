@@ -77,11 +77,22 @@ class OracleRolloutTests(unittest.TestCase):
         finally:
             environment.close()
 
-    def test_comfort_controller_is_rejected(self):
+    def test_comfort_controller_needs_state_and_keeps_it_unchanged(self):
+        torch.manual_seed(0)
+        model = MLPxWorldModel(state_size=57)
         environment = intent_episode(1300004, 'stay')
         try:
             with self.assertRaises(ValueError):
                 oracle_request_values(environment, {}, None, None, {'comfort_ttc': 6.})
+            planner = MCPPlanner(model, action_size=environment.action_space.n)
+            visible = visible_neighbors(environment, 60., 10.)
+            controls = dict(safety_guard=True, lane_change_guard=True, max_target_speed=30.,
+                            comfort_ttc=6., batched=True)
+            state = {'lane_change_cooldown': 2, 'acceleration_cooldown': 1}
+            values, _ = oracle_request_values(environment, visible, planner, model, controls,
+                                              lookahead=3, controller_state=state)
+            self.assertEqual(state, {'lane_change_cooldown': 2, 'acceleration_cooldown': 1})
+            self.assertTrue(np.isfinite(values[ASK_NOBODY]))
         finally:
             environment.close()
 

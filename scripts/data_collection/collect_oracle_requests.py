@@ -17,6 +17,7 @@ Run from the project root with:
 import argparse
 import hashlib
 import json
+import random
 from pathlib import Path
 
 import numpy as np
@@ -28,12 +29,13 @@ from scripts.policy.request_oracle import (
     oracle_request_values,
     oracle_target_distribution,
 )
-from scripts.training.train_request_dqn import ASK_NOBODY, request_state, valid_actions
+from scripts.training.train_request_dqn import ASK_NOBODY, request_state, select_action, valid_actions
 from scripts.utils.experiment_utils import add_experiment_argument, experiment_data_path
 from src.cooperative_driving.environments.customEnv import CustomEnv
 from src.cooperative_driving.environments.intent_scenarios import intent_episode
 from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
 from src.cooperative_driving.planner.MCP import MCPPlanner
+from src.cooperative_driving.policies.request_dqn import RequestDQN
 
 
 def valid_mask(visible):
@@ -42,8 +44,14 @@ def valid_mask(visible):
     return mask
 
 
-def oracle_episode(environment, world_model, args, controls, source, seed, mode):
-    """Drive one episode with the oracle and return one record per step."""
+def oracle_episode(environment, world_model, args, controls, source, seed, mode,
+                   driver=None, rng=None):
+    """Drive one episode and return one oracle-labelled record per step.
+
+    Without ``driver`` the oracle drives. With ``driver`` (a request DQN) the
+    DQN chooses the request and the ego drives with it (DAgger): the oracle
+    only labels the states that the DQN visits.
+    """
     planner = MCPPlanner(world_model, action_size=environment.action_space.n,
                          planning_horizon=args.planning_horizon)
     records = []
@@ -55,7 +63,11 @@ def oracle_episode(environment, world_model, args, controls, source, seed, mode)
             lookahead=args.lookahead, communication_cost=args.communication_cost,
             visibility=args.visibility, side_window=args.side_window)
         choice = oracle_choice(values)
-        _, reward, terminated, truncated, _ = environment.step(first_actions[choice])
+        driven = choice
+        if driver is not None and rng.random() >= args.oracle_drive_probability:
+            driven = select_action(driver, state, valid_actions(visible), epsilon=0.0, rng=rng,
+                                   ask_margin=args.drive_ask_margin)
+        _, reward, terminated, truncated, _ = environment.step(first_actions[driven])
         next_visible = visible_neighbors(environment, args.visibility, args.side_window)
         records.append({
             'state': state,
@@ -63,7 +75,8 @@ def oracle_episode(environment, world_model, args, controls, source, seed, mode)
             'valid': valid_mask(visible),
             'choice': choice,
             'target': oracle_target_distribution(values),
-            'reward': float(reward) - (args.communication_cost if choice != ASK_NOBODY else 0.0),
+            'driven': driven,
+            'reward': float(reward) - (args.communication_cost if driven != ASK_NOBODY else 0.0),
             'next_state': request_state(environment, next_visible, args.request_state_encoding),
             'done': bool(terminated or truncated),
             'next_valid': valid_mask(next_visible),
@@ -76,7 +89,7 @@ def oracle_episode(environment, world_model, args, controls, source, seed, mode)
 
 
 def stack(records):
-    keys = ('state', 'values', 'valid', 'choice', 'target', 'reward', 'next_state',
+    keys = ('state', 'values', 'valid', 'choice', 'driven', 'target', 'reward', 'next_state',
             'done', 'next_valid', 'seed', 'crashed')
     arrays = {key: np.asarray([record[key] for record in records]) for key in keys}
     arrays['source'] = np.asarray([record['source'] for record in records])
@@ -105,10 +118,18 @@ def main():
     parser.add_argument('--min-clearance', type=float, default=8.)
     parser.add_argument('--min-ttc', type=float, default=3.)
     parser.add_argument('--mlpx-checkpoint', required=True)
+    parser.add_argument('--drive-checkpoint', default=None,
+                        help='DAgger: this request DQN drives and the oracle only labels')
+    parser.add_argument('--drive-ask-margin', type=float, default=0.0)
+    parser.add_argument('--oracle-drive-probability', type=float, default=0.0,
+                        help='DAgger: chance per step that the oracle drives instead of the DQN')
+    parser.add_argument('--drive-seed', type=int, default=0)
     parser.add_argument('--output', default=None)
     args = parser.parse_args()
     if min(args.ordinary_episodes, args.intent_scenes) < 0 or args.lookahead < 1:
         parser.error('episode counts must be nonnegative and lookahead positive')
+    if not 0.0 <= args.oracle_drive_probability <= 1.0 or args.drive_ask_margin < 0:
+        parser.error('oracle-drive-probability must be in [0, 1]; drive-ask-margin nonnegative')
     if (args.lane_change_guard or args.max_target_speed is not None) and not args.safety_guard:
         parser.error('lane-change-guard and max-target-speed require safety-guard')
 
@@ -116,12 +137,20 @@ def main():
                     max_target_speed=args.max_target_speed, min_clearance=args.min_clearance,
                     min_ttc=args.min_ttc, batched=True)
     world_model = MLPxWorldModel.load(args.mlpx_checkpoint)
+    driver = None
+    if args.drive_checkpoint:
+        driver = RequestDQN.load(args.drive_checkpoint)
+        encoding = getattr(driver, 'request_state_encoding', 'kinematics_v1')
+        if encoding != args.request_state_encoding:
+            parser.error(f'drive checkpoint uses {encoding}, not {args.request_state_encoding}')
+    rng = random.Random(args.drive_seed)
     records = []
     for index in range(args.intent_scenes):
         seed = args.challenge_seed + index
         for mode in ('stay', 'merge'):
             environment = intent_episode(seed, mode)
-            records.extend(oracle_episode(environment, world_model, args, controls, 'intent', seed, mode))
+            records.extend(oracle_episode(environment, world_model, args, controls, 'intent', seed, mode,
+                                          driver, rng))
             environment.close()
         if (index + 1) % 50 == 0:
             print(f'intent scenes {index + 1}/{args.intent_scenes}', flush=True)
@@ -129,7 +158,8 @@ def main():
         seed = args.ordinary_seed + index
         environment = CustomEnv()
         environment.reset(seed=seed)
-        records.extend(oracle_episode(environment, world_model, args, controls, 'ordinary', seed, None))
+        records.extend(oracle_episode(environment, world_model, args, controls, 'ordinary', seed, None,
+                                      driver, rng))
         environment.close()
         if (index + 1) % 10 == 0:
             print(f'ordinary episodes {index + 1}/{args.ordinary_episodes}', flush=True)

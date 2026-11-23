@@ -48,14 +48,15 @@ Train Request DQN via Behavior Cloning (Supervised Imitation)
 
 ## Benchmark Results (2,000 New Cut-In Trials)
 
-Across 2,000 randomized cut-in challenge scenes (seeds 1600000–1600999), Experiment 7 significantly outperformed all previous learned policies and blind baselines:
+Across 2,000 cut-in trials (1,000 scenes, seeds 1600000–1600999, each with the neighbour staying and merging), Experiment 7 significantly outperformed all previous learned policies and blind baselines:
 
 | Policy | Cut-in Crashes | Crash Rate | Requests / Trial | Net Return | Mean Speed |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Ask Nobody (Blind)** | 179 | 8.95% | **0.00** | 2.616 | 27.3 m/s |
 | **DQN6 (Experiment 6)** | 124 | 6.20% | 0.97 | 2.575 | 27.0 m/s |
 | **Experiment 7 (Oracle-Taught)** | **75** | **3.75%** | **0.75** | **2.631** | **27.0 m/s** |
-| *Privileged Oracle (Upper Bound)* | *30* | *1.50%* | *0.17* | *2.718* | *27.8 m/s* |
+
+The privileged oracle was not run on these 2,000 trials. On the 200 Experiment 6 test trials (seeds 1300000–1300099), it has 3 crashes (1.5%), 0.17 requests per trial and 2.718 net return. On the same 200 trials, Experiment 7 has 3 crashes and DQN6 has 9.
 
 ---
 
@@ -88,7 +89,7 @@ When a neighboring car abruptly swerves into the ego lane, blind policies crash 
 
 | Scenario | Blind (Ask Nobody) | Learned Policy (Experiment 7) |
 | :--- | :--- | :--- |
-| **Seed 1300051** | Crashes at step 2 | ![Safe Braking](images/dqn_experiment_7_intent_1300051_merge_dqn.mp4) |
+| **Seed 1300051** | ![DQN6 asks nobody, crash at step 2](images/dqn_experiment_6_intent_1300051_merge.mp4) (DQN6, which asks nobody here) | ![Safe Braking](images/dqn_experiment_7_intent_1300051_merge_dqn.mp4) |
 | **Seed 1300005** | ![Blind Crash](images/dqn_experiment_7_intent_1300005_merge_none.mp4) | ![Safe Braking](images/dqn_experiment_7_intent_1300005_merge_dqn.mp4) |
 | **Seed 1300061** | ![Blind Crash](images/dqn_experiment_7_intent_1300061_merge_none.mp4) | ![Safe Braking](images/dqn_experiment_7_intent_1300061_merge_dqn.mp4) |
 

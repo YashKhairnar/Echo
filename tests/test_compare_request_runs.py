@@ -5,7 +5,12 @@ from pathlib import Path
 
 import numpy as np
 
-from scripts.evaluation.compare_request_runs import clustered_bootstrap, load_rows, paired_differences
+from scripts.evaluation.compare_request_runs import (
+    clustered_bootstrap,
+    exact_mcnemar,
+    load_rows,
+    paired_differences,
+)
 
 
 def write_rows(path, policy, returns):
@@ -29,6 +34,24 @@ class CompareRequestRunsTests(unittest.TestCase):
             write_rows(b, 'dqn', {(1, 'stay'): 1.5})
             with self.assertRaises(ValueError):
                 paired_differences(load_rows(a, 'none'), load_rows(b, 'dqn'), 'return')
+
+    def test_exact_mcnemar_matches_binomial_test(self):
+        self.assertAlmostEqual(exact_mcnemar(0, 0), 1.0)
+        # 11 discordant pairs, all on one side: 2 * 0.5**11.
+        self.assertAlmostEqual(exact_mcnemar(11, 0), 2 / 2 ** 11)
+        # 6 vs 1: 2 * (1 + 7) / 2**7 = 0.125.
+        self.assertAlmostEqual(exact_mcnemar(6, 1), 0.125)
+        self.assertAlmostEqual(exact_mcnemar(1, 6), 0.125)
+        self.assertEqual(exact_mcnemar(3, 3), 1.0)
+
+    def test_parts_are_joined_and_duplicates_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first, second = Path(directory) / 'a.csv', Path(directory) / 'b.csv'
+            write_rows(first, 'none', {(1, 'stay'): 1.0})
+            write_rows(second, 'none', {(2, 'stay'): 2.0})
+            self.assertEqual(set(load_rows([first, second], 'none')), {(1, 'stay'), (2, 'stay')})
+            with self.assertRaises(ValueError):
+                load_rows([first, first], 'none')
 
     def test_bootstrap_mean_is_per_trial_and_constant_gives_point_interval(self):
         clusters = [np.asarray([1.0, 1.0]), np.asarray([1.0])]

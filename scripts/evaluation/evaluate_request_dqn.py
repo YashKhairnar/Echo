@@ -63,10 +63,11 @@ def oracle_controls(args):
                 min_ttc=args.min_ttc, lane_change_guard=args.lane_change_guard,
                 max_target_speed=args.max_target_speed,
                 comfort_ttc=getattr(args, 'comfort_ttc', None),
-                batched=getattr(args, 'batched_planner', False))
+                batched=getattr(args, 'batched_planner', False),
+                merge_brake=getattr(args, 'merge_brake', False))
 
 
-def choose_request(policy, dqn, environment, visible, rng):
+def choose_request(policy, dqn, environment, visible, rng, ask_margin=0.0):
     visible_ids = ordered_visible_ids(visible)
     if policy == "none" or not visible_ids:
         return ASK_NOBODY, None
@@ -78,7 +79,8 @@ def choose_request(policy, dqn, environment, visible, rng):
 
     state = request_state(environment, visible, getattr(dqn, 'request_state_encoding', 'kinematics_v1'))
     encoding = dqn.request_action_encoding
-    action = select_action(dqn, state, valid_actions(visible, encoding), epsilon=0.0, rng=rng)
+    action = select_action(dqn, state, valid_actions(visible, encoding), epsilon=0.0, rng=rng,
+                           ask_margin=ask_margin)
     return action, requested_message(environment, visible, action, encoding)
 
 
@@ -137,7 +139,8 @@ def evaluate_policy(policy, dqn, world_model, args):
                 message = requested_message(environment, visible, request_action)
             else:
                 request_action, message = choose_request(
-                    policy, dqn, environment, visible, rng
+                    policy, dqn, environment, visible, rng,
+                    getattr(args, 'ask_margin', 0.0)
                 )
             if oracle_values is not None and policy != 'all':
                 agreed = int(agrees_with_oracle(request_action, oracle_values))
@@ -157,7 +160,8 @@ def evaluate_policy(policy, dqn, world_model, args):
                 max_target_speed=args.max_target_speed,
                 comfort_ttc=getattr(args, 'comfort_ttc', None),
                 batched=getattr(args, 'batched_planner', False),
-                controller_state=controller_state)
+                controller_state=controller_state,
+                merge_brake=getattr(args, 'merge_brake', False))
             guard_overrides += int(bool(guard and guard['overridden']))
             if timestep == 0:
                 initial_request, initial_driving = request_action, driving_action
@@ -226,6 +230,8 @@ def main():
     parser.add_argument('--scenario', choices=['ordinary', 'paired-intent'], default='ordinary',
                         help='paired-intent evaluates BOTH variants for every --episodes public scene')
     parser.add_argument('--batched-planner', action='store_true')
+    parser.add_argument('--merge-brake', action='store_true',
+                        help='Brake for a requested neighbour that announces a move into the ego lane')
     parser.add_argument(
         "--policies",
         nargs="+",
@@ -236,6 +242,8 @@ def main():
     parser.add_argument('--oracle-agreement', action='store_true',
                         help='At every step also run the oracle and record agreement with it')
     parser.add_argument('--oracle-lookahead', type=int, default=5)
+    parser.add_argument('--ask-margin', type=float, default=0.0,
+                        help='The DQN asks only if its best ask score beats ask-nobody by more than this')
     parser.add_argument("--dqn-checkpoint", default=None)
     parser.add_argument("--mlpx-checkpoint", default=None)
     parser.add_argument("--output-dir", default=None)
@@ -248,6 +256,10 @@ def main():
         parser.error('max-target-speed must be finite and positive')
     if args.comfort_ttc is not None and (not np.isfinite(args.comfort_ttc) or args.comfort_ttc <= args.min_ttc):
         parser.error('comfort-ttc must be finite and greater than min-ttc')
+    if args.merge_brake and not args.safety_guard:
+        parser.error('merge-brake requires safety-guard')
+    if not np.isfinite(args.ask_margin) or args.ask_margin < 0:
+        parser.error('ask-margin must be finite and nonnegative')
     if min(args.episodes, args.planning_horizon) < 1:
         parser.error('episodes and planning-horizon must be positive')
     if not np.isfinite([args.min_clearance, args.min_ttc]).all() or min(args.min_clearance, args.min_ttc) <= 0:
@@ -345,6 +357,8 @@ def main():
                 "max_target_speed": args.max_target_speed,
                 "guard_thresholds": {"min_clearance": args.min_clearance, "min_ttc": args.min_ttc} if args.safety_guard else None,
                 "comfort_ttc": args.comfort_ttc,
+                "ask_margin": args.ask_margin,
+                "merge_brake": args.merge_brake,
                 "oracle_lookahead": args.oracle_lookahead
                 if 'oracle' in args.policies or args.oracle_agreement else None,
                 "summary": summary,

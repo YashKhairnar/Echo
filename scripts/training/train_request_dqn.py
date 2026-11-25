@@ -110,14 +110,23 @@ def requested_message(environment, visible, action, action_encoding="spatial_v1"
     return {"messages_by_slot": messages}
 
 
-def select_action(model, state, valid, epsilon, rng):
+def select_action(model, state, valid, epsilon, rng, ask_margin=0.0):
+    """Greedy request choice with epsilon exploration.
+
+    With ``ask_margin`` > 0, the model asks only if the best ask score is
+    more than ``ask_margin`` above the ask-nobody score.
+    """
     if rng.random() < epsilon:
         return rng.choice(valid)
     with torch.no_grad():
         values = model(torch.tensor(state).unsqueeze(0)).squeeze(0)
         masked = torch.full_like(values, -torch.inf)
         masked[valid] = values[valid]
-        return int(masked.argmax())
+        action = int(masked.argmax())
+        if (ask_margin > 0 and action != ASK_NOBODY and ASK_NOBODY in valid
+                and float(masked[action] - masked[ASK_NOBODY]) <= ask_margin):
+            return ASK_NOBODY
+        return action
 
 
 def redundant_request_penalty(request_action, informed_action, blind_action,

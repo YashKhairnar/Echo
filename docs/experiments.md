@@ -17,6 +17,7 @@ Each experiment below has a dedicated page with detailed setup, world-model loss
 | **[Experiment 5](experiment_5.html)** | Matched-Intent Scenarios | 145k transitions | **118 in / 57 out** | Proved communication value in cut-in scenes: intent messages **cut crashes in half (12 → 6)**. |
 | **[Experiment 6](experiment_6.html)** | Selective Requests | Reused Exp. 5 | Frozen WM5 + DQN | Added counterfactual redundancy penalty to discourage unnecessary queries. |
 | **[Experiment 7](experiment_7.html)** | Oracle-Taught Request Policy | 10k oracle labels | Frozen WM5 + BC DQN | Taught policy via privileged simulation oracle: **cut cut-in crashes by 40% (124 → 75)**. |
+| **[Experiment 8](experiment_8.html)** | DAgger and Message-Aware Brake Rule | DAgger labels + 10k labels with the rule | Frozen WM5 + BC DQN + brake rule | Phase 1 (DAgger): 74 → 65 cut-in crashes. Phase 2 (brake for a car that announces a merge): **74 → 2 of 2,000**, ordinary roads equal to ask nobody. |
 
 ---
 
@@ -30,6 +31,7 @@ Each experiment below has a dedicated page with detailed setup, world-model loss
 <p><a href="experiment_5.html"><strong>Experiment 5: Matched-Intent Challenge Scenarios</strong></a><br>Parallel stay vs. cut-in worlds proving that intent messages cut crashes in half (12 → 6).</p>
 <p><a href="experiment_6.html"><strong>Experiment 6: Selective Request Learning</strong></a><br>A training-only counterfactual teacher penalizes questions whose replies do not change the planner's move.</p>
 <p><a href="experiment_7.html"><strong>Experiment 7: Oracle-Taught Requests</strong></a><br>A privileged simulation oracle teaches the Request DQN via behavior cloning, slashing cut-in crashes to 3.75%.</p>
+<p><a href="experiment_8.html"><strong>Experiment 8: DAgger and Message-Aware Brake Rule</strong></a><br>Phase 1: the oracle labels the states that the DQN itself visits. Phase 2: the ego brakes for a requested car that announces a move into its lane.</p>
 </div>
 
 ---
@@ -50,6 +52,6 @@ Each experiment below has a dedicated page with detailed setup, world-model loss
 
 ## Current Recommendations
 
-- **Best Learned Cooperative Policy:** **Experiment 7** (`checkpoints/experiment_7/RequestDQN/best.pt`) with `--safety-guard --max-target-speed 30 --lane-change-guard`.
+- **Best Learned Cooperative Policy:** **Experiment 8** (`checkpoints/experiment_8/RequestDQN/best.pt`) with `--merge-brake --ask-margin 0.5 --safety-guard --max-target-speed 30 --lane-change-guard`.
 - **Highway Cruising Baseline:** On open highways with predictable IDM traffic, **Ask Nobody** achieves zero communication overhead and collision-free driving.
 - **Why Communication Matters:** In high-speed, ambiguous cut-in scenes, intent messages are the only way to distinguish benign straight-driving cars from aggressive cut-in vehicles, reducing crashes from ~9% down to 3.75%.

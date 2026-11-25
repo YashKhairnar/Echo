@@ -23,6 +23,7 @@ checkpoints/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.vscode/
 
 # This project description is local-only.
 project_description.txt

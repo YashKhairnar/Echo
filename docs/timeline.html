@@ -104,7 +104,7 @@
 </style>
 </head>
 <body>
-<div class="site-layout"><aside class="site-sidebar"><div class="site-brand">Echo Docs</div><p class="site-tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a class="active" href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a><a href="experiment_7.html">Experiment 7: Oracle Teacher</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><div class="site-content">
+<div class="site-layout"><aside class="site-sidebar"><div class="site-brand">Echo Docs</div><p class="site-tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a class="active" href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a><a href="experiment_7.html">Experiment 7: Oracle Teacher</a><a href="experiment_8.html">Experiment 8: Double DQN</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><div class="site-content">
 <main>
   <header>
     <h1>Echo: project timeline</h1>
@@ -377,13 +377,26 @@
         </dl><div class="chips"><span class="chip">1,000 episodes</span><span class="chip">240 lane changes / 100 roads</span><span class="chip">63 tests pass</span></div></div></details></li>
 
     <li><div class="date">Nov 22</div><div class="dot good"></div>
-      <details class="now" open><summary><span class="title">Experiment 7: oracle-taught request policy (BC on privileged teacher)</span><span class="badge">NOW</span>
+      <details><summary><span class="title">Experiment 7: oracle-taught request policy (BC on privileged teacher)</span><span class="badge">PAST</span>
         <span class="line2">Privileged simulation oracle generates clean demonstration labels · <span class="result good">slashes cut-in crashes by 40% (124 → 75), highest net return</span></span></summary>
         <div class="body"><dl>
           <dt>Teacher oracle</dt><dd>A privileged oracle tests candidate queries in parallel simulation copies, picking "Ask" only when intent changes the outcome and beats the 0.05 request cost. Rare ask labels are balanced during behavior cloning.</dd>
           <dt>Cut-in trials (2000)</dt><dd>DQN6 → Exp 7: cut-in crashes dropped 124 (6.20%) → 75 (3.75%) against 179 (8.95%) for blind ask-nobody. Net return rose to 2.631 with fewer requests (0.75 vs 0.97 per trial).</dd>
           <dt>Highway speed</dt><dd>Cruising speed preserved at 27.0 m/s with zero false-alarm hesitation.</dd>
         </dl><div class="chips"><span class="chip">2,000 cut-in trials</span><span class="chip">75 crashes (3.75%)</span><span class="chip">40% fewer crashes vs DQN6</span><span class="chip">return 2.631</span></div></div></details></li>
+
+    <div class="phase">PHASE 5 · Double-DQN request-policy experiment <small>· Nov 25</small></div>
+
+    <li><div class="date">Nov 25</div><div class="dot part"></div>
+      <details class="now" open><summary><span class="title">Experiment 8: fine-tune requests with Double DQN</span><span class="badge">NOW</span>
+        <span class="line2">Online mixed-scenario replay from the Experiment 7 policy · <span class="result part">fewer intent crashes, but more communication</span></span></summary>
+        <div class="body"><dl>
+          <dt>What changed</dt><dd>The online network now selects the next valid request while the target network evaluates it. Standard DQN and Double DQN are separate policy classes: <code>RequestDQN</code> and <code>RequestDDQN</code>.</dd>
+          <dt>Training</dt><dd>Initialized from the Experiment 7 behavior-cloned weights, kept the Experiment 5 MLPx frozen, and fine-tuned for 1,000 mixed ordinary and paired-intent episodes.</dd>
+          <dt>Standalone result</dt><dd>Ordinary roads finished with 0 crashes across 100 episodes. Paired-intent evaluation produced 17 crashes in 400 trials (4.25%).</dd>
+          <dt>Controlled comparison</dt><dd>On identical seeds and controller settings, paired-intent crashes were 24 for Experiment 6, 16 for Experiment 7, and 17 for Experiment 8. Mean requests were 1.02, 0.75, and 1.72 respectively.</dd>
+          <dt>Conclusion</dt><dd>Double DQN is a viable, stable policy variant and improves safety over Experiment 6. Experiment 7 remains the best-balanced policy because it has slightly fewer crashes, substantially fewer requests, and the highest cost-adjusted return.</dd>
+        </dl><div class="chips"><span class="chip">1,000 training episodes</span><span class="chip">crashes: 24 / 16 / 17</span><span class="chip">0% ordinary-road crashes</span><span class="chip">82 tests pass</span></div></div></details></li>
   </ol>
 
   <footer>Details: <a href="https://github.com/YashKhairnar/Echo/blob/main/docs/merge_scenario.md">merge_scenario.md</a> · <a href="https://github.com/YashKhairnar/Echo/blob/main/docs/progress_log.md">progress log</a> · <a href="https://github.com/YashKhairnar/Echo">repository</a></footer>

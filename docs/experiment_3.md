@@ -56,7 +56,7 @@ Reward and Q-loss across 1,000 episodes:
 
 ## Policy Driving Video
 
-The ego vehicle actively uses spatial request slots to query vehicles in its front and adjacent lanes:
+On the shared experiment-video seed **120**, the ego vehicle actively uses spatial request slots but still crashes after 6 of 40 steps without the later safety controller:
 
 ![Experiment 3 Policy Video](images/dqn_experiment_3_policy.mp4)
 

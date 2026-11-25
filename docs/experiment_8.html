@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Experiment 8 · Echo Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+      onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f6f7fb; }
+    * { box-sizing: border-box; } body { margin: 0; }
+    .layout { display: flex; min-height: 100vh; }
+    aside { width: 250px; flex: 0 0 250px; background: #101828; color: white; padding: 28px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+    .brand { font-weight: 800; font-size: 22px; margin: 0 10px 4px; }
+    .tagline { color: #aab5ca; font-size: 13px; margin: 0 10px 26px; }
+    nav a { display: block; color: #c9d2e5; text-decoration: none; padding: 10px; border-radius: 8px; margin: 3px 0; }
+    nav a:hover, nav a.active { background: #263b78; color: white; }
+    .nav-group { margin: 0 0 18px; }
+    .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
+    main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
+    article { min-width: 0; background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
+    h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
+    .experiment-title { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }
+    p { line-height: 1.65; } .subtitle { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
+    pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0 26px; }
+    .cards p { margin: 0; padding: 16px 18px; border: 1px solid #d9deea; border-radius: 12px; background: #f8faff; box-shadow: 0 1px 3px #1018280a; }
+    .cards p:hover { border-color: #9db0e8; background: #f3f6ff; }
+    .table-wrap { width: 100%; overflow-x: auto; margin: 18px 0; border: 1px solid #e2e6ef; border-radius: 10px; }
+    table { width: 100%; min-width: 620px; border-collapse: collapse; margin: 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; overflow-wrap: anywhere; } th { color: #667085; background: #f8f9fc; } tbody tr:last-child td { border-bottom: 0; }
+    @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
+  </style>
+</head>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a><a href="experiment_7.html">Experiment 7: Oracle Teacher</a><a class="active" href="experiment_8.html">Experiment 8: Double DQN</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1 class="experiment-title">Experiment 8: Double-DQN Fine-Tuning</h1>
+<p class="subtitle">Experiment 8</p>
+<h2>Goal</h2>
+<p>Experiment 8 is a standalone feasibility run of a <strong>Double DQN request policy</strong>. It checks that the new TD target trains cleanly and produces a usable policy. Cross-experiment comparison is intentionally deferred.</p>
+<h2>Setup</h2>
+<div class="table-wrap"><table><thead><tr><th>Component</th><th>Configuration</th></tr></thead><tbody><tr><td>Policy class</td><td><code>RequestDDQN</code> in <code>policies/request_ddqn.py</code></td></tr><tr><td>Request-policy initialization</td><td>Experiment 7 behavior-cloned checkpoint</td></tr><tr><td>World model</td><td>Frozen Experiment 5 intent-stage MLPx</td></tr><tr><td>TD target</td><td>Double DQN</td></tr><tr><td>Training episodes</td><td>1,000 mixed ordinary and paired-intent episodes</td></tr><tr><td>Request action space</td><td>Ask nobody or one visible spatial slot</td></tr><tr><td>Planning horizon</td><td>3 steps</td></tr><tr><td>Exploration</td><td>Epsilon starts at <code>0.20</code> and decays to <code>0.05</code></td></tr><tr><td>Target-network update</td><td>Every 50 episodes</td></tr><tr><td>Communication cost</td><td><code>0.05</code> per request</td></tr><tr><td>Driving controls</td><td>Safety guard, lane-change guard, 30 m/s speed cap, 6 s comfort TTC</td></tr></tbody></table></div>
+<p>Double DQN separates the two jobs in the bootstrap target: the online network chooses the best valid next request, while the target network evaluates that request. Empty spatial slots remain masked.</p>
+<h2>Training Results</h2>
+<div class="table-wrap"><table><thead><tr><th>Training window</th><th>Mean return</th><th>Mean TD loss</th><th>Mean requests</th><th>Crash rate</th><th>Mean steps</th></tr></thead><tbody><tr><td>First 100 episodes</td><td>19.094</td><td>0.4643</td><td>9.82</td><td>4.0%</td><td>21.45</td></tr><tr><td>Last 100 episodes</td><td>18.980</td><td>0.2223</td><td>10.55</td><td>4.0%</td><td>21.46</td></tr></tbody></table></div>
+<p>The run remained stable across 1,000 episodes. The average TD loss in the final 100 episodes was lower than in the first 100, while return and crash rate stayed steady. The saved <code>best.pt</code> artifact is the completed 1,000-episode policy; it was not selected through a separate validation sweep.</p>
+<p><img src="training_graphs/experiment_8_dqn_training.png" alt="Experiment 8 Double-DQN training curves" style="max-width:100%; height:auto;"></p>
+<p><img src="training_graphs/experiment_8_dqn_by_scenario.png" alt="Experiment 8 Double-DQN training by scenario" style="max-width:100%; height:auto;"></p>
+<h2>Standalone Evaluation</h2>
+<p>Only the Experiment 8 DQN policy was evaluated. No baseline policies were included.</p>
+<div class="table-wrap"><table><thead><tr><th>Evaluation scene</th><th>Trials</th><th>Mean return</th><th>Driving reward</th><th>Requests</th><th>Crash rate</th><th>Mean speed</th><th>Lane changes</th></tr></thead><tbody><tr><td>Paired intent</td><td>400</td><td>2.558</td><td>2.644</td><td>1.72</td><td>4.25%</td><td>26.80 m/s</td><td>147</td></tr><tr><td>Ordinary highway</td><td>100</td><td>35.346</td><td>36.309</td><td>19.26</td><td>0.00%</td><td>27.43 m/s</td><td>281</td></tr></tbody></table></div>
+<p>The policy completed the full ordinary-road horizon in every evaluation episode. In the short paired-intent benchmark, 17 of 400 trials ended in a collision.</p>
+<h2>Controlled Experiments 6–8 Comparison</h2>
+<p>Experiments 6, 7, and 8 were run on identical seeds with the same frozen Experiment 5 MLPx, 3-step planner, communication cost, and safety settings.</p>
+<div class="table-wrap"><table><thead><tr><th>Scenario</th><th>Policy</th><th>Mean return</th><th>Driving reward</th><th>Requests</th><th>Crash rate</th></tr></thead><tbody><tr><td>Paired intent, 400 trials</td><td>Experiment 6 DQN</td><td>2.582</td><td>2.632</td><td>1.02</td><td>6.00% (24)</td></tr><tr><td>Paired intent, 400 trials</td><td><strong>Experiment 7 oracle-taught DQN</strong></td><td><strong>2.635</strong></td><td><strong>2.673</strong></td><td><strong>0.75</strong></td><td><strong>4.00% (16)</strong></td></tr><tr><td>Paired intent, 400 trials</td><td>Experiment 8 DDQN</td><td>2.558</td><td>2.644</td><td>1.72</td><td>4.25% (17)</td></tr><tr><td>Ordinary highway, 100 episodes</td><td>Experiment 6 DQN</td><td>35.540</td><td>36.259</td><td>14.38</td><td>0.00%</td></tr><tr><td>Ordinary highway, 100 episodes</td><td><strong>Experiment 7 oracle-taught DQN</strong></td><td><strong>35.941</strong></td><td>36.208</td><td><strong>5.35</strong></td><td><strong>0.00%</strong></td></tr><tr><td>Ordinary highway, 100 episodes</td><td>Experiment 8 DDQN</td><td>35.346</td><td><strong>36.309</strong></td><td>19.26</td><td><strong>0.00%</strong></td></tr></tbody></table></div>
+<p>Experiment 7 is the strongest overall policy in this controlled test. It combines the lowest paired-intent crash rate with the fewest requests and highest cost-adjusted return in both scenarios. Experiment 8 reduced Experiment 6's intent collisions from 24 to 17, but it requested substantially more messages. Its Double-DQN fine-tuning therefore improved safety over Experiment 6 without improving on the Experiment 7 policy from which it was initialized.</p>
+<h2>Commands</h2>
+<p>Training:</p>
+<pre><code>.venv/bin/python -m scripts.training.train_request_dqn \
+  --experiment 8 \
+  --episodes 1000 \
+  --seed 0 \
+  --td-target double-dqn \
+  --init-checkpoint checkpoints/experiment_7/best.pt \
+  --initial-epsilon 0.20 \
+  --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
+  --scenario-mix mixed \
+  --request-state-encoding ego_control_v1 \
+  --safety-guard \
+  --lane-change-guard \
+  --max-target-speed 30 \
+  --comfort-ttc 6 \
+  --batched-planner \
+  --save-every 50</code></pre>
+<p>Standalone paired-intent evaluation:</p>
+<pre><code>.venv/bin/python -m scripts.evaluation.evaluate_request_dqn \
+  --experiment 8 \
+  --episodes 200 \
+  --seed 1700000 \
+  --scenario paired-intent \
+  --policies dqn \
+  --planning-horizon 3 \
+  --safety-guard \
+  --lane-change-guard \
+  --max-target-speed 30 \
+  --comfort-ttc 6 \
+  --batched-planner</code></pre>
+<h2>Policy Video</h2>
+<p>The <code>RequestDDQN</code> policy completes all 40 ordinary-road steps on the shared experiment-video seed <strong>120</strong>. It earns 36.637 reward, sends 26 requests, and does not crash.</p>
+<p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/dqn_experiment_8_policy.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
+<p>Recording command:</p>
+<pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
+  --experiment 8 \
+  --episodes 1 \
+  --seed 120 \
+  --planning-horizon 3 \
+  --safety-guard \
+  --lane-change-guard \
+  --max-target-speed 30 \
+  --comfort-ttc 6 \
+  --batched-planner \
+  --video docs/images/dqn_experiment_8_policy.mp4</code></pre>
+<h2>Artifacts</h2>
+<ul>
+<li>Policy checkpoint: <code>checkpoints/experiment_8/RequestDQN/best.pt</code></li>
+<li>Training log: <code>results/experiment_8/RequestDQN/experiments/20261125_121241_request_dqn/request_dqn_training.csv</code></li>
+<li>Paired-intent metrics: <code>results/experiment_8/evaluation/paired_intent/request_dqn_summary.json</code></li>
+<li>Ordinary-road metrics: <code>results/experiment_8/evaluation/ordinary/request_dqn_summary.json</code></li>
+<li>Controlled Experiments 6–8 comparison: <code>results/experiment_8/evaluation/exp6_7_8_comparison/</code> and <code>results/experiment_8/evaluation/exp6_comparison/</code></li>
+</ul></article></main></div></body>
+</html>

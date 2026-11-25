@@ -35,7 +35,7 @@ from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
 from src.cooperative_driving.planner.MCP import MCPPlanner
 from src.cooperative_driving.environments.intent_scenarios import intent_episode
 from src.cooperative_driving.planner.controller import driving_action as choose_driving
-from src.cooperative_driving.policies.request_dqn import RequestDQN
+from src.cooperative_driving.policies import load_request_policy
 
 
 ACTION_NAMES = ["LANE_LEFT", "IDLE", "LANE_RIGHT", "FASTER", "SLOWER"]
@@ -191,7 +191,7 @@ def main():
     args.dqn_checkpoint = args.dqn_checkpoint or str(
         experiment_checkpoint_dir(args.experiment, "RequestDQN") / "best.pt"
     )
-    dqn = RequestDQN.load(args.dqn_checkpoint)
+    dqn = load_request_policy(args.dqn_checkpoint)
     args.mlpx_checkpoint = args.mlpx_checkpoint or dqn.mlpx_checkpoint or str(
         experiment_checkpoint_dir(args.experiment, "MLPx") / "best.pt"
     )
@@ -251,7 +251,12 @@ def main():
             controller_state = {} if args.comfort_ttc is not None else None
             episode_outcome = None
             speeds = []
-            label = f"{args.policy} | {args.scenario}" + (
+            policy_label = (
+                "ddqn"
+                if args.policy == "dqn" and getattr(dqn, "POLICY_TYPE", "") == "request_ddqn"
+                else args.policy
+            )
+            label = f"{policy_label} | {args.scenario}" + (
                 f" {args.hidden_mode}" if args.scenario == 'paired-intent' else "")
             print(f"Episode {episode + 1}/{args.episodes} ({label}, seed {args.seed + episode})")
 

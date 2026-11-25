@@ -14,12 +14,16 @@ Run this from the project root to open a live Pygame window:
 ```bash
 .venv/bin/python -m scripts.evaluation.render_request_dqn \
   --experiment 7 \
+  --dqn-checkpoint checkpoints/experiment_7/best.pt \
+  --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
   --episodes 1 \
-  --seed 1200000 \
+  --seed 120 \
   --delay 0.15 \
   --safety-guard \
   --max-target-speed 30 \
-  --lane-change-guard
+  --lane-change-guard \
+  --comfort-ttc 6 \
+  --batched-planner
 ```
 
 - `--delay 0.15`: Pauses 0.15 seconds between steps for comfortable viewing.
@@ -32,16 +36,37 @@ Run this from the project root to open a live Pygame window:
 To record a policy run to an `.mp4` file without opening a GUI window:
 
 ```bash
-SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+.venv/bin/python -m scripts.evaluation.render_request_dqn \
   --experiment 7 \
+  --dqn-checkpoint checkpoints/experiment_7/best.pt \
+  --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
   --episodes 1 \
-  --seed 1200000 \
+  --seed 120 \
+  --delay 0 \
   --safety-guard \
   --max-target-speed 30 \
   --lane-change-guard \
-  --video-fps 2 \
+  --comfort-ttc 6 \
+  --batched-planner \
+  --video-fps 8 \
   --video "docs/images/dqn_experiment_7_policy.mp4"
 ```
+
+All generic Experiment 1–8 policy videos use seed **120** so their behavior is visually comparable on the same initial road. Purpose-built cut-in demonstrations retain their selected challenge seeds because they illustrate specific hidden-intent events.
+
+### Shared seed-120 video set
+
+| Experiment | Outcome | Steps | Reward | Requests | Video |
+| :--- | :--- | ---: | ---: | ---: | :--- |
+| Experiment 1 | Crashed | 6 / 40 | 4.773 | 3 | [Watch](images/dqn_experiment_1_policy.mp4) |
+| Experiment 2 | Crashed | 10 / 40 | 8.532 | 4 | [Watch](images/dqn_experiment_2_policy.mp4) |
+| Experiment 3 | Crashed | 6 / 40 | 4.749 | 4 | [Watch](images/dqn_experiment_3_policy.mp4) |
+| Experiment 4 | Drove to end | 40 / 40 | 34.612 | 27 | [Watch](images/dqn_experiment_4_guarded_policy.mp4) |
+| Experiment 5 | Drove to end | 40 / 40 | 34.612 | 26 | [Watch](images/dqn_experiment_5_policy.mp4) |
+| Experiment 6 | Drove to end | 40 / 40 | 36.790 | 15 | [Watch](images/dqn_experiment_6_policy.mp4) |
+| Experiment 7 | Drove to end | 40 / 40 | 36.791 | 10 | [Watch](images/dqn_experiment_7_policy.mp4) |
+| Experiment 8 | Drove to end | 40 / 40 | 36.637 | 26 | [Watch](images/dqn_experiment_8_policy.mp4) |
 
 ---
 

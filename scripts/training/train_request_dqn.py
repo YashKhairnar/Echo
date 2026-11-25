@@ -40,7 +40,7 @@ from src.cooperative_driving.planner.MCP import MCPPlanner
 from src.cooperative_driving.planner.controller import driving_action as choose_driving
 from src.cooperative_driving.planner.safety import update_controller_state
 from src.cooperative_driving.environments.intent_scenarios import intent_episode
-from src.cooperative_driving.policies.request_dqn import RequestDQN
+from src.cooperative_driving.policies import RequestDDQN, RequestDQN
 from scripts.utils.experiment_utils import (
     add_experiment_argument,
     create_run_dir,
@@ -160,11 +160,22 @@ class ScenarioReplay:
         return [item[:-1] for item in batch]
 
 
-def td_loss(online, target, states, actions, rewards, next_states, dones, next_mask, gamma):
-    """Huber TD loss with invalid next request slots masked out."""
+def td_loss(online, target, states, actions, rewards, next_states, dones, next_mask,
+            gamma, td_target="dqn"):
+    """Huber TD loss with masked DQN or Double-DQN bootstrap targets."""
     current = online(states).gather(1, actions[:, None]).squeeze(1)
     with torch.no_grad():
-        future = target(next_states).masked_fill(~next_mask, -torch.inf).max(dim=1).values
+        target_values = target(next_states).masked_fill(~next_mask, -torch.inf)
+        if td_target == "double-dqn":
+            # Select with the online network, evaluate with the target network.
+            next_actions = online(next_states).masked_fill(
+                ~next_mask, -torch.inf
+            ).argmax(dim=1)
+            future = target_values.gather(1, next_actions[:, None]).squeeze(1)
+        elif td_target == "dqn":
+            future = target_values.max(dim=1).values
+        else:
+            raise ValueError(f"Unknown TD target: {td_target}")
         expected = rewards + gamma * future * (1.0 - dones)
     return F.smooth_l1_loss(current, expected)
 
@@ -269,7 +280,8 @@ def pretrain_behaviour_cloning(model, demos, epochs, batch_size, lr, ask_weight=
 
 
 def optimize(online, target, optimizer, replay, batch_size, gamma, demos=None,
-             demo_batch_size=0, demo_margin=0.05, demo_margin_weight=0.0):
+             demo_batch_size=0, demo_margin=0.05, demo_margin_weight=0.0,
+             td_target="dqn"):
     if len(replay) < batch_size:
         return None
     batch = replay.sample(batch_size) if isinstance(replay, ScenarioReplay) else random.sample(replay, batch_size)
@@ -282,12 +294,16 @@ def optimize(online, target, optimizer, replay, batch_size, gamma, demos=None,
     mask = torch.zeros((len(batch), RequestDQN.ACTION_SIZE), dtype=torch.bool)
     for index, valid in enumerate(next_valid):
         mask[index, list(valid)] = True
-    loss = td_loss(online, target, states, actions, rewards, next_states, dones, mask, gamma)
+    loss = td_loss(
+        online, target, states, actions, rewards, next_states, dones, mask,
+        gamma, td_target,
+    )
     if demos is not None and demo_batch_size > 0:
         # DQfD: oracle transitions get the same TD loss plus a large-margin loss.
         demo = demo_tensors(demos, sample_demo_indices(demos, demo_batch_size))
         loss = loss + td_loss(online, target, demo['state'], demo['choice'], demo['reward'],
-                              demo['next_state'], demo['done'], demo['next_valid'], gamma)
+                              demo['next_state'], demo['done'], demo['next_valid'], gamma,
+                              td_target)
         if demo_margin_weight > 0:
             loss = loss + demo_margin_weight * demo_margin_loss(
                 online(demo['state']), demo['best'], demo['valid'], demo_margin)
@@ -376,6 +392,10 @@ def main():
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--replay-size", type=int, default=50000)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument('--td-target', choices=['dqn', 'double-dqn'], default='dqn',
+                        help='Bootstrap target rule; double-dqn selects next actions online')
+    parser.add_argument('--init-checkpoint', default=None,
+                        help='Initialize policy weights without restoring replay/optimizer state')
     parser.add_argument('--mlpx-checkpoint')
     parser.add_argument('--scenario-mix', choices=['ordinary', 'mixed'], default='ordinary')
     parser.add_argument('--ordinary-seed', type=int, default=None)
@@ -413,6 +433,8 @@ def main():
         parser.error("episodes and save-every must be positive (episodes may be 0 only for BC-only)")
     if (args.bc_epochs > 0 or args.demo_batch_size > 0) and not args.oracle_demos:
         parser.error('bc-epochs and demo-batch-size require --oracle-demos')
+    if args.resume and args.init_checkpoint:
+        parser.error('--resume and --init-checkpoint are mutually exclusive')
     if min(args.bc_epochs, args.demo_batch_size) < 0 or args.bc_batch_size < 1 \
             or min(args.demo_margin, args.demo_margin_weight) < 0 or args.bc_lr <= 0 \
             or not 0.05 <= args.initial_epsilon <= 1.0:
@@ -439,6 +461,7 @@ def main():
                         'oracle_demos', 'demo_batch_size', 'demo_margin', 'demo_margin_weight'):
                 if key in saved_config:
                     setattr(args, key, saved_config[key])
+            args.td_target = saved_config.get('td_target', 'dqn')
             args.comfort_ttc = saved_config.get('comfort_ttc')
             args.redundant_request_penalty = saved_config.get(
                 'redundant_request_penalty', 0.0
@@ -478,8 +501,19 @@ def main():
         parser.error("Frozen MLPx checkpoint changed since the saved training state")
     world_model = MLPxWorldModel.load(mlpx_checkpoint)
     planner = None
-    online = RequestDQN()
+    policy_class = RequestDDQN if args.td_target == "double-dqn" else RequestDQN
+    online = policy_class()
     online.request_state_encoding = args.request_state_encoding
+    initialized_from = None
+    if args.init_checkpoint:
+        initial = torch.load(args.init_checkpoint, map_location='cpu', weights_only=False)
+        if initial.get('request_action_encoding', 'spatial_v1') != 'spatial_v1':
+            parser.error('init-checkpoint must use spatial_v1 request actions')
+        initial_state_encoding = initial.get('request_state_encoding', 'kinematics_v1')
+        if initial_state_encoding != args.request_state_encoding:
+            parser.error('init-checkpoint request state encoding differs from this run')
+        online.load_state_dict(initial['model_state_dict'])
+        initialized_from = str(args.init_checkpoint)
     demos = load_oracle_demos(args.oracle_demos, args.request_state_encoding) if args.oracle_demos else None
     bc_history = []
     if demos is not None:
@@ -498,7 +532,7 @@ def main():
         bc_history = pretrain_behaviour_cloning(online, demos, args.bc_epochs,
                                                 args.bc_batch_size, args.bc_lr,
                                                 args.bc_ask_weight)
-    target = RequestDQN(); target.load_state_dict(online.state_dict())
+    target = policy_class(); target.load_state_dict(online.state_dict())
     optimizer = torch.optim.Adam(online.parameters(), lr=args.lr)
     replay = ScenarioReplay(args.replay_size) if args.scenario_mix == 'mixed' else deque(maxlen=args.replay_size)
     rng = random.Random(args.seed)
@@ -517,8 +551,9 @@ def main():
     run_dir = create_run_dir(run_root, "request_dqn")
     config = {key: getattr(args, key) for key in (
         "experiment", "seed", "planning_horizon", "communication_cost",
-        "redundant_request_penalty", "batch_size", "replay_size", "lr"
+        "redundant_request_penalty", "batch_size", "replay_size", "lr", "td_target"
     )}
+    config['init_checkpoint'] = initialized_from
     config.update(mlpx_checkpoint=str(mlpx_checkpoint), mlpx_sha256=mlpx_hash)
     config.update({key: getattr(args, key) for key in ('scenario_mix', 'ordinary_seed', 'challenge_seed',
                   'request_state_encoding', 'safety_guard', 'lane_change_guard', 'max_target_speed',
@@ -633,7 +668,8 @@ def main():
                 loss = optimize(online, target, optimizer, replay, args.batch_size, 0.99,
                                 demos=demos, demo_batch_size=args.demo_batch_size,
                                 demo_margin=args.demo_margin,
-                                demo_margin_weight=args.demo_margin_weight)
+                                demo_margin_weight=args.demo_margin_weight,
+                                td_target=args.td_target)
                 if loss is not None:
                     episode_losses.append(loss)
                 observation = next_observation
@@ -677,7 +713,9 @@ def main():
     checkpoint = {"model_state_dict": online.state_dict(), "episodes": end_episode,
                   "planning_horizon": args.planning_horizon, "communication_cost": args.communication_cost,
                   "masked_next_request_targets": True, "mlpx_checkpoint": str(mlpx_checkpoint),
-                  "request_action_encoding": "spatial_v1"}
+                  "request_action_encoding": "spatial_v1", "td_target": args.td_target,
+                  "policy_type": online.POLICY_TYPE,
+                  "initialized_from": initialized_from}
     checkpoint.update(training_config=config, request_state_encoding=args.request_state_encoding)
     torch.save(checkpoint, output)
     torch.save(checkpoint, run_dir / "best.pt")

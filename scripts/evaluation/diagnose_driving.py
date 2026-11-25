@@ -26,7 +26,7 @@ from src.cooperative_driving.environments.customEnv import CustomEnv
 from src.cooperative_driving.models.MLPx.mlpx import MLPxWorldModel
 from src.cooperative_driving.planner.MCP import MCPPlanner
 from src.cooperative_driving.planner.safety import guard_action
-from src.cooperative_driving.policies.request_dqn import RequestDQN
+from src.cooperative_driving.policies import load_request_policy
 
 
 def scene_snapshot(environment, visible):
@@ -142,7 +142,7 @@ def main():
     wm_path = Path(args.mlpx_checkpoint or experiment_checkpoint_dir(args.experiment, "MLPx") / "best.pt")
     dqn_path = Path(args.dqn_checkpoint or experiment_checkpoint_dir(args.experiment, "RequestDQN") / "best.pt")
     model = MLPxWorldModel.load(wm_path)
-    dqn = RequestDQN.load(dqn_path) if any(policy.startswith("wm_dqn") for policy in args.policies) else None
+    dqn = load_request_policy(dqn_path) if any(policy.startswith("wm_dqn") for policy in args.policies) else None
     output = create_run_dir(Path(args.output_root or experiment_results_dir(args.experiment, "diagnostics")), "driving")
     save_run_metadata(output, {**vars(args), "mlpx_checkpoint": str(wm_path),
                               "environment_config": CustomEnv.default_config(),

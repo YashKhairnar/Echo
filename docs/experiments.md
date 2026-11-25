@@ -1,6 +1,6 @@
 # Experiments Overview
 
-This hub outlines the progression of experiments in **Echo**, exploring communication-efficient cooperative driving across seven sequential milestones.
+This hub outlines the progression of experiments in **Echo**, exploring communication-efficient cooperative driving across eight sequential milestones.
 
 Each experiment below has a dedicated page with detailed setup, world-model loss curves, request-policy graphs, and playable driving videos.
 
@@ -17,6 +17,7 @@ Each experiment below has a dedicated page with detailed setup, world-model loss
 | **[Experiment 5](experiment_5.html)** | Matched-Intent Scenarios | 145k transitions | **118 in / 57 out** | Proved communication value in cut-in scenes: intent messages **cut crashes in half (12 → 6)**. |
 | **[Experiment 6](experiment_6.html)** | Selective Requests | Reused Exp. 5 | Frozen WM5 + DQN | Added counterfactual redundancy penalty to discourage unnecessary queries. |
 | **[Experiment 7](experiment_7.html)** | Oracle-Taught Request Policy | 10k oracle labels | Frozen WM5 + BC DQN | Taught policy via privileged simulation oracle: **cut cut-in crashes by 40% (124 → 75)**. |
+| **[Experiment 8](experiment_8.html)** | Double-DQN Fine-Tuning | Online mixed-scenario replay | Frozen WM5 + Double DQN | Completed a stable 1,000-episode feasibility run and standalone evaluation. |
 
 ---
 
@@ -30,7 +31,25 @@ Each experiment below has a dedicated page with detailed setup, world-model loss
 <p><a href="experiment_5.html"><strong>Experiment 5: Matched-Intent Challenge Scenarios</strong></a><br>Parallel stay vs. cut-in worlds proving that intent messages cut crashes in half (12 → 6).</p>
 <p><a href="experiment_6.html"><strong>Experiment 6: Selective Request Learning</strong></a><br>A training-only counterfactual teacher penalizes questions whose replies do not change the planner's move.</p>
 <p><a href="experiment_7.html"><strong>Experiment 7: Oracle-Taught Requests</strong></a><br>A privileged simulation oracle teaches the Request DQN via behavior cloning, slashing cut-in crashes to 3.75%.</p>
+<p><a href="experiment_8.html"><strong>Experiment 8: Double-DQN Fine-Tuning</strong></a><br>A standalone feasibility run using online action selection and target-network action evaluation.</p>
 </div>
+
+---
+
+## Controlled Request-Policy Comparison: Experiments 6–8
+
+All three checkpoints were evaluated with identical seeds, the frozen Experiment 5 MLPx, a 3-step planner, communication cost `0.05`, and the same safety controller.
+
+| Scenario | Policy | Return | Driving reward | Mean requests | Crashes |
+| :--- | :--- | ---: | ---: | ---: | ---: |
+| Paired intent, 400 trials | Experiment 6 DQN | 2.582 | 2.632 | 1.02 | 24 (6.00%) |
+| Paired intent, 400 trials | **Experiment 7 oracle-taught DQN** | **2.635** | **2.673** | **0.75** | **16 (4.00%)** |
+| Paired intent, 400 trials | Experiment 8 DDQN | 2.558 | 2.644 | 1.72 | 17 (4.25%) |
+| Ordinary highway, 100 episodes | Experiment 6 DQN | 35.540 | 36.259 | 14.38 | 0 |
+| Ordinary highway, 100 episodes | **Experiment 7 oracle-taught DQN** | **35.941** | 36.208 | **5.35** | **0** |
+| Ordinary highway, 100 episodes | Experiment 8 DDQN | 35.346 | **36.309** | 19.26 | **0** |
+
+**Overall finding:** Experiment 7 remains the best-balanced learned request policy. Experiment 8 nearly matches its intent safety, but its higher request rate lowers cost-adjusted return.
 
 ---
 

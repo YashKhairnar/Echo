@@ -64,6 +64,21 @@ def markdown_to_html(markdown):
             index += 1
             continue
 
+        if line.strip() == '<div class="cards">':
+            # Repository-authored card groups are trusted presentation HTML.
+            # Preserve the block instead of escaping it as Markdown text.
+            flush_paragraph()
+            close_list()
+            card_lines = [line.strip()]
+            index += 1
+            while index < len(lines):
+                card_lines.append(lines[index].strip())
+                index += 1
+                if card_lines[-1] == "</div>":
+                    break
+            output.append("\n".join(card_lines))
+            continue
+
         table_match = line.startswith("|") and index + 1 < len(lines) and lines[index + 1].startswith("|")
         if table_match:
             flush_paragraph()
@@ -83,7 +98,7 @@ def markdown_to_html(markdown):
                 for row in rows:
                     table.append("<tr>" + "".join(f"<td>{inline(cell)}</td>" for cell in row) + "</tr>")
                 table.append("</tbody></table>")
-                output.append("".join(table))
+                output.append('<div class="table-wrap">' + "".join(table) + "</div>")
             continue
 
         heading = re.match(r"^(#{1,6})\s+(.+)$", line)
@@ -182,6 +197,7 @@ def sidebar(current):
             ("Experiment 5: Intent Scenarios", "experiment_5.html"),
             ("Experiment 6: Selective Requests", "experiment_6.html"),
             ("Experiment 7: Oracle Teacher", "experiment_7.html"),
+            ("Experiment 8: Double DQN", "experiment_8.html"),
         ]),
         ("Data and Benchmarks", [
             ("Intent-aware collection", "intent_aware_data_collection.html"),
@@ -226,12 +242,16 @@ def page(title, body, current):
     .nav-group {{ margin: 0 0 18px; }}
     .nav-label {{ color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }}
     main {{ width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }}
-    article {{ background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }}
+    article {{ min-width: 0; background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }}
     h1 {{ color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; }} h2 {{ color: #29458f; margin-top: 36px; }} h3 {{ color: #344054; }}
     .experiment-title {{ display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }}
     p {{ line-height: 1.65; }} .subtitle {{ display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }} ul, ol {{ margin: 12px 0 20px; padding-left: 28px; }} li {{ line-height: 1.45; margin: 0 0 6px; }} a {{ color: #3457d5; }} code {{ background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }}
     pre {{ background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; }} pre code {{ background: transparent; color: #f8fafc; padding: 0; }}
-    table {{ width: 100%; border-collapse: collapse; margin: 18px 0; }} th, td {{ text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; }} th {{ color: #667085; }}
+    .cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0 26px; }}
+    .cards p {{ margin: 0; padding: 16px 18px; border: 1px solid #d9deea; border-radius: 12px; background: #f8faff; box-shadow: 0 1px 3px #1018280a; }}
+    .cards p:hover {{ border-color: #9db0e8; background: #f3f6ff; }}
+    .table-wrap {{ width: 100%; overflow-x: auto; margin: 18px 0; border: 1px solid #e2e6ef; border-radius: 10px; }}
+    table {{ width: 100%; min-width: 620px; border-collapse: collapse; margin: 0; }} th, td {{ text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; overflow-wrap: anywhere; }} th {{ color: #667085; background: #f8f9fc; }} tbody tr:last-child td {{ border-bottom: 0; }}
     @media (max-width: 720px) {{ .layout {{ display: block; }} aside {{ width: 100%; height: auto; position: static; }} nav a {{ display: inline-block; }} main {{ width: 100%; padding: 18px 10px; }} article {{ padding: 22px 18px; }} }}
   </style>
 </head>
@@ -249,6 +269,7 @@ def main():
         DOCS / "experiment_5.md",
         DOCS / "experiment_6.md",
         DOCS / "experiment_7.md",
+        DOCS / "experiment_8.md",
         DOCS / "merge_scenario.md",
         DOCS / "progress_log.md",
         DOCS / "mlpx.md",
@@ -297,8 +318,9 @@ def main():
 
 <h2>Explore the Documentation</h2>
 <div class="cards">
-<p><a href="experiments.html"><strong>Experiments 1–7 Breakdown</strong></a><br>Chronological milestones, hypotheses, benchmark tables, and findings across all 7 experiments.</p>
+<p><a href="experiments.html"><strong>Experiments 1–8 Breakdown</strong></a><br>Chronological milestones, hypotheses, benchmark tables, and findings across all 8 experiments.</p>
 <p><a href="experiment_7.html"><strong>Experiment 7: Oracle-Taught Requests</strong></a><br>How a privileged simulator oracle teaches the request DQN when communication changes the real outcome.</p>
+<p><a href="experiment_8.html"><strong>Experiment 8: Double-DQN Fine-Tuning</strong></a><br>A standalone 1,000-episode Double-DQN request-policy feasibility run.</p>
 <p><a href="planner.html"><strong>Planner & Safety Guards</strong></a><br>How 3-step model-predictive control works and how safety guards eliminate crashes.</p>
 <p><a href="mlpx.html"><strong>MLPx World Model</strong></a><br>Neural architecture, 118-value input vectors, and 3-step rollout accuracy.</p>
 <p><a href="dqn_policy.html"><strong>Request DQN Policy</strong></a><br>How the agent learns which vehicle to ask, action masking, and reward trade-offs.</p>

@@ -140,8 +140,26 @@ message = requested_message(
 
 ---
 
+## Double-DQN Target (Experiment 8)
+
+Experiment 8 adds an optional `--td-target double-dqn` training mode. Standard DQN uses the target network both to select and evaluate the next request. Double DQN instead:
+
+1. Uses the online policy to select the best valid next request.
+2. Uses the target network to evaluate that selected request.
+3. Preserves the same empty-slot action mask in both operations.
+
+The policy can also start from an existing request checkpoint with `--init-checkpoint`. This imports policy weights without restoring the previous optimizer or replay buffer.
+
+The policy implementations are kept separate under `src/cooperative_driving/policies/`:
+
+- `request_dqn.py` defines `RequestDQN` for standard DQN checkpoints.
+- `request_ddqn.py` defines `RequestDDQN` for Double-DQN checkpoints.
+- `load_request_policy()` reads checkpoint metadata and restores the matching class automatically. Older Experiment 8 checkpoints are recognized from their saved `td_target` field.
+
 ### Related results
 
 For the latest selective-request training curves and evaluation, see
 [Experiment 6](experiment_6.html). Earlier learned-policy baselines are in
-[Experiment 5](experiment_5.html) and [Experiment 3](experiment_3.html).
+[Experiment 5](experiment_5.html) and [Experiment 3](experiment_3.html). The
+Double-DQN feasibility run and its controlled Experiment 6 comparison are in
+[Experiment 8](experiment_8.html).

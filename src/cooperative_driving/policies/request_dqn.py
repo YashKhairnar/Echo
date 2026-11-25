@@ -1,8 +1,9 @@
-"""DQN network for choosing which visible vehicle to ask."""
+"""DQN policy network for choosing which visible vehicle to ask."""
+
+import warnings
 
 import torch
 import torch.nn as nn
-import warnings
 
 
 class RequestDQN(nn.Module):
@@ -10,6 +11,8 @@ class RequestDQN(nn.Module):
 
     STATE_SIZE = 5 + 8 * 5
     ACTION_SIZE = 9
+    POLICY_TYPE = "request_dqn"
+    TD_TARGET = "dqn"
 
     def __init__(self, hidden_size=128):
         super().__init__()
@@ -27,8 +30,8 @@ class RequestDQN(nn.Module):
         return self.network(state)
 
     @classmethod
-    def load(cls, path):
-        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+    def from_checkpoint(cls, checkpoint):
+        """Build this policy class from an already loaded checkpoint mapping."""
         model = cls()
         model.load_state_dict(checkpoint["model_state_dict"])
         model.request_action_encoding = checkpoint.get("request_action_encoding", "compressed_v0")
@@ -47,3 +50,8 @@ class RequestDQN(nn.Module):
             )
         model.eval()
         return model
+
+    @classmethod
+    def load(cls, path):
+        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+        return cls.from_checkpoint(checkpoint)

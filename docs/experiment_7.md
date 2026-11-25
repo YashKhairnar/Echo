@@ -80,7 +80,7 @@ Experiment 7 beats DQN6 by +0.589 [+0.420, +0.750] (original guard) and +0.370 [
 ## Policy Driving Videos
 
 ### 1. Ordinary Highway Driving
-The oracle-trained DQN navigating 4-lane highway traffic smoothly with the executive safety guard active:
+The oracle-trained DQN completes all 40 steps on the shared experiment-video seed **120** with the executive safety guard active. It earns 36.791 reward and sends 10 requests:
 
 ![Experiment 7 Ordinary Driving](images/dqn_experiment_7_policy.mp4)
 

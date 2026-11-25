@@ -43,7 +43,7 @@ from src.cooperative_driving.planner.MCP import MCPPlanner
 from src.cooperative_driving.planner.safety import guard_action
 from src.cooperative_driving.planner.controller import driving_action as choose_driving
 from src.cooperative_driving.environments.intent_scenarios import intent_episode, SCENARIO_SPEC
-from src.cooperative_driving.policies.request_dqn import RequestDQN
+from src.cooperative_driving.policies import load_request_policy
 
 
 def all_messages(environment, visible):
@@ -256,7 +256,7 @@ def main():
     dqn_checkpoint = args.dqn_checkpoint or str(
         experiment_checkpoint_dir(args.experiment, "RequestDQN") / "best.pt"
     )
-    dqn = RequestDQN.load(dqn_checkpoint) if 'dqn' in args.policies else None
+    dqn = load_request_policy(dqn_checkpoint) if 'dqn' in args.policies else None
     mlpx_checkpoint = args.mlpx_checkpoint or (getattr(dqn, 'mlpx_checkpoint', None) if dqn else None) or str(
         experiment_checkpoint_dir(args.experiment, "MLPx") / "best.pt"
     )

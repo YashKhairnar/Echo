@@ -20,16 +20,20 @@
     .nav-group { margin: 0 0 18px; }
     .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
     main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
-    article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
+    article { min-width: 0; background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
     h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
     .experiment-title { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }
     p { line-height: 1.65; } .subtitle { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
     pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
-    table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0 26px; }
+    .cards p { margin: 0; padding: 16px 18px; border: 1px solid #d9deea; border-radius: 12px; background: #f8faff; box-shadow: 0 1px 3px #1018280a; }
+    .cards p:hover { border-color: #9db0e8; background: #f3f6ff; }
+    .table-wrap { width: 100%; overflow-x: auto; margin: 18px 0; border: 1px solid #e2e6ef; border-radius: 10px; }
+    table { width: 100%; min-width: 620px; border-collapse: collapse; margin: 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; overflow-wrap: anywhere; } th { color: #667085; background: #f8f9fc; } tbody tr:last-child td { border-bottom: 0; }
     @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
   </style>
 </head>
-<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a class="active" href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a><a href="experiment_7.html">Experiment 7: Oracle Teacher</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Request DQN Policy</h1>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a class="active" href="dqn_policy.html">Request DQN</a><a href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a><a href="experiment_7.html">Experiment 7: Oracle Teacher</a><a href="experiment_8.html">Experiment 8: Double DQN</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Request DQN Policy</h1>
 <p>The <strong>Request DQN</strong> is the learned communication policy. At each decision step, it decides <strong>which nearby vehicle to query for private intent information</strong>—or whether to ask nobody at all.</p>
 <p>It does not directly control vehicle steering or throttle; instead, it decides what information to feed into the <strong>Driving Planner</strong>.</p>
 <ul>
@@ -73,7 +77,7 @@
 <hr>
 <h2>State Input Vector (45 Values)</h2>
 <p>The DQN observes a 45-value state vector describing the ego vehicle and up to 8 surrounding spatial slots within 60 meters:</p>
-<table><thead><tr><th>Section</th><th>Size</th><th>Values</th><th>Description</th></tr></thead><tbody><tr><td><strong>Ego State</strong></td><td>5</td><td>Continuous</td><td><code>[presence, current_lane / 3, speed / 30, target_speed / 30, target_lane / 3]</code></td></tr><tr><td><strong>8 Spatial Neighbors</strong></td><td>40</td><td>Continuous</td><td>8 neighbor slots × 5 features: <code>[presence, lane / 3, speed / 30, x_offset / 60, y_offset / 10]</code></td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Section</th><th>Size</th><th>Values</th><th>Description</th></tr></thead><tbody><tr><td><strong>Ego State</strong></td><td>5</td><td>Continuous</td><td><code>[presence, current_lane / 3, speed / 30, target_speed / 30, target_lane / 3]</code></td></tr><tr><td><strong>8 Spatial Neighbors</strong></td><td>40</td><td>Continuous</td><td>8 neighbor slots × 5 features: <code>[presence, lane / 3, speed / 30, x_offset / 60, y_offset / 10]</code></td></tr></tbody></table></div>
 <hr>
 <h2>Action Space &amp; Spatial Slots (9 Actions)</h2>
 <p>The ego vehicle chooses one of 9 discrete request actions:</p>
@@ -130,6 +134,20 @@ message = requested_message(
     environment, visible, request_action, policy.request_action_encoding
 )</code></pre>
 <hr>
+<h2>Double-DQN Target (Experiment 8)</h2>
+<p>Experiment 8 adds an optional <code>--td-target double-dqn</code> training mode. Standard DQN uses the target network both to select and evaluate the next request. Double DQN instead:</p>
+<ol>
+<li>Uses the online policy to select the best valid next request.</li>
+<li>Uses the target network to evaluate that selected request.</li>
+<li>Preserves the same empty-slot action mask in both operations.</li>
+</ol>
+<p>The policy can also start from an existing request checkpoint with <code>--init-checkpoint</code>. This imports policy weights without restoring the previous optimizer or replay buffer.</p>
+<p>The policy implementations are kept separate under <code>src/cooperative_driving/policies/</code>:</p>
+<ul>
+<li><code>request_dqn.py</code> defines <code>RequestDQN</code> for standard DQN checkpoints.</li>
+<li><code>request_ddqn.py</code> defines <code>RequestDDQN</code> for Double-DQN checkpoints.</li>
+<li><code>load_request_policy()</code> reads checkpoint metadata and restores the matching class automatically. Older Experiment 8 checkpoints are recognized from their saved <code>td_target</code> field.</li>
+</ul>
 <h3>Related results</h3>
-<p>For the latest selective-request training curves and evaluation, see <a href="experiment_6.html">Experiment 6</a>. Earlier learned-policy baselines are in <a href="experiment_5.html">Experiment 5</a> and <a href="experiment_3.html">Experiment 3</a>.</p></article></main></div></body>
+<p>For the latest selective-request training curves and evaluation, see <a href="experiment_6.html">Experiment 6</a>. Earlier learned-policy baselines are in <a href="experiment_5.html">Experiment 5</a> and <a href="experiment_3.html">Experiment 3</a>. The Double-DQN feasibility run and its controlled Experiment 6 comparison are in <a href="experiment_8.html">Experiment 8</a>.</p></article></main></div></body>
 </html>

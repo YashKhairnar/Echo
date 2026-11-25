@@ -20,16 +20,20 @@
     .nav-group { margin: 0 0 18px; }
     .nav-label { color: #7180a0; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 700; padding: 0 10px 5px; }
     main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 44px 24px 70px; }
-    article { background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
+    article { min-width: 0; background: white; border: 1px solid #d9deea; border-radius: 14px; padding: 30px 36px; box-shadow: 0 2px 8px #1018280b; }
     h1 { color: #243b7a; font-size: 36px; line-height: 1.15; margin-top: 0; } h2 { color: #29458f; margin-top: 36px; } h3 { color: #344054; }
     .experiment-title { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); }
     p { line-height: 1.65; } .subtitle { display: inline-block; color: #604700; background: linear-gradient(transparent 12%, #ffe66d 12%, #ffe66d 90%, transparent 90%); font-size: 16px; font-weight: 800; letter-spacing: .02em; margin: -8px 0 24px; padding: 3px 9px; border-radius: 5px; transform: rotate(-1deg); } ul, ol { margin: 12px 0 20px; padding-left: 28px; } li { line-height: 1.45; margin: 0 0 6px; } a { color: #3457d5; } code { background: #f0f2f7; color: #24324a; padding: 2px 5px; border-radius: 5px; }
     pre { background: #101828; color: #f8fafc; padding: 16px; border-radius: 9px; overflow-x: auto; } pre code { background: transparent; color: #f8fafc; padding: 0; }
-    table { width: 100%; border-collapse: collapse; margin: 18px 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; } th { color: #667085; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0 26px; }
+    .cards p { margin: 0; padding: 16px 18px; border: 1px solid #d9deea; border-radius: 12px; background: #f8faff; box-shadow: 0 1px 3px #1018280a; }
+    .cards p:hover { border-color: #9db0e8; background: #f3f6ff; }
+    .table-wrap { width: 100%; overflow-x: auto; margin: 18px 0; border: 1px solid #e2e6ef; border-radius: 10px; }
+    table { width: 100%; min-width: 620px; border-collapse: collapse; margin: 0; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d9deea; overflow-wrap: anywhere; } th { color: #667085; background: #f8f9fc; } tbody tr:last-child td { border-bottom: 0; }
     @media (max-width: 720px) { .layout { display: block; } aside { width: 100%; height: auto; position: static; } nav a { display: inline-block; } main { width: 100%; padding: 18px 10px; } article { padding: 22px 18px; } }
   </style>
 </head>
-<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a class="active" href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a><a href="experiment_7.html">Experiment 7: Oracle Teacher</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Rendering &amp; Visualizing Policies</h1>
+<body><div class="layout"><aside><div class="brand">Echo Docs</div><p class="tagline">Cooperative driving and intent-aware world models</p><nav><div class="nav-group"><div class="nav-label">Overview</div><a href="index.html">Home</a><a href="timeline.html">Timeline</a><a href="progress_log.html">Progress log</a></div><div class="nav-group"><div class="nav-label">System</div><a href="mlpx.html">MLPx world model</a><a href="planner.html">Planner</a><a href="policy.html">Policy</a><a href="dqn_policy.html">Request DQN</a><a class="active" href="rendering.html">Rendering</a></div><div class="nav-group"><div class="nav-label">Experiments</div><a href="experiments.html">Overview</a><a href="experiment_1.html">Experiment 1: Baseline</a><a href="experiment_2.html">Experiment 2: Scaled Data</a><a href="experiment_3.html">Experiment 3: Spatial Slots</a><a href="experiment_4.html">Experiment 4: Safety Guards</a><a href="experiment_5.html">Experiment 5: Intent Scenarios</a><a href="experiment_6.html">Experiment 6: Selective Requests</a><a href="experiment_7.html">Experiment 7: Oracle Teacher</a><a href="experiment_8.html">Experiment 8: Double DQN</a></div><div class="nav-group"><div class="nav-label">Data and Benchmarks</div><a href="intent_aware_data_collection.html">Intent-aware collection</a><a href="training.html">Training runbook</a><a href="dataset_dashboard.html">Dataset dashboard</a><a href="intent_scenarios.html">Intent scenarios</a><a href="merge_scenario.html">Merge scenario</a></div></nav></aside><main><article><h1>Rendering &amp; Visualizing Policies</h1>
 <p>The rendering tool visualizes the driving environment in real-time or renders MP4 policy videos. It displays vehicle trajectories, safety guard interventions, and communication queries between vehicles.</p>
 <ul>
 <li><strong>Main Script:</strong> <code>scripts/evaluation/render_request_dqn.py</code></li>
@@ -40,12 +44,16 @@
 <p>Run this from the project root to open a live Pygame window:</p>
 <pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
   --experiment 7 \
+  --dqn-checkpoint checkpoints/experiment_7/best.pt \
+  --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
   --episodes 1 \
-  --seed 1200000 \
+  --seed 120 \
   --delay 0.15 \
   --safety-guard \
   --max-target-speed 30 \
-  --lane-change-guard</code></pre>
+  --lane-change-guard \
+  --comfort-ttc 6 \
+  --batched-planner</code></pre>
 <ul>
 <li><code>--delay 0.15</code>: Pauses 0.15 seconds between steps for comfortable viewing.</li>
 <li><code>--seed &lt;N&gt;</code>: Sets the initial road and traffic seed.</li>
@@ -53,15 +61,24 @@
 <hr>
 <h2>2. Headless Video Recording (Save to MP4)</h2>
 <p>To record a policy run to an <code>.mp4</code> file without opening a GUI window:</p>
-<pre><code>SDL_VIDEODRIVER=dummy .venv/bin/python -m scripts.evaluation.render_request_dqn \
+<pre><code>SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+.venv/bin/python -m scripts.evaluation.render_request_dqn \
   --experiment 7 \
+  --dqn-checkpoint checkpoints/experiment_7/best.pt \
+  --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
   --episodes 1 \
-  --seed 1200000 \
+  --seed 120 \
+  --delay 0 \
   --safety-guard \
   --max-target-speed 30 \
   --lane-change-guard \
-  --video-fps 2 \
+  --comfort-ttc 6 \
+  --batched-planner \
+  --video-fps 8 \
   --video &quot;docs/images/dqn_experiment_7_policy.mp4&quot;</code></pre>
+<p>All generic Experiment 1–8 policy videos use seed <strong>120</strong> so their behavior is visually comparable on the same initial road. Purpose-built cut-in demonstrations retain their selected challenge seeds because they illustrate specific hidden-intent events.</p>
+<h3>Shared seed-120 video set</h3>
+<div class="table-wrap"><table><thead><tr><th>Experiment</th><th>Outcome</th><th>Steps</th><th>Reward</th><th>Requests</th><th>Video</th></tr></thead><tbody><tr><td>Experiment 1</td><td>Crashed</td><td>6 / 40</td><td>4.773</td><td>3</td><td><a href="images/dqn_experiment_1_policy.mp4">Watch</a></td></tr><tr><td>Experiment 2</td><td>Crashed</td><td>10 / 40</td><td>8.532</td><td>4</td><td><a href="images/dqn_experiment_2_policy.mp4">Watch</a></td></tr><tr><td>Experiment 3</td><td>Crashed</td><td>6 / 40</td><td>4.749</td><td>4</td><td><a href="images/dqn_experiment_3_policy.mp4">Watch</a></td></tr><tr><td>Experiment 4</td><td>Drove to end</td><td>40 / 40</td><td>34.612</td><td>27</td><td><a href="images/dqn_experiment_4_guarded_policy.mp4">Watch</a></td></tr><tr><td>Experiment 5</td><td>Drove to end</td><td>40 / 40</td><td>34.612</td><td>26</td><td><a href="images/dqn_experiment_5_policy.mp4">Watch</a></td></tr><tr><td>Experiment 6</td><td>Drove to end</td><td>40 / 40</td><td>36.790</td><td>15</td><td><a href="images/dqn_experiment_6_policy.mp4">Watch</a></td></tr><tr><td>Experiment 7</td><td>Drove to end</td><td>40 / 40</td><td>36.791</td><td>10</td><td><a href="images/dqn_experiment_7_policy.mp4">Watch</a></td></tr><tr><td>Experiment 8</td><td>Drove to end</td><td>40 / 40</td><td>36.637</td><td>26</td><td><a href="images/dqn_experiment_8_policy.mp4">Watch</a></td></tr></tbody></table></div>
 <hr>
 <h2>3. Rendering Cut-In Challenge Scenarios</h2>
 <p>To render the matched-intent cut-in scenario where neighboring vehicles attempt an aggressive merge:</p>

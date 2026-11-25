@@ -1,6 +1,6 @@
 # Project Progress Log
 
-A historical summary of key milestones and developments in the Echo project, tracing the evolution from the initial baseline proof-of-concept to the oracle-taught cooperative policy.
+A historical summary of key milestones and developments in the Echo project, tracing the evolution from the initial baseline proof-of-concept to Double-DQN request-policy fine-tuning.
 
 ---
 
@@ -13,12 +13,17 @@ A historical summary of key milestones and developments in the Echo project, tra
 | **Communication Space** | 8 spatial slots surrounding ego; 7 message features per slot (`target_lane`, `speed`, `acceleration`) |
 | **World Model (MLPx)** | 118 inputs (57 state + 5 action + 56 messages) → 57 next-state + 1 reward prediction (`intent_stage_best.pt`) |
 | **Driving Planner** | Monte Carlo tree search rollout (horizon $H=3$; $5^3=125$ trajectories) with dynamic physical safety guard |
-| **Request Policy (DQN)** | Experiment 7 Oracle-Taught DQN via behavior cloning (`checkpoints/experiment_7/RequestDQN/best.pt`) |
+| **Request Policy (DQN)** | Experiment 8 Double DQN initialized from the Experiment 7 oracle-taught policy |
 | **Executive Safety Guard** | 30 m/s speed cap, boundary protection, dynamic stopping clearance, proactive acceleration masking |
 
 ---
 
 ## Milestone History
+
+### Milestone 8: Double-DQN Fine-Tuning (Experiment 8)
+- **Objective:** Test whether Double-DQN bootstrap targets can fine-tune the oracle-taught request policy through online mixed-scenario interaction.
+- **Implementation:** Added selectable DQN/Double-DQN TD targets, masked online action selection with target-network evaluation, and weight-only checkpoint initialization. Trained for 1,000 episodes using the frozen Experiment 5 MLPx.
+- **Key Result:** On a controlled 400-trial paired-intent evaluation, Experiment 8 crashed in 17 scenes (4.25%), versus 24 (6.00%) for Experiment 6 and 16 (4.00%) for Experiment 7. It used more requests than both, so Experiment 7 remains the best-balanced policy. Ordinary-road evaluation remained collision-free.
 
 ### Milestone 7: Oracle-Taught Request Policy (Experiment 7)
 - **Objective:** Train the Request DQN directly from a privileged simulation oracle to ask only when intent messages change the outcome.

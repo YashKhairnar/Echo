@@ -49,10 +49,14 @@ A self-driving vehicle learns **when to ask nearby cars for information, and who
    halved DQN5's message count on identical seeds and improved intent crashes
    from 10/200 to 9/200. Asking nobody still has the best cost-adjusted return,
    so selective communication remains an open learning problem.
-5. **Best Current Learned Configuration:** DQN6 with the smooth controller
-   (`--comfort-ttc 6`) completes 240 lane changes per 100 ordinary episodes
-   with zero crashes. It is the best safety/behavior choice; ask-nobody remains
-   the reward baseline to beat.
+5. **Oracle-Taught Requests Improve Cut-In Safety:** Experiment 7 uses privileged
+   simulation labels to train the request DQN, reducing cut-in crashes from
+   124/2,000 with DQN6 to 75/2,000 while making fewer requests (0.75 vs. 0.97
+   per trial).
+6. **Best Current Learned Configuration:** Experiment 7 is the strongest
+   learned policy for ambiguous cut-ins; DQN6 with the smooth controller
+   (`--comfort-ttc 6`) remains the best-documented ordinary-highway behavior
+   configuration, with zero crashes.
 
 ---
 
@@ -69,12 +73,16 @@ A self-driving vehicle learns **when to ask nearby cars for information, and who
 ```bash
 # 1. Run live visual rendering with learned policy and safety guards
 .venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 6 --episodes 1 --seed 1200000 \
+  --experiment 7 \
+  --dqn-checkpoint checkpoints/experiment_7/best.pt \
+  --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
+  --episodes 1 --seed 1200000 \
   --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6
 
 # 2. Evaluate request policy across 100 test scenarios
 .venv/bin/python -m scripts.evaluation.evaluate_request_dqn \
-  --experiment 6 --episodes 100 --seed 1200000 --planning-horizon 3 \
+  --experiment 7 --episodes 100 --seed 1200000 --planning-horizon 3 \
+  --dqn-checkpoint checkpoints/experiment_7/best.pt \
   --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
   --safety-guard --max-target-speed 30 --lane-change-guard \
   --comfort-ttc 6 --batched-planner
@@ -91,7 +99,8 @@ A self-driving vehicle learns **when to ask nearby cars for information, and who
 ## Documentation Site
 
 - [docs/index.html](docs/index.html): Documentation Home
-- [docs/experiments.html](docs/experiments.html): Experiments 1–6 Breakdown & Key Findings
+- [docs/experiments.html](docs/experiments.html): Experiments 1–7 Breakdown & Key Findings
+- [docs/experiment_7.html](docs/experiment_7.html): Experiment 7 oracle-taught request policy
 - [docs/planner.html](docs/planner.html): Model-predictive planner & safety guards
 - [docs/dqn_policy.html](docs/dqn_policy.html): Learned Request DQN communication policy
 - [docs/intent_scenarios.html](docs/intent_scenarios.html): Challenge cut-in scenarios & intent validation

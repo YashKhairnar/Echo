@@ -6,6 +6,7 @@ __pycache__/
 # Generated datasets and experiment outputs
 data/**/*.csv
 data/**/*.jsonl
+data/**/*.npz
 results/
 checkpoints/
 

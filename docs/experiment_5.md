@@ -91,7 +91,7 @@ test and should not be confused with the simulator-oracle benchmark above.
 
 ## Policy Driving Video
 
-The trained Request DQN completes all 40 steps on the shared experiment-video seed **120**, with live intent previews and executive safety guards active:
+The trained Request DQN completes all 100 steps on the shared experiment-video seed **120**, with live intent previews and executive safety guards active:
 
 ![Experiment 5 Policy Video](images/dqn_experiment_5_policy.mp4)
 

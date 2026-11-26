@@ -65,12 +65,12 @@
 <p><img src="policy_graphs/experiment_6_dqn_comparison.png" alt="Experiment 6 policy comparison" style="max-width:100%; height:auto;"></p>
 <h2>Rendering</h2>
 <pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 6 --episodes 1 --seed 120 --delay 0.15 \
+  --experiment 6 --episodes 1 --seed 120 --duration 100 --delay 0.15 \
   --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6</code></pre>
 <p>The renderer automatically loads DQN6 and its stored Experiment 5 world-model path. The overlay identifies requested vehicles, displays their exact replies, and reports safety-guard interventions.</p>
 <h3>Recorded DQN6 rollout</h3>
 <p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/dqn_experiment_6_policy.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
-<p>This recording uses the shared experiment-video seed <strong>120</strong> and the smooth controller configuration. It completes all 40 steps without a crash, earns 36.790 reward, and sends 15 requests.</p>
+<p>This recording uses the shared experiment-video seed <strong>120</strong> and the smooth controller configuration. It completes all 100 steps without a crash, earns 90.661 driving reward, and sends 52 requests.</p>
 <h3>Smooth controller follow-up</h3>
 <p>The optional <code>--comfort-ttc 6</code> controller reacts before emergency braking, uses a safe lane only when it offers at least equal forward clearance, waits five decisions before another lane command, and blocks acceleration for three decisions after braking.</p>
 <div class="table-wrap"><table><thead><tr><th>100 ordinary roads</th><th>Original guard</th><th>Smooth controller</th></tr></thead><tbody><tr><td>Adjusted return</td><td><strong>35.801</strong></td><td>35.748</td></tr><tr><td>Driving reward</td><td><strong>36.645</strong></td><td>36.407</td></tr><tr><td>Mean speed</td><td><strong>27.527 m/s</strong></td><td>27.401 m/s</td></tr><tr><td>Completed lane changes</td><td>171</td><td><strong>240</strong></td></tr><tr><td>Requests</td><td>16.88</td><td><strong>13.17</strong></td></tr><tr><td>Crashes</td><td><strong>0</strong></td><td><strong>0</strong></td></tr></tbody></table></div>

@@ -85,13 +85,14 @@
   --comfort-ttc 6 \
   --batched-planner</code></pre>
 <h2>Policy Video</h2>
-<p>The <code>RequestDDQN</code> policy completes all 40 ordinary-road steps on the shared experiment-video seed <strong>120</strong>. It earns 36.637 reward, sends 26 requests, and does not crash.</p>
+<p>The <code>RequestDDQN</code> policy completes all 100 ordinary-road steps on the shared experiment-video seed <strong>120</strong>. It earns 90.836 driving reward, sends 82 requests, and does not crash.</p>
 <p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/dqn_experiment_8_policy.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
 <p>Recording command:</p>
 <pre><code>.venv/bin/python -m scripts.evaluation.render_request_dqn \
   --experiment 8 \
   --episodes 1 \
   --seed 120 \
+  --duration 100 \
   --planning-horizon 3 \
   --safety-guard \
   --lane-change-guard \

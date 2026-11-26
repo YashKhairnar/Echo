@@ -78,7 +78,7 @@ On the exact same fresh seeds, DQN6 improved over DQN5:
 
 ```bash
 .venv/bin/python -m scripts.evaluation.render_request_dqn \
-  --experiment 6 --episodes 1 --seed 120 --delay 0.15 \
+  --experiment 6 --episodes 1 --seed 120 --duration 100 --delay 0.15 \
   --safety-guard --max-target-speed 30 --lane-change-guard --comfort-ttc 6
 ```
 
@@ -91,8 +91,8 @@ and reports safety-guard interventions.
 ![Experiment 6 DQN policy video](images/dqn_experiment_6_policy.mp4)
 
 This recording uses the shared experiment-video seed **120** and the smooth
-controller configuration. It completes all 40 steps without a crash, earns
-36.790 reward, and sends 15 requests.
+controller configuration. It completes all 100 steps without a crash, earns
+90.661 driving reward, and sends 52 requests.
 
 ### Smooth controller follow-up
 

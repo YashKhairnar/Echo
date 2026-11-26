@@ -62,7 +62,7 @@ Comparing DQN3, Ask Nobody, Random, and All across 100 guarded episodes:
 
 ## Guarded Policy Video
 
-Driving across all 40 timesteps on the shared experiment-video seed **120** with no crash:
+Driving across all 100 timesteps on the shared experiment-video seed **120** with no crash:
 
 ![Experiment 4 Guarded Policy Video](images/dqn_experiment_4_guarded_policy.mp4)
 

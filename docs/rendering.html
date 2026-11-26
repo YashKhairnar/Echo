@@ -48,6 +48,7 @@
   --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
   --episodes 1 \
   --seed 120 \
+  --duration 100 \
   --delay 0.15 \
   --safety-guard \
   --max-target-speed 30 \
@@ -68,6 +69,7 @@
   --mlpx-checkpoint checkpoints/experiment_5/MLPx/intent_stage_best.pt \
   --episodes 1 \
   --seed 120 \
+  --duration 100 \
   --delay 0 \
   --safety-guard \
   --max-target-speed 30 \
@@ -76,9 +78,9 @@
   --batched-planner \
   --video-fps 8 \
   --video &quot;docs/images/dqn_experiment_7_policy.mp4&quot;</code></pre>
-<p>All generic Experiment 1–8 policy videos use seed <strong>120</strong> so their behavior is visually comparable on the same initial road. Purpose-built cut-in demonstrations retain their selected challenge seeds because they illustrate specific hidden-intent events.</p>
+<p>All generic Experiment 1–8 policy videos use seed <strong>120</strong> and a maximum duration of <strong>100 decision steps</strong> so their behavior is visually comparable on the same initial road. Purpose-built cut-in demonstrations retain their selected challenge seeds because they illustrate specific hidden-intent events.</p>
 <h3>Shared seed-120 video set</h3>
-<div class="table-wrap"><table><thead><tr><th>Experiment</th><th>Outcome</th><th>Steps</th><th>Reward</th><th>Requests</th><th>Video</th></tr></thead><tbody><tr><td>Experiment 1</td><td>Crashed</td><td>6 / 40</td><td>4.773</td><td>3</td><td><a href="images/dqn_experiment_1_policy.mp4">Watch</a></td></tr><tr><td>Experiment 2</td><td>Crashed</td><td>10 / 40</td><td>8.532</td><td>4</td><td><a href="images/dqn_experiment_2_policy.mp4">Watch</a></td></tr><tr><td>Experiment 3</td><td>Crashed</td><td>6 / 40</td><td>4.749</td><td>4</td><td><a href="images/dqn_experiment_3_policy.mp4">Watch</a></td></tr><tr><td>Experiment 4</td><td>Drove to end</td><td>40 / 40</td><td>34.612</td><td>27</td><td><a href="images/dqn_experiment_4_guarded_policy.mp4">Watch</a></td></tr><tr><td>Experiment 5</td><td>Drove to end</td><td>40 / 40</td><td>34.612</td><td>26</td><td><a href="images/dqn_experiment_5_policy.mp4">Watch</a></td></tr><tr><td>Experiment 6</td><td>Drove to end</td><td>40 / 40</td><td>36.790</td><td>15</td><td><a href="images/dqn_experiment_6_policy.mp4">Watch</a></td></tr><tr><td>Experiment 7</td><td>Drove to end</td><td>40 / 40</td><td>36.791</td><td>10</td><td><a href="images/dqn_experiment_7_policy.mp4">Watch</a></td></tr><tr><td>Experiment 8</td><td>Drove to end</td><td>40 / 40</td><td>36.637</td><td>26</td><td><a href="images/dqn_experiment_8_policy.mp4">Watch</a></td></tr></tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>Experiment</th><th>Outcome</th><th>Steps</th><th>Reward</th><th>Requests</th><th>Video</th></tr></thead><tbody><tr><td>Experiment 1</td><td>Crashed</td><td>6 / 100</td><td>4.773</td><td>3</td><td><a href="images/dqn_experiment_1_policy.mp4">Watch</a></td></tr><tr><td>Experiment 2</td><td>Crashed</td><td>10 / 100</td><td>8.532</td><td>4</td><td><a href="images/dqn_experiment_2_policy.mp4">Watch</a></td></tr><tr><td>Experiment 3</td><td>Crashed</td><td>6 / 100</td><td>4.749</td><td>4</td><td><a href="images/dqn_experiment_3_policy.mp4">Watch</a></td></tr><tr><td>Experiment 4</td><td>Drove to end</td><td>100 / 100</td><td>87.145</td><td>74</td><td><a href="images/dqn_experiment_4_guarded_policy.mp4">Watch</a></td></tr><tr><td>Experiment 5</td><td>Drove to end</td><td>100 / 100</td><td>87.145</td><td>63</td><td><a href="images/dqn_experiment_5_policy.mp4">Watch</a></td></tr><tr><td>Experiment 6</td><td>Drove to end</td><td>100 / 100</td><td>90.661</td><td>52</td><td><a href="images/dqn_experiment_6_policy.mp4">Watch</a></td></tr><tr><td>Experiment 7</td><td>Drove to end</td><td>100 / 100</td><td>90.661</td><td>69</td><td><a href="images/dqn_experiment_7_policy.mp4">Watch</a></td></tr><tr><td>Experiment 8</td><td>Drove to end</td><td>100 / 100</td><td>90.836</td><td>82</td><td><a href="images/dqn_experiment_8_policy.mp4">Watch</a></td></tr></tbody></table></div>
 <hr>
 <h2>3. Rendering Cut-In Challenge Scenarios</h2>
 <p>To render the matched-intent cut-in scenario where neighboring vehicles attempt an aggressive merge:</p>

@@ -83,7 +83,7 @@ Train Request DQN via Behavior Cloning (Supervised Imitation)</code></pre>
 <hr>
 <h2>Policy Driving Videos</h2>
 <h3>1. Ordinary Highway Driving</h3>
-<p>The oracle-trained DQN completes all 40 steps on the shared experiment-video seed <strong>120</strong> with the executive safety guard active. It earns 36.791 reward and sends 10 requests:</p>
+<p>The oracle-trained DQN completes all 100 steps on the shared experiment-video seed <strong>120</strong> with the executive safety guard active. It earns 90.661 driving reward and sends 69 requests:</p>
 <p><video controls preload="metadata" style="max-width:100%; height:auto; border-radius:10px;"><source src="images/dqn_experiment_7_policy.mp4" type="video/mp4">Your browser does not support embedded video.</video></p>
 <h3>2. Cut-In Comparison</h3>
 <p>When a neighboring car abruptly swerves into the ego lane, blind policies crash while the oracle-taught DQN asks early, predicts the maneuver, and brakes safely:</p>

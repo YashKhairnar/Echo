@@ -148,6 +148,8 @@ def main():
     add_experiment_argument(parser)
     parser.add_argument("--episodes", type=int, default=1)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--duration", type=int, default=None,
+                        help="Override the environment episode length in decision steps")
     parser.add_argument("--delay", type=float, default=0.15)
     parser.add_argument("--width", type=int, default=1800)
     parser.add_argument("--height", type=int, default=800)
@@ -180,6 +182,8 @@ def main():
         parser.error('comfort-ttc requires safety-guard and lane-change-guard')
     if args.max_target_speed is not None and (not math.isfinite(args.max_target_speed) or args.max_target_speed <= 0):
         parser.error('max-target-speed must be finite and positive')
+    if args.duration is not None and args.duration < 1:
+        parser.error('duration must be positive')
     if args.comfort_ttc is not None and (not math.isfinite(args.comfort_ttc) or args.comfort_ttc <= args.min_ttc):
         parser.error('comfort-ttc must be finite and greater than min-ttc')
 
@@ -219,14 +223,19 @@ def main():
                 environment = intent_episode(args.seed + episode, args.hidden_mode)
                 environment.config.update(screen_width=args.width, screen_height=args.height,
                                           scaling=args.scaling)
+                if args.duration is not None:
+                    environment.config["duration"] = args.duration
                 environment.render_mode = render_mode
             else:
+                environment_config = {
+                    "screen_width": args.width,
+                    "screen_height": args.height,
+                    "scaling": args.scaling,
+                }
+                if args.duration is not None:
+                    environment_config["duration"] = args.duration
                 environment = CustomEnv(
-                    config={
-                        "screen_width": args.width,
-                        "screen_height": args.height,
-                        "scaling": args.scaling,
-                    },
+                    config=environment_config,
                     render_mode=render_mode,
                 )
                 environment.reset(seed=args.seed + episode)

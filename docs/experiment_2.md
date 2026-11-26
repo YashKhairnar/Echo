@@ -40,7 +40,7 @@ Loss stabilized and mean return reached 13.82, though collision rates remained e
 
 The ego vehicle actively gathers neighbor intent previews, but continues to suffer from high-speed collisions because the planner still lacks constraints on forward acceleration:
 
-On the shared experiment-video seed **120**, Experiment 2 crashes after 10 of 40 steps.
+On the shared 100-step experiment-video seed **120**, Experiment 2 crashes after 10 steps.
 
 ![Experiment 2 Policy Video — seed 120](images/dqn_experiment_2_policy.mp4)
 

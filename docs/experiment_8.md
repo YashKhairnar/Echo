@@ -105,7 +105,7 @@ Standalone paired-intent evaluation:
 
 ## Policy Video
 
-The `RequestDDQN` policy completes all 40 ordinary-road steps on the shared experiment-video seed **120**. It earns 36.637 reward, sends 26 requests, and does not crash.
+The `RequestDDQN` policy completes all 100 ordinary-road steps on the shared experiment-video seed **120**. It earns 90.836 driving reward, sends 82 requests, and does not crash.
 
 ![Experiment 8 DDQN policy — seed 120](images/dqn_experiment_8_policy.mp4)
 
@@ -116,6 +116,7 @@ Recording command:
   --experiment 8 \
   --episodes 1 \
   --seed 120 \
+  --duration 100 \
   --planning-horizon 3 \
   --safety-guard \
   --lane-change-guard \

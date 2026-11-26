@@ -39,7 +39,7 @@ Late episode returns improved, but high crash rates persisted:
 
 ## Policy Driving Video
 
-On the shared experiment-video seed **120**, the ego vehicle queries neighbors but crashes after 6 of 40 steps because the driving planner has no speed cap or safety guardrails:
+On the shared 100-step experiment-video seed **120**, the ego vehicle queries neighbors but crashes after 6 steps because the driving planner has no speed cap or safety guardrails:
 
 ![Experiment 1 Policy Video](images/dqn_experiment_1_policy.mp4)
 
